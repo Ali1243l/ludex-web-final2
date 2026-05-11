@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ShoppingBag, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, Send, CreditCard, Upload, User, Settings, AlertCircle, CheckCircle2, Shield, Key, Package, Layers, Clock, Gift, Download, Check, Menu } from 'lucide-react';
+import { Search, ShoppingBag, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, Send, CreditCard, Upload, User, Settings, AlertCircle, CheckCircle2, Shield, Key, Package, Layers, Clock, Gift, Download, Check, Menu, Filter, ChevronDown, LogOut } from 'lucide-react';
 import { t } from './translations';
 
 const GAMES_DATA = [
@@ -92,12 +92,18 @@ const INITIAL_PAGES: CMSPage[] = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'store' | 'orders' | 'admin' | 'profile' | 'settings' | 'cart' | 'page'>('store');
+  const [activeTab, setActiveTab] = useState<'store' | 'orders' | 'admin' | 'profile' | 'settings' | 'cart' | 'page' | 'user_dashboard'>('store');
   const [currentSlug, setCurrentSlug] = useState<string | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>('Zain Cash');
+  
+  // New States
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [visibleGamesCount, setVisibleGamesCount] = useState(12);
+  const [userDashboardTab, setUserDashboardTab] = useState<'profile' | 'orders' | 'settings'>('profile');
+
 
   const [paymentMethodsList, setPaymentMethodsList] = useState([
      { id: 'p1', name: 'Zain Cash', accountDetails: 'Wallet Number: 0770 123 4567', surcharge_percentage: 0, active: true },
@@ -145,6 +151,39 @@ export default function App() {
   // Notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [cartAnimating, setCartAnimating] = useState(false);
+
+  // Session inactivity timeout
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    
+    // 15 minutes of inactivity
+    const INACTIVITY_LIMIT = 15 * 60 * 1000;
+    
+    const resetTimer = () => {
+       clearTimeout(timeout);
+       if (isLoggedIn) {
+          timeout = setTimeout(() => {
+             setIsLoggedIn(false);
+             setUserProfile({ name: '', email: '', role: 'CUSTOMER' });
+             if (activeTab === 'admin' || activeTab === 'user_dashboard' || activeTab === 'profile' || activeTab === 'settings' || activeTab === 'orders' || activeTab === 'cart') {
+                setActiveTab('store');
+             }
+             setToastMessage('Session expired due to inactivity.');
+             setTimeout(() => setToastMessage(null), 3000);
+          }, INACTIVITY_LIMIT);
+       }
+    };
+
+    resetTimer();
+    
+    const activityEvents = ['mousemove', 'keydown', 'scroll', 'click'];
+    activityEvents.forEach(event => window.addEventListener(event, resetTimer));
+    
+    return () => {
+       clearTimeout(timeout);
+       activityEvents.forEach(event => window.removeEventListener(event, resetTimer));
+    };
+  }, [isLoggedIn, activeTab]);
 
   // Loyalty Program Config
   const [loyaltyThreshold, setLoyaltyThreshold] = useState(3);
@@ -241,7 +280,7 @@ export default function App() {
      };
   };
 
-  const submitOrder = () => {
+  const submitOrder = async () => {
     if (cart.length === 0) {
       alert("Cart is empty!");
       return;
@@ -264,6 +303,31 @@ export default function App() {
     setReceiptFile(null);
     setIsCheckoutModalOpen(false);
     setActiveTab('orders');
+
+    // Telegram Notification API logic
+    try {
+       const botToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
+       const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
+       
+       if (botToken && chatId) {
+          const totalAmount = newOrders.reduce((sum, o) => sum + o.finalPrice, 0);
+          const orderIds = newOrders.map(o => o.id).join(', ');
+          
+          const message = `🔔 *New Order Received!*\n\n👤 *Customer:* ${userProfile.name}\n💰 *Total Price:* $${totalAmount.toFixed(2)}\n🆔 *Order IDs:* ${orderIds}\n🔗 [View in HQ Portal](${window.location.origin}/?tab=admin)`;
+                          
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  chat_id: chatId,
+                  text: message,
+                  parse_mode: 'Markdown'
+              })
+          });
+       }
+    } catch (e) {
+       console.error('Failed to send Telegram notification', e);
+    }
   };
 
   const approveOrder = (orderId: string) => {
@@ -313,12 +377,14 @@ export default function App() {
 
       {activeTab === 'admin' ? (
         (!isLoggedIn || userProfile.role !== 'ADMIN') ? (
-           <div className="flex-1 flex flex-col items-center justify-center relative z-20">
-             <div className="bg-[#111] border border-red-900/50 rounded-2xl p-8 max-w-sm w-full text-center">
-                 <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                 <h2 className="text-2xl font-black text-white mb-2">ACCESS DENIED</h2>
-                 <p className="text-gray-400 text-sm mb-6">You do not have the required permissions to view the HQ Portal.</p>
-                 <button onClick={() => setActiveTab('store')} className="w-full bg-purple-600 font-bold text-white py-3 rounded-lg hover:bg-purple-500 transition-colors">Return to Store</button>
+           <div className="flex-1 flex flex-col items-center justify-center relative z-20 h-full w-full bg-[#050505]">
+             <div className="text-center space-y-6">
+                 <h1 className="text-9xl font-black text-purple-900/40">404</h1>
+                 <h2 className="text-3xl font-black text-white px-4">PAGE NOT FOUND</h2>
+                 <p className="text-gray-500 max-w-sm mx-auto px-4">The route you are trying to access does not exist or you don't have authorization.</p>
+                 <button onClick={() => setActiveTab('store')} className="mt-8 px-8 py-3 bg-[#111] border border-purple-900/50 rounded-xl text-white font-bold hover:bg-purple-900/20 transition-all flex items-center gap-2 mx-auto">
+                    Return to Home
+                 </button>
              </div>
            </div>
         ) : (
@@ -1160,8 +1226,8 @@ export default function App() {
           {/* Navbar */}
       <nav className="h-20 w-full px-4 md:px-8 flex items-center justify-between border-b border-purple-900/30 bg-black/40 backdrop-blur-md z-10 flex-shrink-0 relative">
         {toastMessage && (
-          <div className="fixed bottom-10 right-10 z-[300] bg-purple-600/90 backdrop-blur text-white px-6 py-4 rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.5)] font-bold flex items-center gap-3 animate-slide-in-toast">
-            <CheckCircle2 className="w-5 h-5 text-white" />
+          <div className="fixed top-24 left-1/2 -translate-x-1/2 md:translate-x-0 md:top-auto md:left-auto md:bottom-10 md:right-10 z-[300] bg-[#111] border border-purple-500 backdrop-blur w-[90%] md:w-auto md:min-w-[300px] text-white px-6 py-4 rounded-xl shadow-[0_0_25px_rgba(168,85,247,0.4)] font-bold flex items-center gap-3 animate-in fade-in slide-in-from-top-5 md:slide-in-from-bottom-5 duration-300">
+            <CheckCircle2 className="w-5 h-5 text-purple-400" />
             {toastMessage}
           </div>
         )}
@@ -1177,20 +1243,40 @@ export default function App() {
           </div>
           
           <div className="hidden md:flex gap-8 text-sm font-bold text-gray-400 tracking-widest">
-             <button onClick={() => setActiveTab('store')} className={activeTab === 'store' && activeCategory !== 'Subscriptions' ? "text-purple-400 border-b-2 border-purple-500 pb-1" : "hover:text-purple-400 transition-colors duration-300 min-h-[44px]"}>{t[language].store}</button>
+             <button onClick={() => { setActiveTab('store'); setActiveCategory('All Games'); }} className={activeTab === 'store' && activeCategory !== 'Subscriptions' ? "text-purple-400 border-b-2 border-purple-500 pb-1" : "hover:text-purple-400 transition-colors duration-300 min-h-[44px]"}>{t[language].store}</button>
              <button onClick={() => { setActiveTab('store'); setActiveCategory('Subscriptions'); }} className={activeTab === 'store' && activeCategory === 'Subscriptions' ? "text-purple-400 border-b-2 border-purple-500 pb-1" : "hover:text-purple-400 transition-colors duration-300 min-h-[44px]"}>{t[language].subs || 'Subscriptions'}</button>
-             <button onClick={() => setActiveTab('orders')} className={activeTab === 'orders' ? "text-purple-400 border-b-2 border-purple-500 pb-1" : "hover:text-purple-400 transition-colors duration-300 min-h-[44px]"}>{t[language].orders}</button>
+             <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('orders'); }} className={activeTab === 'user_dashboard' && userDashboardTab === 'orders' ? "text-purple-400 border-b-2 border-purple-500 pb-1" : "hover:text-purple-400 transition-colors duration-300 min-h-[44px]"}>{t[language].orders}</button>
           </div>
         </div>
         
-        {/* Mobile menu dropdown */}
+        {/* Mobile slide-out drawer */}
         {isMobileMenuOpen && (
-          <div className="fixed inset-0 top-20 w-full h-[calc(100vh-5rem)] bg-black/90 backdrop-blur-xl z-50 md:hidden flex flex-col p-6 shadow-2xl overflow-y-auto animate-in slide-in-from-left duration-300">
-             <button onClick={() => { setActiveTab('store'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 ${activeTab === 'store' && activeCategory !== 'Subscriptions' ? "text-purple-400" : "text-white"}`}>{t[language].store}</button>
-             <button onClick={() => { setActiveTab('store'); setActiveCategory('Subscriptions'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 ${activeTab === 'store' && activeCategory === 'Subscriptions' ? "text-purple-400" : "text-white"}`}>{t[language].subs || 'Subscriptions'}</button>
-             <button onClick={() => { setActiveTab('orders'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 ${activeTab === 'orders' ? "text-purple-400" : "text-white"}`}>{t[language].orders}</button>
-             
-             <div className="relative mt-8 px-2">
+          <div className="fixed inset-0 z-[100] md:hidden flex">
+            {/* Backdrop */}
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsMobileMenuOpen(false)}></div>
+            
+            {/* Drawer */}
+            <div className="relative w-[300px] max-w-[80vw] h-full bg-[#0a0a0a]/90 backdrop-blur-xl border-r border-purple-500/30 shadow-[5px_0_30px_rgba(168,85,247,0.3)] flex flex-col p-6 overflow-y-auto animate-in slide-in-from-left duration-300 z-10">
+               <div className="flex justify-between items-center mb-10">
+                 <div className="text-xl font-black tracking-tighter text-white">
+                   LUDEX<span className="text-purple-500">STORE</span>
+                 </div>
+                 <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-white/5 rounded-full">
+                   <X className="w-5 h-5" />
+                 </button>
+               </div>
+               
+               <button onClick={() => { setActiveTab('store'); setActiveCategory('All Games'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 ${activeTab === 'store' && activeCategory !== 'Subscriptions' ? "text-purple-400" : "text-white"}`}>{t[language].store}</button>
+               <button onClick={() => { setActiveTab('store'); setActiveCategory('Subscriptions'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 ${activeTab === 'store' && activeCategory === 'Subscriptions' ? "text-purple-400" : "text-white"}`}>{t[language].subs || 'Subscriptions'}</button>
+               <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('orders'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 ${activeTab === 'user_dashboard' && userDashboardTab === 'orders' ? "text-purple-400" : "text-white"}`}>{t[language].orders}</button>
+               
+               {isLoggedIn && userProfile.role === 'ADMIN' && (
+                 <button onClick={() => { setActiveTab('admin'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 flex items-center gap-2 ${activeTab === 'admin' ? "text-purple-400" : "text-purple-500"}`}>
+                    <Shield className="w-5 h-5" /> Ludex HQ Portal
+                 </button>
+               )}
+
+               <div className="relative mt-8 px-2">
                <div className="absolute left-5 top-3 w-5 h-5 text-gray-500">
                  <Search className="w-5 h-5" />
                </div>
@@ -1203,12 +1289,20 @@ export default function App() {
                />
              </div>
              
+             {!isLoggedIn && (
+               <div className="flex flex-col gap-3 mt-6">
+                 <button onClick={() => { setShowAuthModal('login'); setIsMobileMenuOpen(false); }} className="w-full py-3 bg-[#111] border border-gray-800 rounded-lg text-white font-bold hover:bg-[#1a1a2e]">Sign In</button>
+                 <button onClick={() => { setShowAuthModal('register'); setIsMobileMenuOpen(false); }} className="w-full py-3 bg-purple-600 rounded-lg text-white font-bold hover:bg-purple-500">Register</button>
+               </div>
+             )}
+
              <div className="mt-auto pt-8 flex flex-col gap-4">
                  <div className="flex gap-4">
                     <button onClick={() => { setLanguage('en'); setIsMobileMenuOpen(false); }} className={`flex-1 py-3 rounded-lg border text-sm font-bold ${language === 'en' ? 'bg-purple-600 border-purple-500 text-white' : 'bg-[#111] border-gray-800 text-gray-400'}`}>English</button>
                     <button onClick={() => { setLanguage('ar'); setIsMobileMenuOpen(false); }} className={`flex-1 py-3 rounded-lg border text-sm font-bold ${language === 'ar' ? 'bg-purple-600 border-purple-500 text-white' : 'bg-[#111] border-gray-800 text-gray-400'}`}>العربية</button>
                  </div>
              </div>
+            </div>
           </div>
         )}
 
@@ -1240,10 +1334,15 @@ export default function App() {
                   </div>
                   {isProfileOpen && (
                     <div className={`absolute ${language === 'ar' ? 'left-0' : 'right-0'} mt-2 w-48 bg-[#111] border border-purple-900/50 rounded-xl shadow-xl overflow-hidden z-20 flex flex-col`}>
-                      <button onClick={() => { setActiveTab('profile'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-white">
+                      {userProfile.role === 'ADMIN' && (
+                        <button onClick={() => { setActiveTab('admin'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-purple-400 font-bold uppercase tracking-widest">
+                          <Shield className="w-4 h-4" /> LUDEX HQ PORTAL
+                        </button>
+                      )}
+                      <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('profile'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-white">
                         <User className="w-4 h-4" /> {t[language].profile}
                       </button>
-                      <button onClick={() => { setActiveTab('settings'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-white">
+                      <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('settings'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-white">
                         <Settings className="w-4 h-4" /> {t[language].settings}
                       </button>
                       <button onClick={() => { setLanguage(l => l === 'en' ? 'ar' : 'en'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 text-purple-400 font-bold">
@@ -1262,8 +1361,8 @@ export default function App() {
                   )}
                 </>
               ) : (
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setShowAuthModal('login')} className="text-gray-400 hover:text-white text-sm font-bold transition-colors hidden sm:block">Sign In</button>
+                <div className="hidden md:flex items-center gap-2">
+                  <button onClick={() => setShowAuthModal('login')} className="text-gray-400 hover:text-white text-sm font-bold transition-colors">Sign In</button>
                   <button onClick={() => setShowAuthModal('register')} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">Register</button>
                 </div>
               )}
@@ -1275,26 +1374,67 @@ export default function App() {
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar / Categories */}
-        <aside className="w-64 border-r border-purple-900/20 bg-black/20 p-6 flex-col gap-8 hidden lg:flex">
-          <div>
-            <h3 className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-4">{t[language].categories}</h3>
-            <ul className="space-y-3">
-              {CATEGORIES.map(cat => (
-                <li 
-                  key={cat.name}
-                  onClick={() => setActiveCategory(cat.name === activeCategory ? null : cat.name)}
-                  className={`flex items-center gap-3 text-sm p-3 rounded-lg cursor-pointer transition-all duration-300 ${
-                    activeCategory === cat.name 
-                      ? 'text-purple-400 bg-purple-500/10 border-l-2 border-purple-500 font-bold' 
-                      : 'text-gray-400 hover:text-purple-400 hover:bg-purple-900/10 border-l-2 border-transparent'
-                  }`}
+        {(activeTab === 'store') && (
+          <aside className="w-64 border-r border-purple-900/20 bg-black/20 p-6 flex-col gap-8 hidden lg:flex">
+            <div>
+              <h3 className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-4">{t[language].categories}</h3>
+              <ul className="space-y-3">
+                {CATEGORIES.map(cat => (
+                  <li 
+                    key={cat.name}
+                    onClick={() => setActiveCategory(cat.name === activeCategory ? null : cat.name)}
+                    className={`flex items-center gap-3 text-sm p-3 rounded-lg cursor-pointer transition-all duration-300 ${
+                      activeCategory === cat.name 
+                        ? 'text-purple-400 bg-purple-500/10 border-l-2 border-purple-500 font-bold' 
+                        : 'text-gray-400 hover:text-purple-400 hover:bg-purple-900/10 border-l-2 border-transparent'
+                    }`}
+                  >
+                    <cat.icon className="w-4 h-4 opacity-70" /> {cat.name}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </aside>
+        )}
+
+        {/* User Dashboard Sidebar */}
+        {activeTab === 'user_dashboard' && (
+          <aside className="w-64 border-r border-purple-900/20 bg-[#0a0a0a] flex flex-col hidden lg:flex shadow-[5px_0_15px_rgba(0,0,0,0.5)] z-10 relative">
+             <div className="p-6 border-b border-gray-800 bg-[#111]">
+               <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">User Dashboard</h2>
+               <p className="text-xl font-black text-white truncate">{userProfile.name}</p>
+             </div>
+             <div className="p-4 flex-1 flex flex-col gap-2">
+                <button 
+                  onClick={() => setUserDashboardTab('profile')} 
+                  className={`flex items-center gap-3 text-sm p-3 rounded-lg transition-colors font-bold ${userDashboardTab === 'profile' ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                 >
-                  <cat.icon className="w-4 h-4 opacity-70" /> {cat.name}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </aside>
+                  <User className="w-4 h-4" /> Profile & Loyalty
+                </button>
+                <button 
+                  onClick={() => setUserDashboardTab('orders')} 
+                  className={`flex items-center gap-3 text-sm p-3 rounded-lg transition-colors font-bold ${userDashboardTab === 'orders' ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                >
+                  <ShoppingBag className="w-4 h-4" /> Order History
+                </button>
+                <button 
+                  onClick={() => setUserDashboardTab('settings')} 
+                  className={`flex items-center gap-3 text-sm p-3 rounded-lg transition-colors font-bold ${userDashboardTab === 'settings' ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                >
+                  <Settings className="w-4 h-4" /> Account Settings
+                </button>
+             </div>
+             <div className="p-4 border-t border-gray-800">
+               <button onClick={() => {
+                   setIsLoggedIn(false); 
+                   setUserProfile({name: '', email: '', role: 'CUSTOMER'}); 
+                   setActiveTab('store');
+               }} className="flex items-center gap-3 text-sm p-3 rounded-lg transition-colors font-bold text-red-500 hover:bg-red-500/10 w-full">
+                 <LogOut className="w-4 h-4" /> Logout
+               </button>
+             </div>
+          </aside>
+        )}
 
         {/* Main Interface Area conditionally rendered */}
         <main className="flex-1 p-6 md:p-8 overflow-y-auto flex flex-col scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
@@ -1306,6 +1446,12 @@ export default function App() {
                   <p className="text-gray-500 text-sm mt-1">{t[language].desc}</p>
                 </div>
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => setIsFilterOpen(!isFilterOpen)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm border bg-[#0a0a0a] border-purple-900/50 hover:bg-purple-900/20 transition-colors rounded-lg text-white font-bold min-h-[44px]"
+                  >
+                    <Filter className="w-4 h-4" /> Filters
+                  </button>
                   <select 
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
@@ -1317,6 +1463,29 @@ export default function App() {
                   </select>
                 </div>
               </div>
+              
+              {isFilterOpen && (
+                <div className="mb-6 p-4 bg-[#111] border border-purple-900/30 rounded-xl flex flex-wrap gap-4 animate-in slide-in-from-top-2 duration-200">
+                   <div className="flex flex-col gap-2">
+                     <label className="text-xs text-gray-500 uppercase font-bold tracking-widest">Platform</label>
+                     <select className="bg-black border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none">
+                       <option value="all">All Platforms</option>
+                       <option value="pc">PC</option>
+                       <option value="ps">PlayStation</option>
+                       <option value="xbox">Xbox</option>
+                     </select>
+                   </div>
+                   <div className="flex flex-col gap-2">
+                     <label className="text-xs text-gray-500 uppercase font-bold tracking-widest">Price Range</label>
+                     <select className="bg-black border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none">
+                       <option value="all">Any Price</option>
+                       <option value="under20">Under $20</option>
+                       <option value="20to50">$20 - $50</option>
+                       <option value="over50">Over $50</option>
+                     </select>
+                   </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full">
                 {filteredGames.length === 0 ? (
@@ -1324,10 +1493,10 @@ export default function App() {
                     <p>{t[language].noGamesFound}</p>
                   </div>
                 ) : (
-                  filteredGames.map(game => (
-                    <div key={game.id} className="group bg-[#0d0d0d] border border-purple-900/20 rounded-2xl overflow-hidden hover:border-purple-500/50 transition-all duration-300 hover:shadow-[0_0_25px_rgba(147,51,234,0.3)] hover:-translate-y-1 flex flex-col">
+                  filteredGames.slice(0, visibleGamesCount).map(game => (
+                    <div key={game.id} className="group bg-[#0d0d0d] border border-purple-900/20 rounded-2xl flex flex-col h-full hover:border-purple-500/50 transition-all duration-300 hover:shadow-[0_0_25px_rgba(147,51,234,0.3)] hover:-translate-y-1">
                       <div onClick={() => { setSelectedGameId(game.id); setIsGameDetailOpen(true); }} className="cursor-pointer">
-                        <div className={`h-48 bg-gradient-to-br ${game.theme} relative`}>
+                        <div className={`h-48 bg-gradient-to-br ${game.theme} relative rounded-t-2xl overflow-hidden`}>
                           <img src={game.image} alt={game.title} className="w-full h-full object-cover mix-blend-overlay opacity-60 group-hover:opacity-80 transition-opacity" />
                           <div className={`absolute bottom-3 left-3 bg-black/80 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold uppercase border ${game.badgeColor}`}>
                             {game.type}
@@ -1370,10 +1539,21 @@ export default function App() {
                   ))
                 )}
               </div>
+              
+              {filteredGames.length > visibleGamesCount && (
+                <div className="flex justify-center mt-10">
+                   <button 
+                     onClick={() => setVisibleGamesCount(prev => prev + 12)}
+                     className="px-8 py-3 bg-[#111] border border-purple-900/50 rounded-xl text-white font-bold hover:bg-purple-900/20 hover:border-purple-500 transition-all flex items-center justify-center min-h-[44px]"
+                   >
+                     Load More
+                   </button>
+                </div>
+              )}
             </>
           )}
 
-          {activeTab === 'orders' && (
+          {(activeTab === 'orders' || (activeTab === 'user_dashboard' && userDashboardTab === 'orders')) && (
             <div className="max-w-4xl mx-auto w-full flex flex-col items-start gap-8">
               <div>
                 <h2 className="text-2xl font-bold text-white mb-2">{t[language].myOrders}</h2>
@@ -1502,7 +1682,7 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'profile' && (
+          {(activeTab === 'profile' || (activeTab === 'user_dashboard' && userDashboardTab === 'profile')) && (
             <div className="max-w-4xl mx-auto w-full flex flex-col gap-6">
               <h2 className="text-2xl font-bold text-white tracking-widest uppercase">{t[language].profOverview}</h2>
               <div className="bg-[#111] border border-purple-900/30 rounded-2xl p-6 flex flex-col sm:flex-row items-center sm:items-start gap-6 relative overflow-hidden">
@@ -1644,7 +1824,7 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'settings' && (
+          {(activeTab === 'settings' || (activeTab === 'user_dashboard' && userDashboardTab === 'settings')) && (
             <div className="max-w-2xl mx-auto w-full flex flex-col gap-6">
               <h2 className="text-2xl font-bold text-white">{t[language].accSet}</h2>
               <form 
@@ -1790,8 +1970,8 @@ export default function App() {
                 </div>
               )}
               <div>
-                <label className="block text-xs uppercase text-gray-500 font-bold mb-1">Email Address</label>
-                <input type="email" value={authForm.email} onChange={e => setAuthForm({...authForm, email: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder="felix@example.com" />
+                <label className="block text-xs uppercase text-gray-500 font-bold mb-1">{showAuthModal === 'login' ? 'Email / Username' : 'Email Address'}</label>
+                <input type="text" value={authForm.email} onChange={e => setAuthForm({...authForm, email: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder={showAuthModal === 'login' ? 'felix@example.com or AbuHassan_Admin' : 'felix@example.com'} />
               </div>
               <div>
                 <label className="block text-xs uppercase text-gray-500 font-bold mb-1">Password</label>
@@ -1803,10 +1983,16 @@ export default function App() {
                   if (authForm.email && authForm.password) {
                      // VERY BASIC MOCK AUTH
                      if (showAuthModal === 'login') {
-                        if (authForm.email === 'admin@ludex.com') {
-                           setUserProfile({ name: 'Admin User', email: 'admin@ludex.com', role: 'ADMIN' });
+                        if (authForm.email === 'AbuHassan_Admin' && authForm.password === 'Admin123!') {
+                           setUserProfile({ name: 'AbuHassan_Admin', email: 'admin@ludexstore.com', role: 'ADMIN' });
+                           setIsLoggedIn(true);
+                           setShowAuthModal(null);
+                           setActiveTab('admin');
+                           setToastMessage('Admin Access Granted. Welcome to HQ.');
+                           setTimeout(() => setToastMessage(null), 3000);
+                           return; // Early return to avoid setting standard user message
                         } else {
-                           setUserProfile({ name: 'Regular User', email: authForm.email, role: 'CUSTOMER' });
+                           setUserProfile({ name: authForm.email.split('@')[0], email: authForm.email, role: 'CUSTOMER' });
                         }
                      } else {
                         setUserProfile({ name: authForm.name || 'New User', email: authForm.email, role: 'CUSTOMER' });
