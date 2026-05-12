@@ -108,7 +108,161 @@ export default function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isGameDetailOpen, setIsGameDetailOpen] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
-  const [adminTab, setAdminTab] = useState<'dashboard' | 'catalog_management' | 'customers' | 'orders' | 'financials' | 'settings' | 'pages' | 'marketing'>('dashboard');
+  const [adminTab, setAdminTab] = useState<'dashboard' | 'games' | 'categories' | 'customers' | 'orders' | 'financials' | 'payments' | 'settings' | 'support' | 'pages' | 'promotions' | 'promo_codes' | 'subscriptions' | 'products' | 'transactions' | 'sales' | 'macros'>('dashboard');
+  const [adminMenuState, setAdminMenuState] = useState({ catalog: false, marketing: false, sales: false, ledger: false, system: false });
+  const toggleAdminMenu = (menu: 'catalog' | 'marketing' | 'sales' | 'ledger' | 'system') => setAdminMenuState(prev => ({ ...prev, [menu]: !prev[menu] }));
+  
+  // Real DB States
+  const [subList, setSubList] = useState<any[]>([]);
+  const [productList, setProductList] = useState<any[]>([]);
+  const [salesList, setSalesList] = useState<any[]>([]);
+  const [transList, setTransList] = useState<any[]>([]);
+  const [settingsList, setSettingsList] = useState<any[]>([]);
+  const [publicProducts, setPublicProducts] = useState<any[]>([]);
+  const [promoModal, setPromoModal] = useState<{isOpen: boolean, product: any, discountPrice: string, isFeatured: boolean}>({
+    isOpen: false, product: null, discountPrice: '', isFeatured: false
+  });
+
+  // Universal CRUD State
+  const [crudModal, setCrudModal] = useState<{
+    isOpen: boolean;
+    mode: 'create' | 'edit';
+    table: string;
+    item: any;
+    fields: { name: string, label: string, type: 'text' | 'number' | 'boolean' | 'select' | 'password', options?: string[] }[];
+  }>({
+    isOpen: false, mode: 'create', table: '', item: null, fields: []
+  });
+
+  const handleCrudSubmit = async (formData: any) => {
+    try {
+      const token = localStorage.getItem('ludex_token');
+      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+      const endpoint = crudModal.mode === 'create' 
+         ? `/api/admin/${crudModal.table}` 
+         : `/api/admin/${crudModal.table}/${crudModal.item.id}`;
+      const method = crudModal.mode === 'create' ? 'POST' : 'PUT';
+
+      const res = await fetch(endpoint, { method, headers, body: JSON.stringify(formData) });
+      if (res.ok) {
+         setCrudModal({ ...crudModal, isOpen: false });
+         setToastMessage('Saved successfully!');
+         setTimeout(() => setToastMessage(null), 3000);
+         // Re-fetch depending on table
+         if (crudModal.table === 'subscriptions') {
+            const r = await fetch('/api/admin/subscriptions', { headers });
+            if (r.ok) setSubList(await r.json());
+         }
+         else if (crudModal.table === 'products') {
+            const r = await fetch('/api/admin/products', { headers });
+            if (r.ok) setProductList(await r.json());
+         }
+         else if (crudModal.table === 'sales') {
+            const r = await fetch('/api/admin/sales', { headers });
+            if (r.ok) setSalesList(await r.json());
+         }
+         else if (crudModal.table === 'transactions') {
+            const r = await fetch('/api/admin/transactions', { headers });
+            if (r.ok) setTransList(await r.json());
+         }
+         else if (crudModal.table === 'settings') {
+            const r = await fetch('/api/admin/settings', { headers });
+            if (r.ok) setSettingsList(await r.json());
+         }
+      } else {
+         const d = await res.json();
+         setToastMessage("Error: " + (d.error || 'Failed to save data.'));
+         setTimeout(() => setToastMessage(null), 5000);
+      }
+    } catch(e: any) {
+      console.error(e);
+      setToastMessage("Failed to save data.");
+      setTimeout(() => setToastMessage(null), 5000);
+    }
+  };
+
+  const handleQuickUpdate = async (table: string, id: string | number, data: any) => {
+    try {
+      const token = localStorage.getItem('ludex_token');
+      const res = await fetch(`/api/admin/${table}/${id}`, {
+         method: 'PUT',
+         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+         body: JSON.stringify(data)
+      });
+      if (res.ok) {
+         setToastMessage('Updated successfully!');
+         setTimeout(() => setToastMessage(null), 3000);
+         // Re-fetch depending on table
+         const headers = { 'Authorization': `Bearer ${token}` };
+         if (table === 'subscriptions') {
+            const r = await fetch('/api/admin/subscriptions', { headers });
+            if (r.ok) setSubList(await r.json());
+         }
+         else if (table === 'products') {
+            const r = await fetch('/api/admin/products', { headers });
+            if (r.ok) setProductList(await r.json());
+         }
+         else if (table === 'sales') {
+            const r = await fetch('/api/admin/sales', { headers });
+            if (r.ok) setSalesList(await r.json());
+         }
+         else if (table === 'transactions') {
+            const r = await fetch('/api/admin/transactions', { headers });
+            if (r.ok) setTransList(await r.json());
+         }
+         else if (table === 'settings') {
+            const r = await fetch('/api/admin/settings', { headers });
+            if (r.ok) setSettingsList(await r.json());
+         }
+      } else {
+         const d = await res.json();
+         setToastMessage("Error: " + (d.error || 'Failed to update data.'));
+         setTimeout(() => setToastMessage(null), 5000);
+      }
+    } catch(e) { console.error(e); }
+  };
+
+  const handleCrudDelete = async (table: string, id: string | number) => {
+    // Custom logic to avoid blocking iframe. Using a toast for success, and skipping confirm due to iframe blocks.
+    try {
+      const token = localStorage.getItem('ludex_token');
+      const res = await fetch(`/api/admin/${table}/${id}`, {
+         method: 'DELETE',
+         headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok || res.status === 204) {
+         setToastMessage('Item deleted!');
+         setTimeout(() => setToastMessage(null), 3000);
+         // Re-fetch depending on table
+         const headers = { 'Authorization': `Bearer ${token}` };
+         if (table === 'subscriptions') {
+            const r = await fetch('/api/admin/subscriptions', { headers });
+            if (r.ok) setSubList(await r.json());
+         }
+         else if (table === 'products') {
+            const r = await fetch('/api/admin/products', { headers });
+            if (r.ok) setProductList(await r.json());
+         }
+         else if (table === 'sales') {
+            const r = await fetch('/api/admin/sales', { headers });
+            if (r.ok) setSalesList(await r.json());
+         }
+         else if (table === 'transactions') {
+            const r = await fetch('/api/admin/transactions', { headers });
+            if (r.ok) setTransList(await r.json());
+         }
+         else if (table === 'settings') {
+            const r = await fetch('/api/admin/settings', { headers });
+            if (r.ok) setSettingsList(await r.json());
+         }
+      } else {
+         const d = await res.json();
+         setToastMessage("Error: " + (d.error || 'Failed to delete.'));
+         setTimeout(() => setToastMessage(null), 5000);
+      }
+    } catch(e) { console.error(e); }
+  };
+
 
   // Promotions / Announcements
   const [promotions, setPromotions] = useState([
@@ -209,6 +363,73 @@ export default function App() {
   const [editingFinancialId, setEditingFinancialId] = useState<string | null>(null);
   const [editingSettings, setEditingSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState({...globalSettings});
+
+  useEffect(() => {
+    const fetchPublicData = async () => {
+      try {
+        const res = await fetch('/api/public/products');
+        if (res.ok) setPublicProducts(await res.json());
+
+        const resPromo = await fetch('/api/public/promotions');
+        if (resPromo.ok) {
+           const dbPromos = await resPromo.json();
+           if (dbPromos && dbPromos.length > 0) {
+              setPromotions(dbPromos.map((p: any) => ({
+                 id: p.id,
+                 title: p.title || '',
+                 description: p.description || '',
+                 imageUrl: p.image_url || p.imageUrl || '',
+                 linkToCategory: p.link_to_category || p.linkToCategory || '',
+                 active: p.active !== false
+              })));
+           }
+        }
+      } catch (e) {
+        console.error("Failed to fetch public data", e);
+      }
+    };
+    fetchPublicData();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'admin') {
+       const fetchAdminData = async () => {
+         const token = localStorage.getItem('ludex_token');
+         const headers = { 'Authorization': `Bearer ${token}` };
+         try {
+           if (['dashboard', 'subscriptions'].includes(adminTab)) {
+              const res = await fetch('/api/admin/subscriptions', { headers });
+              if (res.ok) setSubList(await res.json());
+           }
+           if (['dashboard', 'products', 'promotions'].includes(adminTab)) {
+              const res = await fetch('/api/admin/products', { headers });
+              if (res.ok) setProductList(await res.json());
+           }
+           if (['dashboard', 'promotions'].includes(adminTab)) {
+              const res = await fetch('/api/admin/promotions', { headers });
+              if (res.ok) setPromotions(await res.json());
+           }
+           if (['dashboard', 'sales'].includes(adminTab)) {
+              const res = await fetch('/api/admin/sales', { headers });
+              if (res.ok) setSalesList(await res.json());
+           }
+           if (['dashboard', 'transactions'].includes(adminTab)) {
+              const res = await fetch('/api/admin/transactions', { headers });
+              if (res.ok) setTransList(await res.json());
+           }
+           if (['dashboard', 'macros'].includes(adminTab)) {
+              const res = await fetch('/api/admin/settings', { headers });
+              if (res.ok) setSettingsList(await res.json());
+           }
+         } catch(e) {
+           console.error("Failed to fetch admin backend data", e);
+         }
+       };
+       if (isLoggedIn) {
+          fetchAdminData();
+       }
+    }
+  }, [activeTab, adminTab, isLoggedIn]);
 
   useEffect(() => {
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
@@ -444,47 +665,95 @@ export default function App() {
               <Layers className="w-4 h-4" /> Dashboard
             </button>
             <button 
-              onClick={() => setAdminTab('catalog_management')} 
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${adminTab === 'catalog_management' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
+              onClick={() => setAdminTab('support')} 
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${adminTab === 'support' ? 'bg-purple-600/20 text-green-400 border border-green-500/30' : 'text-green-500 hover:bg-white/5 hover:text-green-400'}`}
             >
-              <Package className="w-4 h-4" /> Catalog Management
+              <MessageSquare className="w-4 h-4" /> Support Chat
             </button>
-            <button 
-              onClick={() => setAdminTab('customers')} 
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${adminTab === 'customers' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
-            >
-              <User className="w-4 h-4" /> Customers
-            </button>
-            <button 
-              onClick={() => setAdminTab('orders')} 
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${adminTab === 'orders' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
-            >
-              <ShoppingBag className="w-4 h-4" /> Orders
-            </button>
-            <button 
-              onClick={() => setAdminTab('financials')} 
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${adminTab === 'financials' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
-            >
-              <CreditCard className="w-4 h-4" /> Financials
-            </button>
-            <button 
-              onClick={() => setAdminTab('marketing')} 
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${adminTab === 'marketing' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
-            >
-              <Star className="w-4 h-4" /> Marketing & Offers
-            </button>
-            <button 
-              onClick={() => setAdminTab('settings')} 
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${adminTab === 'settings' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
-            >
-              <Settings className="w-4 h-4" /> Global Settings
-            </button>
-            <button 
-              onClick={() => setAdminTab('pages')} 
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${adminTab === 'pages' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
-            >
-              <Layers className="w-4 h-4" /> CMS Pages
-            </button>
+            <div className="flex flex-col gap-1">
+              <button 
+                onClick={() => toggleAdminMenu('catalog')} 
+                className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all text-gray-400 hover:bg-white/5 hover:text-white"
+              >
+                <div className="flex items-center gap-3"><Package className="w-4 h-4" /> Catalog & Stock</div>
+                <ChevronDown className={`w-4 h-4 transition-transform ${adminMenuState.catalog ? 'rotate-180' : ''}`} />
+              </button>
+              {adminMenuState.catalog && (
+                <div className="pl-6 flex flex-col gap-1">
+                  <button onClick={() => setAdminTab('subscriptions')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'subscriptions' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Key className="w-4 h-4" /> Subscriptions (Stock)</button>
+                  <button onClick={() => setAdminTab('products')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'products' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><ShoppingBag className="w-4 h-4" /> Products (Storefront)</button>
+                  <button onClick={() => setAdminTab('games')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'games' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Package className="w-4 h-4" /> Inventory (Legacy)</button>
+                  <button onClick={() => setAdminTab('categories')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'categories' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Layers className="w-4 h-4" /> Categories (Legacy)</button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <button 
+                onClick={() => toggleAdminMenu('sales')} 
+                className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all text-gray-400 hover:bg-white/5 hover:text-white"
+              >
+                <div className="flex items-center gap-3"><User className="w-4 h-4" /> Sales & CRM</div>
+                <ChevronDown className={`w-4 h-4 transition-transform ${adminMenuState.sales ? 'rotate-180' : ''}`} />
+              </button>
+              {adminMenuState.sales && (
+                <div className="pl-6 flex flex-col gap-1">
+                  <button onClick={() => setAdminTab('sales')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'sales' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><ShoppingBag className="w-4 h-4" /> Orders & Sales</button>
+                  <button onClick={() => setAdminTab('customers')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'customers' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><User className="w-4 h-4" /> Customers</button>
+                  <button onClick={() => setAdminTab('orders')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'orders' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><ShoppingBag className="w-4 h-4" /> Orders (Legacy)</button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <button 
+                onClick={() => toggleAdminMenu('ledger')} 
+                className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all text-gray-400 hover:bg-white/5 hover:text-white"
+              >
+                <div className="flex items-center gap-3"><CreditCard className="w-4 h-4" /> Financial Ledger</div>
+                <ChevronDown className={`w-4 h-4 transition-transform ${adminMenuState.ledger ? 'rotate-180' : ''}`} />
+              </button>
+              {adminMenuState.ledger && (
+                <div className="pl-6 flex flex-col gap-1">
+                  <button onClick={() => setAdminTab('transactions')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'transactions' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><CreditCard className="w-4 h-4" /> Transactions (Treasury)</button>
+                  <button onClick={() => setAdminTab('financials')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'financials' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><CreditCard className="w-4 h-4" /> Financials (Legacy)</button>
+                  <button onClick={() => setAdminTab('payments')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'payments' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><CreditCard className="w-4 h-4" /> Payment Gateways</button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <button 
+                onClick={() => toggleAdminMenu('system')} 
+                className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all text-gray-400 hover:bg-white/5 hover:text-white"
+              >
+                <div className="flex items-center gap-3"><Settings className="w-4 h-4" /> System & Tools</div>
+                <ChevronDown className={`w-4 h-4 transition-transform ${adminMenuState.system ? 'rotate-180' : ''}`} />
+              </button>
+              {adminMenuState.system && (
+                <div className="pl-6 flex flex-col gap-1">
+                  <button onClick={() => setAdminTab('macros')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'macros' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Settings className="w-4 h-4" /> Settings & Macros</button>
+                  <button onClick={() => setAdminTab('settings')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'settings' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Settings className="w-4 h-4" /> Global Settings (Legacy)</button>
+                  <button onClick={() => setAdminTab('pages')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'pages' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Layers className="w-4 h-4" /> CMS Pages</button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <button 
+                onClick={() => toggleAdminMenu('marketing')} 
+                className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all text-gray-400 hover:bg-white/5 hover:text-white"
+              >
+                <div className="flex items-center gap-3"><Star className="w-4 h-4" /> Marketing & Offers</div>
+                <ChevronDown className={`w-4 h-4 transition-transform ${adminMenuState.marketing ? 'rotate-180' : ''}`} />
+              </button>
+              {adminMenuState.marketing && (
+                <div className="pl-6 flex flex-col gap-1">
+                  <button onClick={() => setAdminTab('promotions')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'promotions' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Star className="w-4 h-4" /> Promotions</button>
+                  <button onClick={() => setAdminTab('promo_codes')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'promo_codes' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Tag className="w-4 h-4" /> Promo Codes</button>
+                </div>
+              )}
+            </div>
 
             <div className="mt-auto border-t border-gray-800 pt-4 flex flex-col gap-2">
               <button onClick={() => { setActiveTab('store'); setActiveCategory(null); }} className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors px-4 py-2 text-xs">
@@ -566,6 +835,153 @@ export default function App() {
                        <li className="flex items-center gap-3"><CheckCircle2 className="w-4 h-4 text-green-400" /> Input Sanitization & XSS Guards Online</li>
                      </ul>
                    </div>
+                </div>
+              </div>
+            )}
+
+            {adminTab === 'subscriptions' && (
+              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+                <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
+                  <div className="flex justify-between items-center border-b border-gray-800 pb-4">
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Key className="w-5 h-5 text-purple-500"/> Subscriptions (Stock)</h3>
+                    <div className="flex gap-2">
+                       <button onClick={() => setCrudModal({
+                          isOpen: true, mode: 'create', table: 'subscriptions', item: null, fields: [
+                             { name: 'name', label: 'Subscription Name', type: 'text' },
+                             { name: 'account_username', label: 'Email / Username', type: 'text' },
+                             { name: 'account_password', label: 'Password', type: 'text' },
+                             { name: 'category', label: 'Category', type: 'text' },
+                             { name: 'status', label: 'Status', type: 'select', options: ['active', 'sold'] },
+                             { name: 'sell_count', label: 'Sell Count', type: 'number' }
+                          ]
+                       })} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded font-bold text-sm transition-colors flex items-center gap-2">
+                         <span className="text-lg leading-none">+</span> Add New Account
+                       </button>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-400">
+                      <thead className="bg-[#1a1a1a] text-xs uppercase font-bold border-b border-gray-800">
+                        <tr>
+                          <th className="px-4 py-3">ID</th>
+                          <th className="px-4 py-3">Name</th>
+                          <th className="px-4 py-3">Username</th>
+                          <th className="px-4 py-3">Password</th>
+                          <th className="px-4 py-3">Category</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3">Sell Count</th>
+                          <th className="px-4 py-3">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {subList.map((item, index) => (
+                           <tr key={index} className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-mono text-xs">{item.id}</td>
+                              <td className="px-4 py-3 font-bold text-white">{item.name}</td>
+                              <td className="px-4 py-3">{item.account_username}</td>
+                              <td className="px-4 py-3 font-mono text-purple-400">••••••••</td>
+                              <td className="px-4 py-3">
+                                 <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-[10px] uppercase tracking-wider">{item.category}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                 <span className={`px-2 py-1 rounded text-[10px] uppercase tracking-wider font-bold ${item.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>{item.status || 'Active'}</span>
+                              </td>
+                              <td className="px-4 py-3 font-mono">{item.sell_count || 0}</td>
+                              <td className="px-4 py-3 flex gap-2">
+                                <button onClick={() => setCrudModal({
+                                   isOpen: true, mode: 'edit', table: 'subscriptions', item: item, fields: [
+                                     { name: 'name', label: 'Subscription Name', type: 'text' },
+                                     { name: 'account_username', label: 'Email / Username', type: 'text' },
+                                     { name: 'account_password', label: 'Password (leave MASKED to keep)', type: 'password' },
+                                     { name: 'category', label: 'Category', type: 'text' },
+                                     { name: 'status', label: 'Status', type: 'select', options: ['active', 'sold'] },
+                                     { name: 'sell_count', label: 'Sell Count', type: 'number' }
+                                   ]
+                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">Edit</button>
+                                <button onClick={() => handleQuickUpdate('subscriptions', item.id, { ...item, status: 'sold', account_password: 'MASKED' })} className="text-green-400 hover:text-green-300 text-xs font-bold">Mark Sold</button>
+                                <button onClick={() => handleCrudDelete('subscriptions', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">Delete</button>
+                              </td>
+                           </tr>
+                        ))}
+                        {subList.length === 0 && (
+                          <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500 italic">No subscriptions found. Click "Add New Account" to begin.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {adminTab === 'products' && (
+              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+                <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
+                  <div className="flex justify-between items-center border-b border-gray-800 pb-4">
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-purple-500"/> Products (Storefront)</h3>
+                    <div className="flex gap-2">
+                       <button onClick={() => setCrudModal({
+                          isOpen: true, mode: 'create', table: 'products', item: null, fields: [
+                             { name: 'name', label: 'Product Name', type: 'text' },
+                             { name: 'costPrice', label: 'Cost Price ($)', type: 'number' },
+                             { name: 'sellingPrice', label: 'Selling Price ($)', type: 'number' },
+                             { name: 'supplier', label: 'Supplier', type: 'text' },
+                             { name: 'category', label: 'Category', type: 'text' },
+                             { name: 'type', label: 'Game Type/Region', type: 'text' },
+                             { name: 'image_url', label: 'Image URL', type: 'text' },
+                          ]
+                       })} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded font-bold text-sm transition-colors flex items-center gap-2">
+                         <span className="text-lg leading-none">+</span> Add New Product
+                       </button>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-400">
+                      <thead className="bg-[#1a1a1a] text-xs uppercase font-bold border-b border-gray-800">
+                        <tr>
+                          <th className="px-4 py-3">ID</th>
+                          <th className="px-4 py-3">Name</th>
+                          <th className="px-4 py-3">Cost Price</th>
+                          <th className="px-4 py-3">Selling Price</th>
+                          <th className="px-4 py-3">Supplier</th>
+                          <th className="px-4 py-3">Category</th>
+                          <th className="px-4 py-3">Type</th>
+                          <th className="px-4 py-3">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {productList.map((item, index) => (
+                           <tr key={index} className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-mono text-xs">{item.id}</td>
+                              <td className="px-4 py-3 font-bold text-white max-w-[120px] truncate">{item.name}</td>
+                              <td className="px-4 py-3 text-red-400 font-mono">${item.costPrice}</td>
+                              <td className="px-4 py-3 text-green-400 font-mono">${item.sellingPrice}</td>
+                              <td className="px-4 py-3">{item.supplier}</td>
+                              <td className="px-4 py-3">
+                                 <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-[10px] uppercase tracking-wider">{item.category}</span>
+                              </td>
+                              <td className="px-4 py-3">{item.type}</td>
+                              <td className="px-4 py-3 flex gap-2">
+                                <button onClick={() => setCrudModal({
+                                   isOpen: true, mode: 'edit', table: 'products', item: item, fields: [
+                                     { name: 'name', label: 'Product Name', type: 'text' },
+                                     { name: 'costPrice', label: 'Cost Price ($)', type: 'number' },
+                                     { name: 'sellingPrice', label: 'Selling Price ($)', type: 'number' },
+                                     { name: 'supplier', label: 'Supplier', type: 'text' },
+                                     { name: 'category', label: 'Category', type: 'text' },
+                                     { name: 'type', label: 'Game Type/Region', type: 'text' },
+                                     { name: 'image_url', label: 'Image URL', type: 'text' }
+                                   ]
+                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">Edit</button>
+                                <button onClick={() => handleCrudDelete('products', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">Delete</button>
+                              </td>
+                           </tr>
+                        ))}
+                        {productList.length === 0 && (
+                          <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500 italic">No products found in storefront.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
@@ -1116,6 +1532,199 @@ export default function App() {
               </div>
             )}
 
+            {adminTab === 'sales' && (
+              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+                <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
+                  <div className="flex justify-between items-center border-b border-gray-800 pb-4">
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-purple-500"/> Orders & Sales</h3>
+                    <button onClick={() => setCrudModal({
+                          isOpen: true, mode: 'create', table: 'sales', item: null, fields: [
+                             { name: 'productName', label: 'Product Name', type: 'text' },
+                             { name: 'price', label: 'Final Price ($)', type: 'number' },
+                             { name: 'customerName', label: 'Customer Name', type: 'text' },
+                             { name: 'customerUsername', label: 'Customer Username/Email', type: 'text' },
+                             { name: 'notes', label: 'Notes', type: 'text' },
+                          ]
+                    })} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded font-bold text-sm transition-colors flex items-center gap-2">
+                       <span className="text-lg leading-none">+</span> Manually Add Sale
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-400">
+                      <thead className="bg-[#1a1a1a] text-xs uppercase font-bold border-b border-gray-800">
+                        <tr>
+                          <th className="px-4 py-3">ID</th>
+                          <th className="px-4 py-3">Product Name</th>
+                          <th className="px-4 py-3">Final Price</th>
+                          <th className="px-4 py-3">Customer (Username)</th>
+                          <th className="px-4 py-3">Notes</th>
+                          <th className="px-4 py-3">Date</th>
+                          <th className="px-4 py-3">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {salesList.map((item, index) => (
+                           <tr key={index} className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-mono text-xs">{item.id}</td>
+                              <td className="px-4 py-3 font-bold text-white">{item.productName}</td>
+                              <td className="px-4 py-3 text-green-400 font-mono">${item.price}</td>
+                              <td className="px-4 py-3">{item.customerName} ({item.customerUsername})</td>
+                              <td className="px-4 py-3 text-xs">{item.notes}</td>
+                              <td className="px-4 py-3 text-xs">{new Date(item.date).toLocaleDateString()}</td>
+                              <td className="px-4 py-3 flex gap-2">
+                                {(item.notes || '').includes('Receipt:') && (
+                                  <button className="text-green-400 hover:text-green-300 text-xs font-bold" onClick={() => {
+                                      const url = item.notes.split('Receipt: ')[1];
+                                      if (url) window.open(url, '_blank');
+                                  }}>View Receipt</button>
+                                )}
+                                <button onClick={() => setCrudModal({
+                                    isOpen: true, mode: 'edit', table: 'sales', item: item, fields: [
+                                       { name: 'productName', label: 'Product Name', type: 'text' },
+                                       { name: 'price', label: 'Final Price ($)', type: 'number' },
+                                       { name: 'customerName', label: 'Customer Name', type: 'text' },
+                                       { name: 'customerUsername', label: 'Customer Username/Email', type: 'text' },
+                                       { name: 'notes', label: 'Notes', type: 'text' },
+                                    ]
+                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">Edit</button>
+                                <button onClick={() => handleCrudDelete('sales', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">Delete</button>
+                              </td>
+                           </tr>
+                        ))}
+                        {salesList.length === 0 && (
+                          <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500 italic">No sales records found.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {adminTab === 'transactions' && (
+              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+                <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
+                  <div className="flex justify-between items-center border-b border-gray-800 pb-4">
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><CreditCard className="w-5 h-5 text-purple-500"/> Transactions (Treasury)</h3>
+                    <button onClick={() => setCrudModal({
+                          isOpen: true, mode: 'create', table: 'transactions', item: null, fields: [
+                             { name: 'type', label: 'Type', type: 'select', options: ['income', 'expense'] },
+                             { name: 'amount', label: 'Amount ($)', type: 'number' },
+                             { name: 'description', label: 'Description', type: 'text' },
+                             { name: 'person', label: 'Person/Entity', type: 'text' },
+                             { name: 'notes', label: 'Notes', type: 'text' },
+                          ]
+                    })} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded font-bold text-sm transition-colors flex items-center gap-2">
+                       <span className="text-lg leading-none">+</span> Add Transaction
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-400">
+                      <thead className="bg-[#1a1a1a] text-xs uppercase font-bold border-b border-gray-800">
+                        <tr>
+                          <th className="px-4 py-3">ID</th>
+                          <th className="px-4 py-3">Type</th>
+                          <th className="px-4 py-3">Amount</th>
+                          <th className="px-4 py-3">Person / Entity</th>
+                          <th className="px-4 py-3">Description</th>
+                          <th className="px-4 py-3">Notes</th>
+                          <th className="px-4 py-3">Date</th>
+                          <th className="px-4 py-3">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {transList.map((item, index) => (
+                           <tr key={index} className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-mono text-xs">{item.id}</td>
+                              <td className="px-4 py-3">
+                                 <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold ${item.type === 'income' ? 'bg-green-500/10 text-green-400' : item.type === 'expense' ? 'bg-red-500/10 text-red-400' : 'bg-gray-500/10 text-gray-400'}`}>{item.type}</span>
+                              </td>
+                              <td className={`px-4 py-3 font-mono ${item.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>${item.amount}</td>
+                              <td className="px-4 py-3">{item.person}</td>
+                              <td className="px-4 py-3">{item.description}</td>
+                              <td className="px-4 py-3 text-xs">{item.notes}</td>
+                              <td className="px-4 py-3 text-xs font-mono">{new Date(item.created_at || Date.now()).toLocaleDateString()}</td>
+                              <td className="px-4 py-3 flex gap-2">
+                                <button onClick={() => setCrudModal({
+                                    isOpen: true, mode: 'edit', table: 'transactions', item: item, fields: [
+                                       { name: 'type', label: 'Type', type: 'select', options: ['income', 'expense'] },
+                                       { name: 'amount', label: 'Amount ($)', type: 'number' },
+                                       { name: 'description', label: 'Description', type: 'text' },
+                                       { name: 'person', label: 'Person/Entity', type: 'text' },
+                                       { name: 'notes', label: 'Notes', type: 'text' },
+                                    ]
+                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">Edit</button>
+                                <button onClick={() => handleCrudDelete('transactions', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">Delete</button>
+                              </td>
+                           </tr>
+                        ))}
+                        {transList.length === 0 && (
+                          <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500 italic">No transactions found.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {adminTab === 'macros' && (
+              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+                <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
+                  <div className="flex justify-between items-center border-b border-gray-800 pb-4">
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Settings className="w-5 h-5 text-purple-500"/> Settings & Macros</h3>
+                    <button onClick={() => setCrudModal({
+                          isOpen: true, mode: 'create', table: 'settings', item: null, fields: [
+                             { name: 'type', label: 'Type', type: 'text' },
+                             { name: 'key', label: 'Key', type: 'text' },
+                             { name: 'value', label: 'Value', type: 'text' },
+                          ]
+                    })} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded font-bold text-sm transition-colors flex items-center gap-2">
+                       <span className="text-lg leading-none">+</span> Add Macro
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-400">
+                      <thead className="bg-[#1a1a1a] text-xs uppercase font-bold border-b border-gray-800">
+                        <tr>
+                          <th className="px-4 py-3">ID</th>
+                          <th className="px-4 py-3">Type</th>
+                          <th className="px-4 py-3">Key</th>
+                          <th className="px-4 py-3">Value</th>
+                          <th className="px-4 py-3">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {settingsList.map((item, index) => (
+                           <tr key={index} className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-mono text-xs">{item.id}</td>
+                              <td className="px-4 py-3">
+                                 <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-[10px] uppercase tracking-wider">{item.type}</span>
+                              </td>
+                              <td className="px-4 py-3 font-mono text-white">{item.key}</td>
+                              <td className="px-4 py-3 text-xs">{item.value?.substring(0, 50)}{item.value?.length > 50 ? '...' : ''}</td>
+                              <td className="px-4 py-3 flex gap-2">
+                                <button onClick={() => setCrudModal({
+                                    isOpen: true, mode: 'edit', table: 'settings', item: item, fields: [
+                                       { name: 'type', label: 'Type', type: 'text' },
+                                       { name: 'key', label: 'Key', type: 'text' },
+                                       { name: 'value', label: 'Value', type: 'text' },
+                                    ]
+                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">Edit</button>
+                                <button onClick={() => handleCrudDelete('settings', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">Delete</button>
+                              </td>
+                           </tr>
+                        ))}
+                        {settingsList.length === 0 && (
+                          <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500 italic">No settings or macros defined.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {adminTab === 'settings' && (
               <div className="max-w-4xl mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
@@ -1267,31 +1876,110 @@ export default function App() {
               <div className="max-w-6xl mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Star className="w-5 h-5 text-purple-500"/> Manage Promotions & Featured Banners</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Star className="w-5 h-5 text-purple-500"/> Product Offers & Promotions</h3>
                   </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-400">
+                      <thead className="bg-[#1a1a1a] text-xs uppercase font-bold border-b border-gray-800">
+                        <tr>
+                          <th className="px-4 py-3">ID</th>
+                          <th className="px-4 py-3">Name</th>
+                          <th className="px-4 py-3">Original Price</th>
+                          <th className="px-4 py-3">Discount Price</th>
+                          <th className="px-4 py-3">Featured</th>
+                          <th className="px-4 py-3">Category</th>
+                          <th className="px-4 py-3">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {productList.map((item, index) => (
+                           <tr key={index} className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-mono text-xs">{item.id}</td>
+                              <td className="px-4 py-3 font-bold text-white">{item.name}</td>
+                              <td className={`px-4 py-3 font-mono ${item.discountPrice ? 'line-through text-gray-500' : 'text-green-400'}`}>${item.sellingPrice}</td>
+                              <td className="px-4 py-3 font-mono text-purple-400 font-bold">{item.discountPrice ? `$${item.discountPrice}` : '-'}</td>
+                              <td className="px-4 py-3">
+                                 {item.isFeatured ? <span className="bg-purple-500/10 text-purple-400 px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider">Featured</span> : '-'}
+                              </td>
+                              <td className="px-4 py-3">
+                                 <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-[10px] uppercase tracking-wider">{item.category}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <button onClick={() => setPromoModal({isOpen: true, product: item, discountPrice: item.discountPrice || '', isFeatured: item.isFeatured || false})} className="bg-purple-600/20 text-purple-400 hover:bg-purple-600 hover:text-white px-3 py-1 rounded transition-colors text-xs font-bold border border-purple-500/30">
+                                  Apply Offer
+                                </button>
+                              </td>
+                           </tr>
+                        ))}
+                        {productList.length === 0 && (
+                          <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500 italic">No products available. Add products first.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <hr className="border-gray-800 my-4" />
+                  
+                  {/* Legacy Banners Section retained visually */}
+                  <h3 className="text-white font-bold text-lg flex items-center gap-2"><Layers className="w-5 h-5 text-purple-500"/> Featured Banners</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="flex flex-col gap-4 bg-black border border-gray-800 rounded-xl p-5 h-[500px] overflow-y-auto">
+                    <div className="flex flex-col gap-4 bg-black border border-gray-800 rounded-xl p-5 h-[400px] overflow-y-auto">
                        <h4 className="font-bold text-white text-sm">Add New Promotion Banner</h4>
                        <input type="text" placeholder="Title" value={newPromotion.title} onChange={e => setNewPromotion({...newPromotion, title: e.target.value})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" />
                        <input type="text" placeholder="Description" value={newPromotion.description} onChange={e => setNewPromotion({...newPromotion, description: e.target.value})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" />
                        <input type="text" placeholder="Image URL" value={newPromotion.imageUrl} onChange={e => setNewPromotion({...newPromotion, imageUrl: e.target.value})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" />
                        <input type="text" placeholder="Link To Category (Optional)" value={newPromotion.linkToCategory} onChange={e => setNewPromotion({...newPromotion, linkToCategory: e.target.value})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" />
                        
-                       <button onClick={() => {
+                       <button onClick={async () => {
                           if (newPromotion.title && newPromotion.imageUrl) {
-                             setPromotions([...promotions, { ...newPromotion, id: Math.random().toString() }]);
-                             setNewPromotion({ id: '', title: '', description: '', imageUrl: '', linkToCategory: '', active: true });
+                             try {
+                               const token = localStorage.getItem('ludex_token');
+                               const body = { title: newPromotion.title, description: newPromotion.description, image_url: newPromotion.imageUrl, link_to_category: newPromotion.linkToCategory, active: true };
+                               const res = await fetch('/api/admin/promotions', {
+                                 method: 'POST',
+                                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                 body: JSON.stringify(body)
+                               });
+                               if (res.ok) {
+                                  let saved = await res.json();
+                                  // Normalize fields
+                                  saved = { ...saved, imageUrl: saved.image_url, linkToCategory: saved.link_to_category };
+                                  setPromotions([...promotions, saved]);
+                                  setNewPromotion({ id: '', title: '', description: '', imageUrl: '', linkToCategory: '', active: true });
+                               }
+                             } catch(e) { console.error(e); }
                           }
-                       }} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition-colors mt-auto">Add Promotion</button>
+                       }} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition-colors mt-auto">Add Banner</button>
                     </div>
-                    <div className="bg-black border border-gray-800 rounded-xl p-5 h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 pr-2">
+                    <div className="bg-black border border-gray-800 rounded-xl p-5 h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 pr-2">
                        {promotions.map(promo => (
                           <div key={promo.id} className={`bg-[#111] border border-gray-800 rounded-lg p-4 mb-3 ${!promo.active ? 'opacity-50' : ''}`}>
                              <div className="flex justify-between items-start mb-2">
                                <h5 className="font-bold text-white text-sm">{promo.title}</h5>
                                <div className="flex gap-2">
-                                 <button onClick={() => setPromotions(promotions.map(p => p.id === promo.id ? {...p, active: !p.active} : p))} className={`${promo.active ? 'text-green-500 hover:text-green-400' : 'text-gray-500 hover:text-gray-400'}`}><CheckCircle2 className="w-4 h-4" /></button>
-                                 <button onClick={() => setPromotions(promotions.filter(p => p.id !== promo.id))} className="text-red-500 hover:text-red-400"><X className="w-4 h-4"/></button>
+                                 <button onClick={async () => {
+                                      const newActive = !promo.active;
+                                      const token = localStorage.getItem('ludex_token');
+                                      const res = await fetch(`/api/admin/promotions/${promo.id}`, {
+                                         method: 'PUT',
+                                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                         body: JSON.stringify({ active: newActive })
+                                      });
+                                      if (res.ok) {
+                                         setPromotions(promotions.map(p => p.id === promo.id ? {...p, active: newActive} : p));
+                                      }
+                                 }} className={`${promo.active ? 'text-green-500 hover:text-green-400' : 'text-gray-500 hover:text-gray-400'}`}><CheckCircle2 className="w-4 h-4" /></button>
+                                 <button onClick={async () => {
+                                      const token = localStorage.getItem('ludex_token');
+                                      const res = await fetch(`/api/admin/promotions/${promo.id}`, {
+                                         method: 'DELETE',
+                                         headers: { 'Authorization': `Bearer ${token}` }
+                                      });
+                                      if (res.ok || res.status === 204) {
+                                         setPromotions(promotions.filter(p => p.id !== promo.id));
+                                      }
+                                 }} className="text-red-500 hover:text-red-400"><X className="w-4 h-4"/></button>
                                </div>
                              </div>
                              <p className="text-xs text-gray-400 mb-2 truncate">{promo.description}</p>
@@ -1396,6 +2084,16 @@ export default function App() {
             />
           </div>
           <div className="flex items-center gap-4">
+            {isLoggedIn && userProfile.role === 'ADMIN' && (
+              <div 
+                className="relative cursor-pointer text-purple-400 hover:text-purple-300 transition-colors flex items-center justify-center min-h-[44px] min-w-[44px]"
+                onClick={() => { setActiveTab('admin'); setAdminTab('support'); }}
+                title="HQ Support Chat"
+              >
+                <MessageSquare className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border border-black shadow-[0_0_8px_#22c55e] animate-pulse"></span>
+              </div>
+            )}
             <div className={`relative cursor-pointer hover:text-purple-400 text-gray-400 transition-colors flex items-center justify-center min-h-[44px] min-w-[44px] ${cartAnimating ? 'animate-bounce-cart' : ''}`} onClick={() => setActiveTab('cart')}>
               <ShoppingBag className="w-5 h-5" />
               {cart.length > 0 && (
@@ -1609,7 +2307,72 @@ export default function App() {
                      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10 md:hidden"></div>
                      <div className="hidden md:block absolute inset-0 bg-gradient-to-l from-transparent via-black/20 to-black z-10"></div>
                      <div className="absolute inset-0 border-[3px] border-purple-500/10 rounded-2xl z-20 pointer-events-none"></div>
-                   </div>
+                    </div>
+                 </div>
+              )}
+
+              {/* Exclusive Offers Section */}
+              {!activeCategory && !searchQuery && publicProducts.filter(p => p.discountPrice || p.isFeatured).length > 0 && (
+                <div className="mb-10 w-full overflow-hidden flex flex-col gap-4 animate-in fade-in duration-500">
+                  <div className="flex items-center gap-3">
+                     <Zap className="w-6 h-6 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]" />
+                     <h2 className="text-2xl font-black italic tracking-wide text-white uppercase"><span className="text-purple-400">Exclusive</span> Offers</h2>
+                     <div className="h-[1px] flex-1 bg-gradient-to-r from-purple-500/50 to-transparent ml-4"></div>
+                  </div>
+                  <div className="flex gap-4 overflow-x-auto pb-4 pt-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-purple-900/50">
+                    {publicProducts.filter(p => p.discountPrice || p.isFeatured).map(product => (
+                      <div key={product.id} className="min-w-[280px] w-[280px] snap-start bg-[#0a0a0a] border border-purple-900/30 rounded-xl overflow-hidden relative group hover:border-purple-500/50 transition-all hover:shadow-[0_0_20px_rgba(147,51,234,0.3)] shadow-[0_0_15px_rgba(0,0,0,0.5)] flex flex-col cursor-pointer" onClick={() => {
+                          const matchingGame = gamesList.find(g => g.id === product.id);
+                          if(matchingGame) {
+                            setSelectedGameId(matchingGame.id);
+                            setIsGameDetailOpen(true);
+                          } else {
+                            // Mock opening detail for fetched db product if not in legacy list
+                            console.log("Open product details", product.id);
+                          }
+                      }}>
+                         {/* Badge */}
+                         {product.discountPrice && (
+                           <div className="absolute top-3 left-3 z-20 bg-red-600 text-white text-[10px] uppercase font-black px-2 py-1 rounded shadow-[0_0_10px_#dc2626]">SALE</div>
+                         )}
+                         {product.isFeatured && !product.discountPrice && (
+                           <div className="absolute top-3 left-3 z-20 bg-purple-600 text-white text-[10px] uppercase font-black px-2 py-1 rounded shadow-[0_0_10px_#9333ea]">FEATURED</div>
+                         )}
+                         <div className="h-40 bg-gradient-to-br from-purple-900/40 to-black relative overflow-hidden">
+                           <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=600&auto=format&fit=crop')] bg-cover opacity-50 mix-blend-overlay group-hover:scale-110 transition-transform duration-700"></div>
+                           <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent"></div>
+                         </div>
+                         <div className="p-5 flex flex-col flex-1 z-10 -mt-10">
+                           <p className="text-xs text-purple-400 font-bold uppercase tracking-wider mb-1 drop-shadow-md">{product.category}</p>
+                           <h3 className="text-lg font-black text-white leading-tight mb-2 truncate">{product.name}</h3>
+                           <div className="mt-auto pt-4 flex items-center justify-between">
+                             <div className="flex flex-col">
+                               {product.discountPrice ? (
+                                  <>
+                                    <span className="text-xs text-gray-500 line-through font-mono">${product.sellingPrice}</span>
+                                    <span className="text-xl font-black text-green-400 font-mono shadow-green-500/20 drop-shadow-lg">${product.discountPrice}</span>
+                                  </>
+                               ) : (
+                                  <span className="text-xl font-black text-white font-mono">${product.sellingPrice}</span>
+                               )}
+                             </div>
+                             <button className="bg-white/10 hover:bg-purple-600 text-white p-2 rounded-lg transition-colors border border-white/10 group-hover:border-purple-500/50" onClick={(e) => {
+                                 e.stopPropagation();
+                                 const item = {
+                                    id: product.id,
+                                    title: product.name,
+                                    price: product.discountPrice ? Number(product.discountPrice) : Number(product.sellingPrice),
+                                    image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=600&auto=format&fit=crop'
+                                 };
+                                 addToCart(item as any);
+                             }}>
+                               <ShoppingBag className="w-4 h-4" />
+                             </button>
+                           </div>
+                         </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -2069,7 +2832,123 @@ export default function App() {
         </main>
       </div>
 
+      {/* Generic CRUD Modal */}
+      {crudModal.isOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-[#111] border border-gray-800 rounded-xl w-full max-w-md p-6 relative shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-4 capitalize">{crudModal.mode} {crudModal.table}</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              const data: any = {};
+              crudModal.fields.forEach(f => {
+                const val = fd.get(f.name);
+                if (f.type === 'number') data[f.name] = Number(val);
+                else if (f.type === 'boolean') data[f.name] = fd.get(f.name) === 'on' ? true : false;
+                else data[f.name] = val;
+              });
+              handleCrudSubmit(data);
+            }} className="flex flex-col gap-4">
+              {crudModal.fields.map(f => (
+                <div key={f.name}>
+                  <label className="text-xs font-bold text-gray-500 uppercase">{f.label}</label>
+                  {f.type === 'select' ? (
+                     <select name={f.name} defaultValue={crudModal.item?.[f.name]} className="w-full bg-black border border-gray-800 rounded p-2 text-white font-mono mt-1 focus:outline-none focus:border-purple-500">
+                        {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                     </select>
+                  ) : f.type === 'boolean' ? (
+                     <div className="flex items-center gap-2 mt-2">
+                        <input type="checkbox" name={f.name} defaultChecked={crudModal.item?.[f.name]} className="w-4 h-4 accent-purple-500" />
+                        <span className="text-sm font-bold text-gray-300">Yes / No</span>
+                     </div>
+                  ) : (
+                    <input 
+                      type={f.type === 'password' ? 'text' : f.type === 'number' ? 'number' : 'text'} 
+                      step={f.type === 'number' ? 'any' : undefined}
+                      name={f.name}
+                      defaultValue={f.type === 'password' && crudModal.mode === 'edit' ? 'MASKED' : crudModal.item?.[f.name]} 
+                      className="w-full bg-black border border-gray-800 rounded p-2 text-white font-mono mt-1 focus:outline-none focus:border-purple-500" 
+                      required
+                    />
+                  )}
+                </div>
+              ))}
+              <div className="flex gap-3 justify-end mt-4">
+                <button type="button" onClick={() => setCrudModal({...crudModal, isOpen: false})} className="px-4 py-2 text-gray-400 hover:text-white font-bold text-sm transition-colors">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded font-bold text-sm transition-colors">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Game Detail Modal */}
+      {promoModal.isOpen && promoModal.product && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-[#111] border border-purple-900/50 rounded-xl w-full max-w-md p-6 relative shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-4">Apply Offer: {promoModal.product.name}</h3>
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase">Original Price</label>
+                <p className="text-white font-mono">${promoModal.product.sellingPrice}</p>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase">Discount Price (Optional)</label>
+                <input 
+                  type="number" 
+                  value={promoModal.discountPrice} 
+                  onChange={e => setPromoModal({...promoModal, discountPrice: e.target.value})} 
+                  placeholder="e.g. 19.99"
+                  className="w-full bg-black border border-gray-800 rounded p-2 text-white font-mono mt-1 focus:outline-none focus:border-purple-500" 
+                />
+              </div>
+              <div className="flex items-center gap-3 mt-2">
+                <input 
+                  type="checkbox" 
+                  id="isFeatured"
+                  checked={promoModal.isFeatured} 
+                  onChange={e => setPromoModal({...promoModal, isFeatured: e.target.checked})} 
+                  className="w-4 h-4 accent-purple-500" 
+                />
+                <label htmlFor="isFeatured" className="text-sm font-bold text-gray-300">Feature this product on Storefront</label>
+              </div>
+              <div className="flex gap-3 justify-end mt-4">
+                <button 
+                  onClick={() => setPromoModal({isOpen: false, product: null, discountPrice: '', isFeatured: false})} 
+                  className="px-4 py-2 text-gray-400 hover:text-white font-bold text-sm transition-colors"
+                >Cancel</button>
+                <button 
+                  onClick={async () => {
+                    const dp = parseFloat(promoModal.discountPrice) || null;
+                    try {
+                      const token = localStorage.getItem('ludex_token');
+                      const res = await fetch(`/api/admin/products/${promoModal.product.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({
+                          discountPrice: dp,
+                          isFeatured: promoModal.isFeatured
+                        })
+                      });
+                      if (res.ok) {
+                        setPromoModal({isOpen: false, product: null, discountPrice: '', isFeatured: false});
+                        // Refresh list
+                        const resList = await fetch('/api/admin/products', { headers: { 'Authorization': `Bearer ${token}` } });
+                        if (resList.ok) setProductList(await resList.json());
+                        // Refresh public
+                        const publicRes = await fetch('/api/public/products');
+                        if (publicRes.ok) setPublicProducts(await publicRes.json());
+                      }
+                    } catch(e) { console.error(e); }
+                  }} 
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded font-bold text-sm transition-colors"
+                >Save Offer</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isGameDetailOpen && selectedGameId !== null && (() => {
         const game = gamesList.find(g => g.id === selectedGameId);
         if (!game) return null;
