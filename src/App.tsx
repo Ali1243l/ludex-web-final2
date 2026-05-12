@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ShoppingBag, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, Send, CreditCard, Upload, User, Settings, AlertCircle, CheckCircle2, Shield, Key, Package, Layers, Clock, Gift, Download, Check, Menu, Filter, ChevronDown, LogOut, Star, Tag, TrendingUp } from 'lucide-react';
+import { Search, ShoppingBag, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, Send, CreditCard, Upload, User, Settings, Home, ListOrdered, AlertCircle, CheckCircle2, Shield, Key, Package, Layers, Clock, Gift, Download, Check, Menu, Filter, ChevronDown, LogOut, Star, Tag, TrendingUp } from 'lucide-react';
 import { t } from './translations';
 
 const GAMES_DATA = [
@@ -656,7 +656,7 @@ export default function App() {
 
   return (
     <>
-    <div dir={language === "ar" ? "rtl" : "ltr"} className="min-h-screen h-screen bg-[#050505] text-[#F3F4F6] font-sans flex flex-col overflow-hidden relative select-none">
+    <div dir={language === "ar" ? "rtl" : "ltr"} className="min-h-screen h-screen bg-[#050505] text-[#F3F4F6] font-sans flex flex-col overflow-hidden relative select-none pb-20 md:pb-0">
       {/* Atmospheric Background Glow */}
       <div className="absolute top-[-200px] left-[-200px] w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-100px] right-[-100px] w-[400px] h-[400px] bg-purple-900/20 rounded-full blur-[100px] pointer-events-none"></div>
@@ -2078,17 +2078,21 @@ export default function App() {
       ) : (
         <>
           {/* Navbar */}
-      <nav className="h-20 w-full px-4 md:px-8 flex items-center justify-between border-b border-purple-900/30 bg-black/40 backdrop-blur-md z-10 flex-shrink-0 relative">
+      <nav className="h-16 md:h-20 w-full px-4 md:px-8 flex items-center justify-between border-b border-purple-900/30 bg-[#050505]/80 backdrop-blur-md z-10 flex-shrink-0 relative">
         {toastMessage && (
-          <div className="fixed top-24 left-1/2 -translate-x-1/2 md:translate-x-0 md:top-auto md:left-auto md:bottom-10 md:right-10 z-[300] bg-[#111] border border-purple-500 backdrop-blur w-[90%] md:w-auto md:min-w-[300px] text-white px-6 py-4 rounded-xl shadow-[0_0_25px_rgba(168,85,247,0.4)] font-bold flex items-center gap-3 animate-in fade-in slide-in-from-top-5 md:slide-in-from-bottom-5 duration-300">
+          <div className="fixed top-24 left-1/2 -translate-x-1/2 md:translate-x-0 md:top-auto md:left-auto md:bottom-10 md:right-10 z-[300] bg-[#111] border border-purple-500 backdrop-blur w-[90%] md:w-auto md:min-w-[300px] text-white px-6 py-4 rounded-xl shadow-[0_0_25px_rgba(168,85,247,0.4)] font-bold flex items-center gap-3 animate-in fade-in duration-300">
             <CheckCircle2 className="w-5 h-5 text-purple-400" />
             {toastMessage}
           </div>
         )}
         <div className="flex items-center justify-center flex-none md:justify-start gap-10">
-          <div className="text-xl md:text-2xl font-black tracking-tighter text-white cursor-pointer text-center" onClick={() => { setActiveTab('store'); setActiveCategory(null); setIsMobileMenuOpen(false); }}>
-            <span className="md:hidden mr-3" onClick={(e) => { e.stopPropagation(); setIsMobileMenuOpen(true); }}><Menu className="w-6 h-6 inline" /></span>
+          <div className="text-xl md:text-2xl font-black tracking-tighter text-white cursor-pointer text-center hidden md:block" onClick={() => { setActiveTab('store'); setActiveCategory(null); setIsMobileMenuOpen(false); }}>
             LUDEX<span className="text-purple-500">STORE</span>
+          </div>
+          {/* Mobile Logo Only */}
+          <div className="text-xl font-black tracking-tighter text-white cursor-pointer md:hidden flex items-center gap-2" onClick={() => { setActiveTab('store'); setActiveCategory(null); }}>
+            <span className="bg-purple-600 text-white w-8 h-8 flex items-center justify-center rounded-lg shadow-[0_0_15px_rgba(147,51,234,0.5)]">L</span>
+            <span>LUDEX<span className="text-purple-500">STORE</span></span>
           </div>
           
           <div className="hidden md:flex gap-8 text-sm font-bold text-gray-400 tracking-widest">
@@ -2111,10 +2115,16 @@ export default function App() {
               className="bg-[#111] border border-purple-900/40 rounded-full py-2 ps-10 pe-4 text-sm w-64 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500 transition-colors focus:bg-purple-900/10 min-h-[44px]" 
             />
           </div>
+          
+          {/* Mobile Search Icon */}
+          <div className="md:hidden flex items-center justify-center p-2 text-gray-400 hover:text-white cursor-pointer" onClick={() => { setIsMobileMenuOpen(true) }}>
+             <Search className="w-5 h-5" />
+          </div>
+
           <div className="flex items-center gap-4">
             {isLoggedIn && userProfile.role === 'ADMIN' && (
               <div 
-                className="relative cursor-pointer text-purple-400 hover:text-purple-300 transition-colors flex items-center justify-center min-h-[44px] min-w-[44px]"
+                className="relative cursor-pointer text-purple-400 hover:text-purple-300 transition-colors flex items-center justify-center min-h-[44px] min-w-[44px] hidden md:flex"
                 onClick={() => { setActiveTab('admin'); setAdminTab('support'); }}
                 title={t[language].hqSupChat}
               >
@@ -2122,12 +2132,14 @@ export default function App() {
                 <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border border-black shadow-[0_0_8px_#22c55e] animate-pulse"></span>
               </div>
             )}
-            <div className={`relative cursor-pointer hover:text-purple-400 text-gray-400 transition-colors flex items-center justify-center min-h-[44px] min-w-[44px] ${cartAnimating ? 'animate-bounce-cart' : ''}`} onClick={() => setActiveTab('cart')}>
+            
+            <div className={`relative cursor-pointer hover:text-purple-400 text-gray-400 transition-colors flex items-center justify-center min-h-[44px] min-w-[44px] hidden md:flex ${cartAnimating ? 'animate-bounce-cart' : ''}`} onClick={() => setActiveTab('cart')}>
               <ShoppingBag className="w-5 h-5" />
               {cart.length > 0 && (
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 border-2 border-black rounded-full shadow-[0_0_8px_#ef4444] text-[8px] flex items-center justify-center font-bold text-white transition-all transform hover:scale-110">{cart.length}</span>
               )}
             </div>
+            
             <div className="relative">
               {isLoggedIn ? (
                 <>
@@ -2177,9 +2189,10 @@ export default function App() {
                     <button onClick={() => setShowAuthModal('register')} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">{t[language].register}</button>
                   </div>
                   <div className="md:hidden">
-                    <div onClick={() => setShowAuthModal('login')} className="w-8 h-8 bg-[#111] rounded-full border border-gray-800 cursor-pointer overflow-hidden hover:border-purple-400 transition-colors flex items-center justify-center text-gray-500">
-                       <User className="w-4 h-4" />
-                    </div>
+                    <button onClick={() => setShowAuthModal('login')} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-2 uppercase">
+                      <User className="w-3.5 h-3.5" />
+                      {t[language].signIn}
+                    </button>
                   </div>
                 </>
               )}
@@ -2316,7 +2329,7 @@ export default function App() {
           {activeTab === 'store' && (
             <>
               {!activeCategory && !searchQuery && promotions.filter(p => p.active).length > 0 && (
-                <div className="mb-10 w-full overflow-hidden rounded-2xl border border-purple-500/30 relative group bg-black shadow-[0_0_30px_rgba(168,85,247,0.15)] flex flex-col md:flex-row h-auto md:h-80">
+                <div className="mb-6 sm:mb-10 w-full overflow-hidden rounded-2xl border border-purple-500/30 relative group bg-black shadow-[0_0_30px_rgba(168,85,247,0.15)] flex flex-col md:flex-row h-auto md:h-80">
                    {/* Promo Banner Info */}
                    <div className="flex-1 p-8 md:p-12 flex flex-col justify-center relative z-10 bg-gradient-to-r from-black via-black/90 to-transparent">
                       <span className="text-purple-400 font-black tracking-widest text-xs uppercase mb-3 px-3 py-1 bg-purple-900/30 rounded-full w-fit">Featured Promo</span>
@@ -2378,15 +2391,15 @@ export default function App() {
                            <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=600&auto=format&fit=crop')] bg-cover opacity-50 mix-blend-overlay group-hover:scale-110 transition-transform duration-700"></div>
                            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent"></div>
                          </div>
-                         <div className="p-5 flex flex-col flex-1 z-10 -mt-10">
+                         <div className="p-3 sm:p-5 flex flex-col flex-1 z-10 -mt-8 sm:-mt-10">
                            <p className="text-xs text-purple-400 font-bold uppercase tracking-wider mb-1 drop-shadow-md">{product.category}</p>
-                           <h3 className="text-lg font-black text-white leading-tight mb-2 truncate">{product.name}</h3>
+                           <h3 className="text-sm sm:text-lg font-black text-white leading-tight mb-1 sm:mb-2 line-clamp-2 sm:truncate">{product.name}</h3>
                            <div className="mt-auto pt-4 flex items-center justify-between">
                              <div className="flex flex-col">
                                {product.discountPrice ? (
                                   <>
                                     <span className="text-xs text-gray-500 line-through font-mono">${product.sellingPrice}</span>
-                                    <span className="text-xl font-black text-green-400 font-mono shadow-green-500/20 drop-shadow-lg">${product.discountPrice}</span>
+                                    <span className="text-base sm:text-xl font-black text-green-400 font-mono shadow-green-500/20 drop-shadow-lg">${product.discountPrice}</span>
                                   </>
                                ) : (
                                   <span className="text-xl font-black text-white font-mono">${product.sellingPrice}</span>
@@ -2412,11 +2425,33 @@ export default function App() {
                 </div>
               )}
 
+
+              {/* Mobile Categories Slider */}
+              <div className="lg:hidden w-full overflow-x-auto pb-4 mb-4 flex gap-3 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-purple-900/50">
+                <button 
+                  onClick={() => setActiveCategory(null)}
+                  className={`flex-none snap-start px-5 py-2 rounded-full border text-sm font-bold whitespace-nowrap transition-all ${!activeCategory ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-[#111] border-gray-800 text-gray-400 hover:text-white'}`}
+                >
+                  {t[language].allGames || 'All Games'}
+                </button>
+                {CATEGORIES.map(cat => (
+                  <button 
+                    key={cat.name}
+                    onClick={() => setActiveCategory(cat.name === activeCategory ? null : cat.name)}
+                    className={`flex-none snap-start px-5 py-2 rounded-full border text-sm font-bold whitespace-nowrap flex items-center gap-2 transition-all ${activeCategory === cat.name ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-[#111] border-gray-800 text-gray-400 hover:text-white'}`}
+                  >
+                    <cat.icon className="w-4 h-4 opacity-70" />
+                    {cat.name === 'PC Game Keys' ? t[language].pcKeys : cat.name === 'Console Subs' ? t[language].consoleSubs : cat.name === 'In-game Currency' ? t[language].inGameCurrency : cat.name === 'Software' ? t[language].software : cat.name}
+                  </button>
+                ))}
+              </div>
+
               <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 md:mb-8 gap-4">
                 <div>
                   <h1 className="text-[clamp(1.5rem,5vw,2.25rem)] leading-snug md:leading-tight font-bold tracking-tight">{t[language].discover} <span className="text-purple-500">{t[language].worlds}</span></h1>
                   <p className="text-gray-500 text-sm mt-1">{t[language].desc}</p>
                 </div>
+
                 <div className="flex gap-2">
                   <button 
                     onClick={() => setIsFilterOpen(!isFilterOpen)}
@@ -2459,7 +2494,7 @@ export default function App() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-6 w-full">
                 {filteredGames.length === 0 ? (
                   <div className="col-span-full py-20 text-center text-gray-500">
                     <p>{t[language].noGamesFound}</p>
@@ -2468,9 +2503,9 @@ export default function App() {
                   filteredGames.slice(0, visibleGamesCount).map(game => (
                     <div key={game.id} className="group bg-[#0d0d0d] border border-purple-900/20 rounded-2xl flex flex-col h-full hover:border-purple-500/50 transition-all duration-300 hover:shadow-[0_0_25px_rgba(147,51,234,0.3)] hover:-translate-y-1">
                       <div onClick={() => { setSelectedGameId(game.id); setIsGameDetailOpen(true); }} className="cursor-pointer">
-                        <div className={`h-48 bg-gradient-to-br ${game.theme} relative rounded-t-2xl overflow-hidden`}>
+                        <div className={`aspect-[3/4] sm:aspect-[4/5] bg-gradient-to-br ${game.theme} relative rounded-t-2xl sm:rounded-t-2xl overflow-hidden`}>
                           <img src={game.image} alt={game.title} className="w-full h-full object-cover mix-blend-overlay opacity-60 group-hover:opacity-80 transition-opacity" />
-                          <div className={`absolute bottom-3 left-3 bg-black/80 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold uppercase border ${game.badgeColor}`}>
+                          <div className={`absolute bottom-2 left-2 sm:bottom-3 sm:left-3 bg-black/80 backdrop-blur-md px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[8px] sm:text-[10px] font-bold uppercase border ${game.badgeColor} max-w-[80%] truncate`}>
                             {game.type}
                           </div>
                           <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1">
@@ -2482,12 +2517,12 @@ export default function App() {
                           </div>
                         </div>
                       </div>
-                      <div className="p-5 flex-1 flex flex-col justify-between items-stretch">
+                      <div className="p-3 sm:p-5 flex-1 flex flex-col justify-between items-stretch">
                         <div onClick={() => { setSelectedGameId(game.id); setIsGameDetailOpen(true); }} className="cursor-pointer">
                           <div className="flex justify-between items-start mb-1 gap-2">
-                            <h4 className="font-bold text-base leading-tight text-gray-100 group-hover:text-purple-400 transition-colors uppercase">{game.title}</h4>
+                            <h4 className="font-bold text-xs sm:text-base leading-tight text-gray-100 group-hover:text-purple-400 transition-colors uppercase line-clamp-2">{game.title}</h4>
                           </div>
-                          <p className="text-[11px] text-gray-500 mb-6">{game.tags}</p>
+                          <p className="text-[9px] sm:text-[11px] text-gray-500 mb-3 sm:mb-6 line-clamp-1">{game.tags}</p>
                         </div>
                         <div className="flex items-end justify-between mt-auto">
                           <div onClick={() => { setSelectedGameId(game.id); setIsGameDetailOpen(true); }} className="cursor-pointer">
@@ -2501,7 +2536,7 @@ export default function App() {
                           <button 
                             disabled={!game.stock || game.stock === 0}
                             onClick={(e) => { e.stopPropagation(); addToCart(game.id); }}
-                            className="bg-white text-black text-xs font-bold px-5 py-2.5 rounded-lg hover:bg-gray-200 transition-all active:scale-95 shadow-[0_4px_10px_rgba(255,255,255,0.1)] hover:shadow-[0_4px_15px_rgba(255,255,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+                            className="bg-white text-black text-[10px] sm:text-xs font-bold px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-lg hover:bg-gray-200 transition-all active:scale-95 shadow-[0_4px_10px_rgba(255,255,255,0.1)] hover:shadow-[0_4px_15px_rgba(255,255,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none whitespace-nowrap"
                           >
                             {t[language].buy}
                           </button>
@@ -2868,8 +2903,40 @@ export default function App() {
         </main>
       </div>
 
+      
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 w-full h-20 bg-[#0a0a0a]/90 backdrop-blur-xl border-t border-purple-900/40 z-[90] flex items-center justify-around pb-safe shadow-[0_-5px_30px_rgba(168,85,247,0.15)] pb-2" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        <button onClick={() => { setActiveTab('store'); setActiveCategory(null); }} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'store' ? 'text-purple-400' : 'text-gray-500 hover:text-purple-300 transition-colors'}`}>
+          <Home className={`w-6 h-6 ${activeTab === 'store' ? 'drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]' : ''}`} />
+          <span className="text-[10px] font-bold uppercase tracking-wider">{t[language].store}</span>
+        </button>
+        <button onClick={() => { setActiveTab('cart'); }} className={`relative flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'cart' ? 'text-purple-400' : 'text-gray-500 hover:text-purple-300 transition-colors'}`}>
+          <ShoppingBag className={`w-6 h-6 ${cartAnimating ? 'animate-bounce-cart' : ''} ${activeTab === 'cart' ? 'drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]' : ''}`} />
+          {cart.length > 0 && (
+             <span className="absolute top-[8px] right-[20px] w-4 h-4 bg-red-500 border-2 border-[#0a0a0a] rounded-full text-[9px] flex items-center justify-center font-bold text-white scale-110 shadow-[0_0_8px_#ef4444] animate-in zoom-in">{cart.length}</span>
+          )}
+          <span className="text-[10px] font-bold uppercase tracking-wider">{t[language].cart || 'Cart'}</span>
+        </button>
+        {isLoggedIn ? (
+          <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('orders'); }} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'user_dashboard' && userDashboardTab === 'orders' ? 'text-purple-400' : 'text-gray-500 hover:text-purple-300 transition-colors'}`}>
+            <ListOrdered className={`w-6 h-6 ${activeTab === 'user_dashboard' && userDashboardTab === 'orders' ? 'drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]' : ''}`} />
+            <span className="text-[10px] font-bold uppercase tracking-wider">{t[language].orders}</span>
+          </button>
+        ) : (
+          <button onClick={() => { setShowAuthModal('login') }} className="flex flex-col items-center justify-center w-full h-full space-y-1 text-gray-500 hover:text-purple-300 transition-colors">
+            <User className="w-6 h-6" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">{t[language].signIn}</span>
+          </button>
+        )}
+        <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isMobileMenuOpen ? 'text-purple-400' : 'text-gray-500 hover:text-purple-300 transition-colors'}`}>
+          <Menu className="w-6 h-6" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">Menu</span>
+        </button>
+      </div>
+      
       {/* Bottom Bar Info */}
-      <footer className="w-full bg-black/60 backdrop-blur-md border-t border-purple-900/30 px-6 md:px-8 py-6 md:py-0 md:h-12 flex flex-col md:flex-row items-center justify-center md:justify-between text-[10px] text-gray-500 uppercase tracking-[0.2em] font-medium flex-shrink-0 z-10 relative gap-4 md:gap-0 mt-auto">
+
+      <footer className="hidden md:flex w-full bg-black/60 backdrop-blur-md border-t border-purple-900/30 px-6 md:px-8 py-6 md:py-0 md:h-12 flex-col md:flex-row items-center justify-center md:justify-between text-[10px] text-gray-500 uppercase tracking-[0.2em] font-medium flex-shrink-0 z-10 relative gap-4 md:gap-0 mt-auto">
         <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
           <span>&copy; 2026 LUDEX STORE - ALL RIGHTS RESERVED</span>
           {isLoggedIn && userProfile.role === 'ADMIN' && (
