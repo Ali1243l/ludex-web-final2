@@ -1,0 +1,18 @@
+const testLogin = async () => {
+    const res = await fetch('http://localhost:3000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'AbuHassan_Admin', password: 'Admin123!' })
+    });
+    const data = await res.json();
+    console.log("Login Res:", data);
+    
+    if (data.token) {
+        const subsRes = await fetch('http://localhost:3000/api/admin/subscriptions', {
+            headers: { 'Authorization': 'Bearer ' + data.token }
+        });
+        const subs = await subsRes.json();
+        console.log("Subs:", subs);
+    }
+};
+testLogin();

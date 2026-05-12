@@ -103,11 +103,11 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [cart, setCart] = useState<number[]>([]);
+  const [cart, setCart] = useState<(number | string)[]>([ ]);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isGameDetailOpen, setIsGameDetailOpen] = useState(false);
-  const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
+  const [selectedGameId, setSelectedGameId] = useState<number | string | null>(null);
   const [adminTab, setAdminTab] = useState<'dashboard' | 'games' | 'categories' | 'customers' | 'orders' | 'financials' | 'payments' | 'settings' | 'support' | 'pages' | 'promotions' | 'promo_codes' | 'subscriptions' | 'products' | 'transactions' | 'sales' | 'macros'>('dashboard');
   const [adminMenuState, setAdminMenuState] = useState({ catalog: false, marketing: false, sales: false, ledger: false, system: false });
   const toggleAdminMenu = (menu: 'catalog' | 'marketing' | 'sales' | 'ledger' | 'system') => setAdminMenuState(prev => ({ ...prev, [menu]: !prev[menu] }));
@@ -279,8 +279,8 @@ export default function App() {
   const [promoError, setPromoError] = useState('');
   const [newPromoCode, setNewPromoCode] = useState({ id: '', code: '', discountPercent: '', expiryDate: '', usageLimit: '', usedCount: 0, active: true });
 
-  const [language, setLanguage] = useState<'en' | 'ar'>('en');
-  const [currency, setCurrency] = useState<'USD' | 'IQD'>('USD');
+  const [language, setLanguage] = useState<'en' | 'ar'>('ar');
+  const [currency, setCurrency] = useState<'USD' | 'IQD'>('IQD');
   const [globalSettings, setGlobalSettings] = useState({
      currencyRate: 1500,
      storeName: "LUDEX STORE",
@@ -289,6 +289,9 @@ export default function App() {
   });
   const currencyRate = globalSettings.currencyRate;
   const [gamesList, setGamesList] = useState(GAMES_DATA.map(g => ({...g, active: true})));
+  const [publishModal, setPublishModal] = useState<{isOpen: boolean, subscription: any, costPrice: string, sellingPrice: string, image: string, type: string, category: string}>({
+      isOpen: false, subscription: null, costPrice: '', sellingPrice: '', image: '', type: 'Account', category: 'Game'
+  });
   const [cmsPages, setCmsPages] = useState<CMSPage[]>(INITIAL_PAGES);
   
   const [categoriesList, setCategoriesList] = useState([
@@ -368,7 +371,29 @@ export default function App() {
     const fetchPublicData = async () => {
       try {
         const res = await fetch('/api/public/products');
-        if (res.ok) setPublicProducts(await res.json());
+        if (res.ok) {
+           const dbProducts = await res.json();
+           setPublicProducts(dbProducts);
+           const mappedDb = dbProducts.map((p: any) => ({
+              id: p.id,
+              title: p.name,
+              category: p.category,
+              type: p.type || 'Digital',
+              originalPrice: null,
+              price: Number(p.sellingPrice) || 0,
+              stock: 99,
+              rating: 5,
+              image: p.image_url || "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop",
+              description: `Storefront item for ${p.name}`,
+              active: true
+           }));
+           // Avoid injecting duplicates into gamesList if they already exist (e.g. by name/id)
+           setGamesList(prev => {
+              const base = Object.keys(prev).length && prev[0].title ? prev : GAMES_DATA.map(g => ({...g, active: true}));
+              // filter out any previously dynamically added items (we'll just append to GAMES_DATA)
+              return [...GAMES_DATA.map(g => ({...g, active: true})), ...mappedDb];
+           });
+        }
 
         const resPromo = await fetch('/api/public/promotions');
         if (resPromo.ok) {
@@ -462,7 +487,7 @@ export default function App() {
     return result;
   }, [searchQuery, activeCategory, sortBy, gamesList]);
 
-  const addToCart = (id: number) => {
+  const addToCart = (id: number | string) => {
     setCart(prev => [...prev, id]);
     setToastMessage("Item added to cart successfully!");
     setCartAnimating(true);
@@ -630,7 +655,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen h-screen bg-[#050505] text-[#F3F4F6] font-sans flex flex-col overflow-hidden relative select-none">
+    <>
+    <div dir={language === "ar" ? "rtl" : "ltr"} className="min-h-screen h-screen bg-[#050505] text-[#F3F4F6] font-sans flex flex-col overflow-hidden relative select-none">
       {/* Atmospheric Background Glow */}
       <div className="absolute top-[-200px] left-[-200px] w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-100px] right-[-100px] w-[400px] h-[400px] bg-purple-900/20 rounded-full blur-[100px] pointer-events-none"></div>
@@ -650,7 +676,7 @@ export default function App() {
         ) : (
         <div className="flex-1 flex overflow-hidden z-10 w-full h-full bg-[#050505]">
           {/* Admin Sidebar */}
-          <div className="w-64 bg-[#0a0a0a] border-r border-purple-900/40 p-4 flex flex-col gap-2 relative z-20">
+          <div className="w-64 bg-[#0a0a0a] border-e border-purple-900/40 p-4 flex flex-col gap-2 relative z-20 overflow-y-auto custom-scrollbar flex-shrink-0 h-full">
             <div className="px-4 py-6 border-b border-gray-800 mb-6 flex flex-col gap-2">
               <h3 className="font-black text-purple-500 text-xl flex items-center gap-2">
                 <Shield className="w-6 h-6" /> LUDEX HQ
@@ -662,7 +688,7 @@ export default function App() {
               onClick={() => setAdminTab('dashboard')} 
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${adminTab === 'dashboard' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
             >
-              <Layers className="w-4 h-4" /> Dashboard
+              <Layers className="w-4 h-4" /> {t[language].dashboard}
             </button>
             <button 
               onClick={() => setAdminTab('support')} 
@@ -675,15 +701,15 @@ export default function App() {
                 onClick={() => toggleAdminMenu('catalog')} 
                 className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all text-gray-400 hover:bg-white/5 hover:text-white"
               >
-                <div className="flex items-center gap-3"><Package className="w-4 h-4" /> Catalog & Stock</div>
+                <div className="flex items-center gap-3"><Package className="w-4 h-4" /> {t[language].catalogStock}</div>
                 <ChevronDown className={`w-4 h-4 transition-transform ${adminMenuState.catalog ? 'rotate-180' : ''}`} />
               </button>
               {adminMenuState.catalog && (
                 <div className="pl-6 flex flex-col gap-1">
-                  <button onClick={() => setAdminTab('subscriptions')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'subscriptions' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Key className="w-4 h-4" /> Subscriptions (Stock)</button>
-                  <button onClick={() => setAdminTab('products')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'products' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><ShoppingBag className="w-4 h-4" /> Products (Storefront)</button>
-                  <button onClick={() => setAdminTab('games')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'games' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Package className="w-4 h-4" /> Inventory (Legacy)</button>
-                  <button onClick={() => setAdminTab('categories')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'categories' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Layers className="w-4 h-4" /> Categories (Legacy)</button>
+                  <button onClick={() => setAdminTab('subscriptions')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'subscriptions' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Key className="w-4 h-4" />{t[language].adminSubs}</button>
+                  <button onClick={() => setAdminTab('products')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'products' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><ShoppingBag className="w-4 h-4" />{t[language].adminProds}</button>
+                  <button onClick={() => setAdminTab('games')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'games' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Package className="w-4 h-4" />{t[language].adminInv}</button>
+                  <button onClick={() => setAdminTab('categories')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'categories' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Layers className="w-4 h-4" />{t[language].adminCats}</button>
                 </div>
               )}
             </div>
@@ -693,14 +719,14 @@ export default function App() {
                 onClick={() => toggleAdminMenu('sales')} 
                 className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all text-gray-400 hover:bg-white/5 hover:text-white"
               >
-                <div className="flex items-center gap-3"><User className="w-4 h-4" /> Sales & CRM</div>
+                <div className="flex items-center gap-3"><User className="w-4 h-4" /> {t[language].salesCrm}</div>
                 <ChevronDown className={`w-4 h-4 transition-transform ${adminMenuState.sales ? 'rotate-180' : ''}`} />
               </button>
               {adminMenuState.sales && (
                 <div className="pl-6 flex flex-col gap-1">
-                  <button onClick={() => setAdminTab('sales')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'sales' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><ShoppingBag className="w-4 h-4" /> Orders & Sales</button>
-                  <button onClick={() => setAdminTab('customers')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'customers' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><User className="w-4 h-4" /> Customers</button>
-                  <button onClick={() => setAdminTab('orders')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'orders' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><ShoppingBag className="w-4 h-4" /> Orders (Legacy)</button>
+                  <button onClick={() => setAdminTab('sales')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'sales' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><ShoppingBag className="w-4 h-4" />{t[language].adminSales}</button>
+                  <button onClick={() => setAdminTab('customers')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'customers' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><User className="w-4 h-4" />{t[language].adminCusts}</button>
+                  <button onClick={() => setAdminTab('orders')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'orders' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><ShoppingBag className="w-4 h-4" />{t[language].adminOrdLeg}</button>
                 </div>
               )}
             </div>
@@ -710,14 +736,14 @@ export default function App() {
                 onClick={() => toggleAdminMenu('ledger')} 
                 className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all text-gray-400 hover:bg-white/5 hover:text-white"
               >
-                <div className="flex items-center gap-3"><CreditCard className="w-4 h-4" /> Financial Ledger</div>
+                <div className="flex items-center gap-3"><CreditCard className="w-4 h-4" /> {t[language].finLedger}</div>
                 <ChevronDown className={`w-4 h-4 transition-transform ${adminMenuState.ledger ? 'rotate-180' : ''}`} />
               </button>
               {adminMenuState.ledger && (
                 <div className="pl-6 flex flex-col gap-1">
-                  <button onClick={() => setAdminTab('transactions')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'transactions' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><CreditCard className="w-4 h-4" /> Transactions (Treasury)</button>
-                  <button onClick={() => setAdminTab('financials')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'financials' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><CreditCard className="w-4 h-4" /> Financials (Legacy)</button>
-                  <button onClick={() => setAdminTab('payments')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'payments' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><CreditCard className="w-4 h-4" /> Payment Gateways</button>
+                  <button onClick={() => setAdminTab('transactions')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'transactions' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><CreditCard className="w-4 h-4" />{t[language].adminTrans}</button>
+                  <button onClick={() => setAdminTab('financials')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'financials' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><CreditCard className="w-4 h-4" />{t[language].adminFin}</button>
+                  <button onClick={() => setAdminTab('payments')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'payments' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><CreditCard className="w-4 h-4" />{t[language].adminPay}</button>
                 </div>
               )}
             </div>
@@ -727,14 +753,14 @@ export default function App() {
                 onClick={() => toggleAdminMenu('system')} 
                 className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all text-gray-400 hover:bg-white/5 hover:text-white"
               >
-                <div className="flex items-center gap-3"><Settings className="w-4 h-4" /> System & Tools</div>
+                <div className="flex items-center gap-3"><Settings className="w-4 h-4" /> {t[language].sysTools}</div>
                 <ChevronDown className={`w-4 h-4 transition-transform ${adminMenuState.system ? 'rotate-180' : ''}`} />
               </button>
               {adminMenuState.system && (
                 <div className="pl-6 flex flex-col gap-1">
-                  <button onClick={() => setAdminTab('macros')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'macros' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Settings className="w-4 h-4" /> Settings & Macros</button>
-                  <button onClick={() => setAdminTab('settings')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'settings' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Settings className="w-4 h-4" /> Global Settings (Legacy)</button>
-                  <button onClick={() => setAdminTab('pages')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'pages' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Layers className="w-4 h-4" /> CMS Pages</button>
+                  <button onClick={() => setAdminTab('macros')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'macros' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Settings className="w-4 h-4" />{t[language].adminMac}</button>
+                  <button onClick={() => setAdminTab('settings')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'settings' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Settings className="w-4 h-4" />{t[language].adminSet}</button>
+                  <button onClick={() => setAdminTab('pages')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'pages' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Layers className="w-4 h-4" />{t[language].adminPages}</button>
                 </div>
               )}
             </div>
@@ -744,20 +770,20 @@ export default function App() {
                 onClick={() => toggleAdminMenu('marketing')} 
                 className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all text-gray-400 hover:bg-white/5 hover:text-white"
               >
-                <div className="flex items-center gap-3"><Star className="w-4 h-4" /> Marketing & Offers</div>
+                <div className="flex items-center gap-3"><Star className="w-4 h-4" /> {t[language].marketing}</div>
                 <ChevronDown className={`w-4 h-4 transition-transform ${adminMenuState.marketing ? 'rotate-180' : ''}`} />
               </button>
               {adminMenuState.marketing && (
                 <div className="pl-6 flex flex-col gap-1">
-                  <button onClick={() => setAdminTab('promotions')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'promotions' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Star className="w-4 h-4" /> Promotions</button>
-                  <button onClick={() => setAdminTab('promo_codes')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'promo_codes' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Tag className="w-4 h-4" /> Promo Codes</button>
+                  <button onClick={() => setAdminTab('promotions')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'promotions' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Star className="w-4 h-4" />{t[language].adminPromos}</button>
+                  <button onClick={() => setAdminTab('promo_codes')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'promo_codes' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Tag className="w-4 h-4" />{t[language].adminPromoCodes}</button>
                 </div>
               )}
             </div>
 
             <div className="mt-auto border-t border-gray-800 pt-4 flex flex-col gap-2">
               <button onClick={() => { setActiveTab('store'); setActiveCategory(null); }} className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors px-4 py-2 text-xs">
-                ← Exit Dashboard
+                ← {t[language].exitDashboard}
               </button>
               <button 
                 onClick={() => { 
@@ -784,29 +810,29 @@ export default function App() {
 
             <div className="flex-1 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-purple-900/50">
             {adminTab === 'dashboard' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div className="bg-[#111] border border-gray-800 rounded-xl p-6 shadow-xl">
-                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest flex items-center gap-2"><ShoppingBag className="w-3 h-3 text-orange-400" /> Pending Orders</p>
+                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest flex items-center gap-2"><ShoppingBag className="w-3 h-3 text-orange-400" /> {t[language].pendingOrdersText}</p>
                     <p className="text-4xl font-black text-orange-400 mt-2">{orders.filter(o => o.status === 'Pending').length}</p>
                   </div>
                   <div className="bg-[#111] border border-gray-800 rounded-xl p-6 shadow-xl">
-                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest flex items-center gap-2"><TrendingUp className="w-3 h-3 text-green-400" /> Total Revenue (Live)</p>
+                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest flex items-center gap-2"><TrendingUp className="w-3 h-3 text-green-400" /> {t[language].totalRev}</p>
                     <p className="text-4xl font-black text-green-400 mt-2">{displayPrice(orders.filter(o => o.status === 'Approved').reduce((acc, o) => acc + (o.finalPrice !== undefined ? o.finalPrice : o.amount), 0))}</p>
                   </div>
                   <div className="bg-[#111] border border-gray-800 rounded-xl p-6 shadow-xl">
-                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest flex items-center gap-2"><Package className="w-3 h-3 text-red-500" /> Low Stock Alerts</p>
+                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest flex items-center gap-2"><Package className="w-3 h-3 text-red-500" /> {t[language].lowStockAlerts}</p>
                     <p className="text-4xl font-black text-red-500 mt-2">{gamesList.filter(g => (g.stock || 0) < 3).length}</p>
                   </div>
                   <div className="bg-[#111] border border-gray-800 rounded-xl p-6 shadow-xl">
-                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest flex items-center gap-2"><User className="w-3 h-3 text-blue-400" /> Active Customers</p>
+                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest flex items-center gap-2"><User className="w-3 h-3 text-blue-400" /> {t[language].activeCustomers}</p>
                     <p className="text-4xl font-black text-blue-400 mt-2">{customersList.length}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                    <div className="bg-[#111] border border-gray-800 rounded-xl p-6 relative overflow-hidden text-sm relative shadow-xl">
-                     <h3 className="text-white font-bold text-lg mb-4">Recent Sales</h3>
+                     <h3 className="text-white font-bold text-lg mb-4">{t[language].recentSales}</h3>
                      <div className="space-y-4">
                        <div className="flex items-center justify-between p-3 bg-[#1a1a1a] rounded border border-gray-800">
                           <div>
@@ -827,12 +853,12 @@ export default function App() {
 
                    <div className="bg-purple-900/10 border border-purple-500/30 rounded-xl p-8 relative overflow-hidden shadow-xl">
                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-600 to-transparent"></div>
-                     <h3 className="text-xl font-bold text-white mb-2">System Security Status</h3>
+                     <h3 className="text-xl font-bold text-white mb-2">{t[language].sysSec}</h3>
                      <ul className="text-xs text-gray-400 space-y-3 mt-4 font-mono">
-                       <li className="flex items-center gap-3"><CheckCircle2 className="w-4 h-4 text-green-400" /> End-to-end Supabase Live Integration Active</li>
-                       <li className="flex items-center gap-3"><CheckCircle2 className="w-4 h-4 text-green-400" /> AES-256-GCM Field-Level Encryption Active for Subscriptions</li>
-                       <li className="flex items-center gap-3"><CheckCircle2 className="w-4 h-4 text-green-400" /> Admin CMS Secured via JWT Middleware</li>
-                       <li className="flex items-center gap-3"><CheckCircle2 className="w-4 h-4 text-green-400" /> Input Sanitization & XSS Guards Online</li>
+                       <li className="flex items-center gap-3"><CheckCircle2 className="w-4 h-4 text-green-400" /> {t[language].sec1}</li>
+                       <li className="flex items-center gap-3"><CheckCircle2 className="w-4 h-4 text-green-400" /> {t[language].sec2}</li>
+                       <li className="flex items-center gap-3"><CheckCircle2 className="w-4 h-4 text-green-400" /> {t[language].sec3}</li>
+                       <li className="flex items-center gap-3"><CheckCircle2 className="w-4 h-4 text-green-400" /> {t[language].sec4}</li>
                      </ul>
                    </div>
                 </div>
@@ -840,10 +866,10 @@ export default function App() {
             )}
 
             {adminTab === 'subscriptions' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Key className="w-5 h-5 text-purple-500"/> Subscriptions (Stock)</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Key className="w-5 h-5 text-purple-500"/> {t[language].manageSubs}</h3>
                     <div className="flex gap-2">
                        <button onClick={() => setCrudModal({
                           isOpen: true, mode: 'create', table: 'subscriptions', item: null, fields: [
@@ -863,21 +889,21 @@ export default function App() {
                     <table className="w-full text-left text-sm text-gray-400">
                       <thead className="bg-[#1a1a1a] text-xs uppercase font-bold border-b border-gray-800">
                         <tr>
-                          <th className="px-4 py-3">ID</th>
-                          <th className="px-4 py-3">Name</th>
-                          <th className="px-4 py-3">Username</th>
-                          <th className="px-4 py-3">Password</th>
-                          <th className="px-4 py-3">Category</th>
-                          <th className="px-4 py-3">Status</th>
-                          <th className="px-4 py-3">Sell Count</th>
-                          <th className="px-4 py-3">Actions</th>
+                          <th className="px-4 py-3">{t[language].idCol}</th>
+                          <th className="px-4 py-3">{t[language].nameCol}</th>
+                          <th className="px-4 py-3">{t[language].username}</th>
+                          <th className="px-4 py-3">{t[language].passwordUpper}</th>
+                          <th className="px-4 py-3">{t[language].catCol}</th>
+                          <th className="px-4 py-3">{t[language].status}</th>
+                          <th className="px-4 py-3">{t[language].sellCount}</th>
+                          <th className="px-4 py-3">{t[language].actions}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
                         {subList.map((item, index) => (
                            <tr key={index} className="hover:bg-white/5 transition-colors">
-                              <td className="px-4 py-3 font-mono text-xs">{item.id}</td>
-                              <td className="px-4 py-3 font-bold text-white">{item.name}</td>
+                              <td title={item.id} className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{String(item.id).substring(0, 8)}...</td>
+                              <td className="px-4 py-3 font-bold text-white" dir="ltr">{item.name}</td>
                               <td className="px-4 py-3">{item.account_username}</td>
                               <td className="px-4 py-3 font-mono text-purple-400">••••••••</td>
                               <td className="px-4 py-3">
@@ -897,9 +923,10 @@ export default function App() {
                                      { name: 'status', label: 'Status', type: 'select', options: ['active', 'sold'] },
                                      { name: 'sell_count', label: 'Sell Count', type: 'number' }
                                    ]
-                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">Edit</button>
-                                <button onClick={() => handleQuickUpdate('subscriptions', item.id, { ...item, status: 'sold', account_password: 'MASKED' })} className="text-green-400 hover:text-green-300 text-xs font-bold">Mark Sold</button>
-                                <button onClick={() => handleCrudDelete('subscriptions', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">Delete</button>
+                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">{t[language].editBtn}</button>
+                                <button title={t[language].markSold} onClick={() => handleQuickUpdate('subscriptions', item.id, { ...item, status: 'sold', account_password: 'MASKED' })} className="text-green-400 hover:text-green-300 text-xs font-bold">{t[language].markSold}</button>
+                                <button onClick={() => setPublishModal({isOpen: true, subscription: item, costPrice: '', sellingPrice: '', image: '', type: 'Account', category: item.category || 'Game'})} className="text-purple-400 hover:text-purple-300 text-[10px] uppercase font-black bg-purple-500/10 px-2 py-1 rounded border border-purple-500/30 shadow-[0_0_10px_rgba(168,85,247,0.2)]">{t[language].publishBtn}</button>
+                                 <button onClick={() => handleCrudDelete('subscriptions', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">{t[language].deleteBtn}</button>
                               </td>
                            </tr>
                         ))}
@@ -914,10 +941,10 @@ export default function App() {
             )}
 
             {adminTab === 'products' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-purple-500"/> Products (Storefront)</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-purple-500"/> {t[language].manageProds}</h3>
                     <div className="flex gap-2">
                        <button onClick={() => setCrudModal({
                           isOpen: true, mode: 'create', table: 'products', item: null, fields: [
@@ -938,20 +965,20 @@ export default function App() {
                     <table className="w-full text-left text-sm text-gray-400">
                       <thead className="bg-[#1a1a1a] text-xs uppercase font-bold border-b border-gray-800">
                         <tr>
-                          <th className="px-4 py-3">ID</th>
-                          <th className="px-4 py-3">Name</th>
-                          <th className="px-4 py-3">Cost Price</th>
-                          <th className="px-4 py-3">Selling Price</th>
-                          <th className="px-4 py-3">Supplier</th>
-                          <th className="px-4 py-3">Category</th>
-                          <th className="px-4 py-3">Type</th>
-                          <th className="px-4 py-3">Actions</th>
+                          <th className="px-4 py-3">{t[language].idCol}</th>
+                          <th className="px-4 py-3">{t[language].nameCol}</th>
+                          <th className="px-4 py-3">{t[language].costPriceCol}</th>
+                          <th className="px-4 py-3">{t[language].sellPriceCol}</th>
+                          <th className="px-4 py-3">{t[language].supplierCol}</th>
+                          <th className="px-4 py-3">{t[language].catCol}</th>
+                          <th className="px-4 py-3">{t[language].typeCol}</th>
+                          <th className="px-4 py-3">{t[language].actions}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
                         {productList.map((item, index) => (
                            <tr key={index} className="hover:bg-white/5 transition-colors">
-                              <td className="px-4 py-3 font-mono text-xs">{item.id}</td>
+                              <td title={item.id} className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{String(item.id).substring(0, 8)}...</td>
                               <td className="px-4 py-3 font-bold text-white max-w-[120px] truncate">{item.name}</td>
                               <td className="px-4 py-3 text-red-400 font-mono">${item.costPrice}</td>
                               <td className="px-4 py-3 text-green-400 font-mono">${item.sellingPrice}</td>
@@ -960,9 +987,10 @@ export default function App() {
                                  <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-[10px] uppercase tracking-wider">{item.category}</span>
                               </td>
                               <td className="px-4 py-3">{item.type}</td>
-                              <td className="px-4 py-3 flex gap-2">
-                                <button onClick={() => setCrudModal({
-                                   isOpen: true, mode: 'edit', table: 'products', item: item, fields: [
+                              <td className="px-4 py-3 flex gap-2 whitespace-nowrap">
+                                 <button onClick={() => setPublishModal({isOpen: true, subscription: item as any, costPrice: String(item.costPrice || ''), sellingPrice: String(item.sellingPrice || ''), image: (item as any).image_url || '', type: item.type || 'Digital', category: item.category || 'Game'})} className="text-purple-400 hover:text-purple-300 text-[10px] uppercase font-black bg-purple-500/10 px-2 py-1 rounded border border-purple-500/30">{t[language].publishBtn}</button>
+                                 <button onClick={() => setCrudModal({
+                                    isOpen: true, mode: 'edit', table: 'products', item: item, fields: [
                                      { name: 'name', label: 'Product Name', type: 'text' },
                                      { name: 'costPrice', label: 'Cost Price ($)', type: 'number' },
                                      { name: 'sellingPrice', label: 'Selling Price ($)', type: 'number' },
@@ -971,8 +999,8 @@ export default function App() {
                                      { name: 'type', label: 'Game Type/Region', type: 'text' },
                                      { name: 'image_url', label: 'Image URL', type: 'text' }
                                    ]
-                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">Edit</button>
-                                <button onClick={() => handleCrudDelete('products', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">Delete</button>
+                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">{t[language].editBtn}</button>
+                                <button onClick={() => handleCrudDelete('products', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">{t[language].deleteBtn}</button>
                               </td>
                            </tr>
                         ))}
@@ -987,17 +1015,17 @@ export default function App() {
             )}
 
             {adminTab === 'orders' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
               <div className="overflow-x-auto w-full bg-[#111] border border-gray-800 rounded-xl">
                 <table className="w-full text-left text-sm text-gray-400">
                   <thead className="bg-[#1a1a1a] text-xs uppercase text-gray-500 font-bold border-b border-gray-800">
                     <tr>
-                      <th className="px-6 py-4">{t[language].id}</th>
-                      <th className="px-6 py-4">{t[language].game}</th>
-                      <th className="px-6 py-4">{t[language].rect}</th>
-                      <th className="px-6 py-4">{t[language].stat}</th>
-                      <th className="px-6 py-4">Amount</th>
-                      <th className="px-6 py-4">{t[language].act}</th>
+                      <th className="px-6 py-4 whitespace-nowrap">{t[language].id}</th>
+                      <th className="px-6 py-4 whitespace-nowrap">{t[language].game}</th>
+                      <th className="px-6 py-4 whitespace-nowrap">{t[language].rect}</th>
+                      <th className="px-6 py-4 whitespace-nowrap">{t[language].stat}</th>
+                      <th className="px-6 py-4 whitespace-nowrap">{t[language].amount}</th>
+                      <th className="px-6 py-4 whitespace-nowrap">{t[language].act}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1095,7 +1123,7 @@ export default function App() {
                                      discountApplied: (order.discountApplied || 0).toString(),
                                      finalPrice: (order.finalPrice || order.amount).toString()
                                    });
-                                 }} className="text-blue-500 hover:text-blue-400 p-1" title="Edit Order">
+                                 }} className="text-blue-500 hover:text-blue-400 p-1" title={t[language].editOrder}>
                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                  </button>
                                  {order.status === 'Pending' && (
@@ -1113,7 +1141,7 @@ export default function App() {
                                     Approve
                                   </button>
                                  )}
-                                 <button onClick={() => setOrders(orders.filter(o => o.id !== order.id))} className="text-red-500 hover:text-red-400 p-1" title="Delete Order">
+                                 <button onClick={() => setOrders(orders.filter(o => o.id !== order.id))} className="text-red-500 hover:text-red-400 p-1" title={t[language].deleteOrder}>
                                     <X className="w-4 h-4" />
                                  </button>
                                </>
@@ -1129,10 +1157,10 @@ export default function App() {
             )}
 
             {adminTab === 'games' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
               <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                 <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                  <h3 className="text-white font-bold text-lg flex items-center gap-2"><Package className="w-5 h-5 text-purple-500"/> Manage Games</h3>
+                  <h3 className="text-white font-bold text-lg flex items-center gap-2"><Package className="w-5 h-5 text-purple-500"/> {t[language].manageInv}</h3>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1232,10 +1260,10 @@ export default function App() {
             )}
 
             {adminTab === 'categories' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Layers className="w-5 h-5 text-purple-500"/> Manage Categories</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Layers className="w-5 h-5 text-purple-500"/> {t[language].manageCats}</h3>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1298,21 +1326,21 @@ export default function App() {
             )}
 
             {adminTab === 'customers' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><User className="w-5 h-5 text-purple-500"/> Manage Customers</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><User className="w-5 h-5 text-purple-500"/> {t[language].manageCusts}</h3>
                   </div>
                   <div className="overflow-x-auto w-full border border-gray-800 rounded-xl">
                     <table className="w-full text-left text-sm text-gray-400">
                       <thead className="bg-[#1a1a1a] text-xs uppercase text-gray-500 font-bold border-b border-gray-800">
                         <tr>
-                          <th className="px-4 py-3">Name</th>
-                          <th className="px-4 py-3">Email</th>
-                          <th className="px-4 py-3">Purchases</th>
-                          <th className="px-4 py-3">Points</th>
-                          <th className="px-4 py-3">Status</th>
-                          <th className="px-4 py-3">Action</th>
+                          <th className="px-4 py-3">{t[language].nameCol}</th>
+                          <th className="px-4 py-3">{t[language].emailUpper}</th>
+                          <th className="px-4 py-3">{t[language].purchases}</th>
+                          <th className="px-4 py-3">{t[language].points}</th>
+                          <th className="px-4 py-3">{t[language].status}</th>
+                          <th className="px-4 py-3">{t[language].actions}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1341,15 +1369,15 @@ export default function App() {
                                           points: parseInt(newCustomerForm.points) || 0
                                         } : c));
                                         setEditingCustomerId(null);
-                                      }} className="bg-green-600 hover:bg-green-500 text-white px-2 py-1 rounded text-xs">Save</button>
-                                      <button onClick={() => setEditingCustomerId(null)} className="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-xs">Cancel</button>
+                                      }} className="bg-green-600 hover:bg-green-500 text-white px-2 py-1 rounded text-xs">{t[language].save}</button>
+                                      <button onClick={() => setEditingCustomerId(null)} className="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-xs">{t[language].cancelText}</button>
                                     </>
                                  ) : (
                                     <>
                                       <button onClick={() => {
                                         setEditingCustomerId(customer.id);
                                         setNewCustomerForm({name: customer.name, email: customer.email, purchaseCount: customer.purchaseCount.toString(), points: customer.points.toString()});
-                                      }} className="text-blue-500 hover:text-blue-400 p-1">Edit</button>
+                                      }} className="text-blue-500 hover:text-blue-400 p-1">{t[language].editBtn}</button>
                                       <button onClick={() => setCustomersList(customersList.map(c => c.id === customer.id ? {...c, active: !c.active} : c))} className={`${customer.active ? 'text-red-500 hover:text-red-400' : 'text-green-500 hover:text-green-400'} p-1`}>
                                         {customer.active ? 'Ban' : 'Unban'}
                                       </button>
@@ -1367,10 +1395,10 @@ export default function App() {
             )}
 
             {adminTab === 'financials' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><CreditCard className="w-5 h-5 text-purple-500"/> Financial Records</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><CreditCard className="w-5 h-5 text-purple-500"/> {t[language].finRecords}</h3>
                   </div>
                   
                   <div className="bg-black border border-gray-800 rounded-xl p-4 flex gap-4 items-center">
@@ -1405,18 +1433,18 @@ export default function App() {
                           setNewFinancialForm({type: 'income', amount: '', description: '', date: ''});
                        }
                     }} className="bg-purple-600 px-4 py-2 rounded text-white font-bold">{editingFinancialId ? 'Update' : 'Add Record'}</button>
-                    {editingFinancialId && <button onClick={() => { setEditingFinancialId(null); setNewFinancialForm({type: 'income', amount: '', description: '', date: ''}); }} className="bg-gray-700 px-4 py-2 rounded text-white">Cancel</button>}
+                    {editingFinancialId && <button onClick={() => { setEditingFinancialId(null); setNewFinancialForm({type: 'income', amount: '', description: '', date: ''}); }} className="bg-gray-700 px-4 py-2 rounded text-white">{t[language].cancelText}</button>}
                   </div>
 
                   <div className="overflow-x-auto w-full border border-gray-800 rounded-xl max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800">
                     <table className="w-full text-left text-sm text-gray-400">
                       <thead className="bg-[#1a1a1a] text-xs uppercase text-gray-500 font-bold border-b border-gray-800">
                         <tr>
-                          <th className="px-4 py-3">Date</th>
-                          <th className="px-4 py-3">Type</th>
-                          <th className="px-4 py-3">Description</th>
-                          <th className="px-4 py-3">Amount</th>
-                          <th className="px-4 py-3">Action</th>
+                          <th className="px-4 py-3">{t[language].date}</th>
+                          <th className="px-4 py-3">{t[language].typeCol}</th>
+                          <th className="px-4 py-3">{t[language].descriptionCol}</th>
+                          <th className="px-4 py-3">{t[language].amount}</th>
+                          <th className="px-4 py-3">{t[language].actions}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1437,8 +1465,8 @@ export default function App() {
                                    description: record.description,
                                    date: record.date
                                  });
-                               }} className="text-blue-500 hover:text-blue-400">Edit</button>
-                               <button onClick={() => setFinancialsList(financialsList.map(f => f.id === record.id ? {...f, active: false} : f))} className="text-red-500 hover:text-red-400">Delete</button>
+                               }} className="text-blue-500 hover:text-blue-400">{t[language].editBtn}</button>
+                               <button onClick={() => setFinancialsList(financialsList.map(f => f.id === record.id ? {...f, active: false} : f))} className="text-red-500 hover:text-red-400">{t[language].deleteBtn}</button>
                              </td>
                            </tr>
                         ))}
@@ -1450,10 +1478,10 @@ export default function App() {
             )}
 
             {adminTab === 'payments' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><CreditCard className="w-5 h-5 text-purple-500"/> Payment Gateways & Fees</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><CreditCard className="w-5 h-5 text-purple-500"/> {t[language].payGateways}</h3>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1533,10 +1561,10 @@ export default function App() {
             )}
 
             {adminTab === 'sales' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-purple-500"/> Orders & Sales</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-purple-500"/> {t[language].adminSales}</h3>
                     <button onClick={() => setCrudModal({
                           isOpen: true, mode: 'create', table: 'sales', item: null, fields: [
                              { name: 'productName', label: 'Product Name', type: 'text' },
@@ -1553,19 +1581,19 @@ export default function App() {
                     <table className="w-full text-left text-sm text-gray-400">
                       <thead className="bg-[#1a1a1a] text-xs uppercase font-bold border-b border-gray-800">
                         <tr>
-                          <th className="px-4 py-3">ID</th>
-                          <th className="px-4 py-3">Product Name</th>
-                          <th className="px-4 py-3">Final Price</th>
-                          <th className="px-4 py-3">Customer (Username)</th>
-                          <th className="px-4 py-3">Notes</th>
-                          <th className="px-4 py-3">Date</th>
-                          <th className="px-4 py-3">Actions</th>
+                          <th className="px-4 py-3">{t[language].idCol}</th>
+                          <th className="px-4 py-3">{t[language].productName}</th>
+                          <th className="px-4 py-3">{t[language].finalPrice}</th>
+                          <th className="px-4 py-3">{t[language].customerUsername}</th>
+                          <th className="px-4 py-3">{t[language].notes}</th>
+                          <th className="px-4 py-3">{t[language].date}</th>
+                          <th className="px-4 py-3">{t[language].actions}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
                         {salesList.map((item, index) => (
                            <tr key={index} className="hover:bg-white/5 transition-colors">
-                              <td className="px-4 py-3 font-mono text-xs">{item.id}</td>
+                              <td title={item.id} className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{String(item.id).substring(0, 8)}...</td>
                               <td className="px-4 py-3 font-bold text-white">{item.productName}</td>
                               <td className="px-4 py-3 text-green-400 font-mono">${item.price}</td>
                               <td className="px-4 py-3">{item.customerName} ({item.customerUsername})</td>
@@ -1586,8 +1614,8 @@ export default function App() {
                                        { name: 'customerUsername', label: 'Customer Username/Email', type: 'text' },
                                        { name: 'notes', label: 'Notes', type: 'text' },
                                     ]
-                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">Edit</button>
-                                <button onClick={() => handleCrudDelete('sales', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">Delete</button>
+                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">{t[language].editBtn}</button>
+                                <button onClick={() => handleCrudDelete('sales', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">{t[language].deleteBtn}</button>
                               </td>
                            </tr>
                         ))}
@@ -1602,10 +1630,10 @@ export default function App() {
             )}
 
             {adminTab === 'transactions' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><CreditCard className="w-5 h-5 text-purple-500"/> Transactions (Treasury)</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><CreditCard className="w-5 h-5 text-purple-500"/> {t[language].transTreasury}</h3>
                     <button onClick={() => setCrudModal({
                           isOpen: true, mode: 'create', table: 'transactions', item: null, fields: [
                              { name: 'type', label: 'Type', type: 'select', options: ['income', 'expense'] },
@@ -1622,20 +1650,20 @@ export default function App() {
                     <table className="w-full text-left text-sm text-gray-400">
                       <thead className="bg-[#1a1a1a] text-xs uppercase font-bold border-b border-gray-800">
                         <tr>
-                          <th className="px-4 py-3">ID</th>
-                          <th className="px-4 py-3">Type</th>
-                          <th className="px-4 py-3">Amount</th>
-                          <th className="px-4 py-3">Person / Entity</th>
-                          <th className="px-4 py-3">Description</th>
-                          <th className="px-4 py-3">Notes</th>
-                          <th className="px-4 py-3">Date</th>
-                          <th className="px-4 py-3">Actions</th>
+                          <th className="px-4 py-3">{t[language].idCol}</th>
+                          <th className="px-4 py-3">{t[language].typeCol}</th>
+                          <th className="px-4 py-3">{t[language].amount}</th>
+                          <th className="px-4 py-3">{t[language].personEntity}</th>
+                          <th className="px-4 py-3">{t[language].descriptionCol}</th>
+                          <th className="px-4 py-3">{t[language].notes}</th>
+                          <th className="px-4 py-3">{t[language].date}</th>
+                          <th className="px-4 py-3">{t[language].actions}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
                         {transList.map((item, index) => (
                            <tr key={index} className="hover:bg-white/5 transition-colors">
-                              <td className="px-4 py-3 font-mono text-xs">{item.id}</td>
+                              <td title={item.id} className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{String(item.id).substring(0, 8)}...</td>
                               <td className="px-4 py-3">
                                  <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold ${item.type === 'income' ? 'bg-green-500/10 text-green-400' : item.type === 'expense' ? 'bg-red-500/10 text-red-400' : 'bg-gray-500/10 text-gray-400'}`}>{item.type}</span>
                               </td>
@@ -1653,8 +1681,8 @@ export default function App() {
                                        { name: 'person', label: 'Person/Entity', type: 'text' },
                                        { name: 'notes', label: 'Notes', type: 'text' },
                                     ]
-                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">Edit</button>
-                                <button onClick={() => handleCrudDelete('transactions', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">Delete</button>
+                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">{t[language].editBtn}</button>
+                                <button onClick={() => handleCrudDelete('transactions', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">{t[language].deleteBtn}</button>
                               </td>
                            </tr>
                         ))}
@@ -1669,10 +1697,10 @@ export default function App() {
             )}
 
             {adminTab === 'macros' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Settings className="w-5 h-5 text-purple-500"/> Settings & Macros</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Settings className="w-5 h-5 text-purple-500"/> {t[language].setMacros}</h3>
                     <button onClick={() => setCrudModal({
                           isOpen: true, mode: 'create', table: 'settings', item: null, fields: [
                              { name: 'type', label: 'Type', type: 'text' },
@@ -1687,17 +1715,17 @@ export default function App() {
                     <table className="w-full text-left text-sm text-gray-400">
                       <thead className="bg-[#1a1a1a] text-xs uppercase font-bold border-b border-gray-800">
                         <tr>
-                          <th className="px-4 py-3">ID</th>
-                          <th className="px-4 py-3">Type</th>
-                          <th className="px-4 py-3">Key</th>
-                          <th className="px-4 py-3">Value</th>
-                          <th className="px-4 py-3">Actions</th>
+                          <th className="px-4 py-3">{t[language].idCol}</th>
+                          <th className="px-4 py-3">{t[language].typeCol}</th>
+                          <th className="px-4 py-3">{t[language].keyCol}</th>
+                          <th className="px-4 py-3">{t[language].valueCol}</th>
+                          <th className="px-4 py-3">{t[language].actions}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
                         {settingsList.map((item, index) => (
                            <tr key={index} className="hover:bg-white/5 transition-colors">
-                              <td className="px-4 py-3 font-mono text-xs">{item.id}</td>
+                              <td title={item.id} className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{String(item.id).substring(0, 8)}...</td>
                               <td className="px-4 py-3">
                                  <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-[10px] uppercase tracking-wider">{item.type}</span>
                               </td>
@@ -1710,8 +1738,8 @@ export default function App() {
                                        { name: 'key', label: 'Key', type: 'text' },
                                        { name: 'value', label: 'Value', type: 'text' },
                                     ]
-                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">Edit</button>
-                                <button onClick={() => handleCrudDelete('settings', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">Delete</button>
+                                })} className="text-blue-400 hover:text-blue-300 text-xs font-bold">{t[language].editBtn}</button>
+                                <button onClick={() => handleCrudDelete('settings', item.id)} className="text-red-400 hover:text-red-300 text-xs font-bold">{t[language].deleteBtn}</button>
                               </td>
                            </tr>
                         ))}
@@ -1726,10 +1754,10 @@ export default function App() {
             )}
 
             {adminTab === 'settings' && (
-              <div className="max-w-4xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Settings className="w-5 h-5 text-purple-500"/> Global Settings</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Settings className="w-5 h-5 text-purple-500"/> {t[language].globSet}</h3>
                     <button onClick={() => {
                        if (editingSettings) {
                           setGlobalSettings({...settingsForm});
@@ -1739,7 +1767,7 @@ export default function App() {
                           setEditingSettings(true);
                        }
                     }} className="bg-purple-600 px-4 py-2 rounded text-xs font-bold text-white transition">
-                      {editingSettings ? 'Save Settings' : 'Edit Settings'}
+                      {editingSettings ? t[language].saveSettings : t[language].editSettings}
                     </button>
                   </div>
 
@@ -1782,7 +1810,7 @@ export default function App() {
             )}
 
             {adminTab === 'support' && (
-              <div className="max-w-6xl mx-auto h-[650px]">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto h-[650px]">
               <div className="bg-[#111] border border-gray-800 rounded-xl flex flex-col h-full overflow-hidden">
                 <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-[#1a1a1a]">
                   <h3 className="text-white font-bold flex items-center gap-2 text-lg"><MessageSquare className="w-6 h-6 text-purple-500" /> Active Support Tickets</h3>
@@ -1827,10 +1855,10 @@ export default function App() {
             )}
 
             {adminTab === 'pages' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Layers className="w-5 h-5 text-purple-500"/> Manage CMS Pages</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Layers className="w-5 h-5 text-purple-500"/> {t[language].managePages}</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-black border border-gray-800 rounded-xl p-5 h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 pr-2">
@@ -1873,30 +1901,30 @@ export default function App() {
             )}
 
             {adminTab === 'promotions' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Star className="w-5 h-5 text-purple-500"/> Product Offers & Promotions</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Star className="w-5 h-5 text-purple-500"/> {t[language].prodOffers}</h3>
                   </div>
 
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-gray-400">
                       <thead className="bg-[#1a1a1a] text-xs uppercase font-bold border-b border-gray-800">
                         <tr>
-                          <th className="px-4 py-3">ID</th>
-                          <th className="px-4 py-3">Name</th>
-                          <th className="px-4 py-3">Original Price</th>
-                          <th className="px-4 py-3">Discount Price</th>
-                          <th className="px-4 py-3">Featured</th>
-                          <th className="px-4 py-3">Category</th>
-                          <th className="px-4 py-3">Actions</th>
+                          <th className="px-4 py-3">{t[language].idCol}</th>
+                          <th className="px-4 py-3">{t[language].nameCol}</th>
+                          <th className="px-4 py-3">{t[language].originalPrice}</th>
+                          <th className="px-4 py-3">{t[language].discountPrice}</th>
+                          <th className="px-4 py-3">{t[language].featured}</th>
+                          <th className="px-4 py-3">{t[language].catCol}</th>
+                          <th className="px-4 py-3">{t[language].actions}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
                         {productList.map((item, index) => (
                            <tr key={index} className="hover:bg-white/5 transition-colors">
-                              <td className="px-4 py-3 font-mono text-xs">{item.id}</td>
-                              <td className="px-4 py-3 font-bold text-white">{item.name}</td>
+                              <td title={item.id} className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{String(item.id).substring(0, 8)}...</td>
+                              <td className="px-4 py-3 font-bold text-white" dir="ltr">{item.name}</td>
                               <td className={`px-4 py-3 font-mono ${item.discountPrice ? 'line-through text-gray-500' : 'text-green-400'}`}>${item.sellingPrice}</td>
                               <td className="px-4 py-3 font-mono text-purple-400 font-bold">{item.discountPrice ? `$${item.discountPrice}` : '-'}</td>
                               <td className="px-4 py-3">
@@ -1950,7 +1978,7 @@ export default function App() {
                                }
                              } catch(e) { console.error(e); }
                           }
-                       }} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition-colors mt-auto">Add Banner</button>
+                       }} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition-colors mt-auto">{t[language].addBanner}</button>
                     </div>
                     <div className="bg-black border border-gray-800 rounded-xl p-5 h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 pr-2">
                        {promotions.map(promo => (
@@ -1993,10 +2021,10 @@ export default function App() {
             )}
 
             {adminTab === 'promo_codes' && (
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Tag className="w-5 h-5 text-purple-500"/> Manage Promo Codes</h3>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Tag className="w-5 h-5 text-purple-500"/> {t[language].manageCodes}</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex flex-col gap-4 bg-black border border-gray-800 rounded-xl p-5 h-[500px] overflow-y-auto">
@@ -2019,7 +2047,7 @@ export default function App() {
                              }]);
                              setNewPromoCode({ id: '', code: '', discountPercent: '', expiryDate: '', usageLimit: '', usedCount: 0, active: true });
                           }
-                       }} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition-colors mt-auto">Create Code</button>
+                       }} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition-colors mt-auto">{t[language].createCode}</button>
                     </div>
                     <div className="bg-black border border-gray-800 rounded-xl p-5 h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 pr-2">
                        {promoCodes.map(code => (
@@ -2072,7 +2100,7 @@ export default function App() {
         
         <div className="flex flex-1 items-center justify-end gap-3 md:gap-6">
           <div className="relative hidden md:flex items-center">
-            <div className="absolute left-3 w-4 h-4 text-gray-500">
+            <div className="absolute start-3 w-4 h-4 text-gray-500">
               <Search className="w-4 h-4" />
             </div>
             <input 
@@ -2080,7 +2108,7 @@ export default function App() {
               placeholder={t[language].search} 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-[#111] border border-purple-900/40 rounded-full py-2 pl-10 pr-4 text-sm w-64 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500 transition-colors focus:bg-purple-900/10 min-h-[44px]" 
+              className="bg-[#111] border border-purple-900/40 rounded-full py-2 ps-10 pe-4 text-sm w-64 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500 transition-colors focus:bg-purple-900/10 min-h-[44px]" 
             />
           </div>
           <div className="flex items-center gap-4">
@@ -2088,7 +2116,7 @@ export default function App() {
               <div 
                 className="relative cursor-pointer text-purple-400 hover:text-purple-300 transition-colors flex items-center justify-center min-h-[44px] min-w-[44px]"
                 onClick={() => { setActiveTab('admin'); setAdminTab('support'); }}
-                title="HQ Support Chat"
+                title={t[language].hqSupChat}
               >
                 <MessageSquare className="w-5 h-5" />
                 <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border border-black shadow-[0_0_8px_#22c55e] animate-pulse"></span>
@@ -2119,12 +2147,20 @@ export default function App() {
                       <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('settings'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-white">
                         <Settings className="w-4 h-4" /> {t[language].settings}
                       </button>
-                      <button onClick={() => { setLanguage(l => l === 'en' ? 'ar' : 'en'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 text-purple-400 font-bold">
-                        {t[language].lang}
-                      </button>
-                      <button onClick={() => { setCurrency(c => c === 'USD' ? 'IQD' : 'USD'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 text-purple-400 font-bold">
-                        Currency ({currency})
-                      </button>
+                      <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center bg-black/50">
+                        <span className="text-xs font-bold text-gray-400">Language</span>
+                        <div className="flex bg-[#111] rounded-md border border-purple-900/30 p-1">
+                          <button onClick={() => setLanguage('en')} className={`px-2 py-1 text-[10px] rounded font-bold transition-colors ${language === 'en' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}>EN</button>
+                          <button onClick={() => setLanguage('ar')} className={`px-2 py-1 text-[10px] rounded font-bold transition-colors ${language === 'ar' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}>عربي</button>
+                        </div>
+                      </div>
+                      <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center bg-black/50">
+                        <span className="text-xs font-bold text-gray-400">Currency</span>
+                        <div className="flex bg-[#111] rounded-md border border-purple-900/30 p-1">
+                          <button onClick={() => setCurrency('USD')} className={`px-2 py-1 text-[10px] rounded font-bold transition-colors ${currency === 'USD' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}>USD</button>
+                          <button onClick={() => setCurrency('IQD')} className={`px-2 py-1 text-[10px] rounded font-bold transition-colors ${currency === 'IQD' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}>IQD</button>
+                        </div>
+                      </div>
                       <button onClick={() => { 
                           setIsLoggedIn(false); 
                           setUserProfile({name: '', email: '', role: 'CUSTOMER'}); 
@@ -2137,8 +2173,8 @@ export default function App() {
               ) : (
                 <>
                   <div className="hidden md:flex items-center gap-2">
-                    <button onClick={() => setShowAuthModal('login')} className="text-gray-400 hover:text-white text-sm font-bold transition-colors">Sign In</button>
-                    <button onClick={() => setShowAuthModal('register')} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">Register</button>
+                    <button onClick={() => setShowAuthModal('login')} className="text-gray-400 hover:text-white text-sm font-bold transition-colors">{t[language].signIn}</button>
+                    <button onClick={() => setShowAuthModal('register')} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">{t[language].register}</button>
                   </div>
                   <div className="md:hidden">
                     <div onClick={() => setShowAuthModal('login')} className="w-8 h-8 bg-[#111] rounded-full border border-gray-800 cursor-pointer overflow-hidden hover:border-purple-400 transition-colors flex items-center justify-center text-gray-500">
@@ -2180,7 +2216,7 @@ export default function App() {
              )}
 
              <div className="relative mt-8 px-2">
-             <div className="absolute left-5 top-3 w-5 h-5 text-gray-500">
+             <div className="absolute start-5 top-3 w-5 h-5 text-gray-500">
                <Search className="w-5 h-5" />
              </div>
              <input 
@@ -2188,14 +2224,14 @@ export default function App() {
                placeholder={t[language].search} 
                value={searchQuery}
                onChange={(e) => setSearchQuery(e.target.value)}
-               className="w-full bg-[#111] border border-purple-900/40 rounded-xl py-3 pl-12 pr-4 text-base focus:outline-none focus:border-purple-500 text-white placeholder-gray-500 min-h-[50px] shadow-inner" 
+               className="w-full bg-[#111] border border-purple-900/40 rounded-xl py-3 ps-12 pe-4 text-base focus:outline-none focus:border-purple-500 text-white placeholder-gray-500 min-h-[50px] shadow-inner" 
              />
            </div>
            
            {!isLoggedIn && (
              <div className="flex flex-col gap-3 mt-6">
-               <button onClick={() => { setShowAuthModal('login'); setIsMobileMenuOpen(false); }} className="w-full py-3 bg-[#111] border border-gray-800 rounded-lg text-white font-bold hover:bg-[#1a1a2e]">Sign In</button>
-               <button onClick={() => { setShowAuthModal('register'); setIsMobileMenuOpen(false); }} className="w-full py-3 bg-purple-600 rounded-lg text-white font-bold hover:bg-purple-500">Register</button>
+               <button onClick={() => { setShowAuthModal('login'); setIsMobileMenuOpen(false); }} className="w-full py-3 bg-[#111] border border-gray-800 rounded-lg text-white font-bold hover:bg-[#1a1a2e]">{t[language].signIn}</button>
+               <button onClick={() => { setShowAuthModal('register'); setIsMobileMenuOpen(false); }} className="w-full py-3 bg-purple-600 rounded-lg text-white font-bold hover:bg-purple-500">{t[language].register}</button>
              </div>
            )}
 
@@ -2213,7 +2249,7 @@ export default function App() {
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar / Categories */}
         {(activeTab === 'store') && (
-          <aside className="w-64 border-r border-purple-900/20 bg-black/20 p-6 flex-col gap-8 hidden lg:flex">
+          <aside className="w-64 border-e border-purple-900/20 bg-black/20 p-6 flex-col gap-8 hidden lg:flex overflow-y-auto custom-scrollbar flex-shrink-0 h-full">
             <div>
               <h3 className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-4">{t[language].categories}</h3>
               <ul className="space-y-3">
@@ -2223,11 +2259,11 @@ export default function App() {
                     onClick={() => setActiveCategory(cat.name === activeCategory ? null : cat.name)}
                     className={`flex items-center gap-3 text-sm p-3 rounded-lg cursor-pointer transition-all duration-300 ${
                       activeCategory === cat.name 
-                        ? 'text-purple-400 bg-purple-500/10 border-l-2 border-purple-500 font-bold' 
-                        : 'text-gray-400 hover:text-purple-400 hover:bg-purple-900/10 border-l-2 border-transparent'
+                        ? 'text-purple-400 bg-purple-500/10 border-s-2 border-purple-500 font-bold' 
+                        : 'text-gray-400 hover:text-purple-400 hover:bg-purple-900/10 border-s-2 border-transparent'
                     }`}
                   >
-                    <cat.icon className="w-4 h-4 opacity-70" /> {cat.name}
+                    <cat.icon className="w-4 h-4 opacity-70" /> {cat.name === 'PC Game Keys' ? t[language].pcKeys : cat.name === 'Console Subs' ? t[language].consoleSubs : cat.name === 'In-game Currency' ? t[language].inGameCurrency : cat.name === 'Software' ? t[language].software : cat.name}
                   </li>
                 ))}
               </ul>
@@ -2237,9 +2273,9 @@ export default function App() {
 
         {/* User Dashboard Sidebar */}
         {activeTab === 'user_dashboard' && (
-          <aside className="w-64 border-r border-purple-900/20 bg-[#0a0a0a] flex flex-col hidden lg:flex shadow-[5px_0_15px_rgba(0,0,0,0.5)] z-10 relative">
+          <aside className="w-64 border-e border-purple-900/20 bg-[#0a0a0a] flex flex-col hidden lg:flex shadow-[5px_0_15px_rgba(0,0,0,0.5)] z-10 relative overflow-y-auto custom-scrollbar flex-shrink-0 h-full">
              <div className="p-6 border-b border-gray-800 bg-[#111]">
-               <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">User Dashboard</h2>
+               <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">{t[language].userDashboard}</h2>
                <p className="text-xl font-black text-white truncate">{userProfile.name}</p>
              </div>
              <div className="p-4 flex-1 flex flex-col gap-2">
@@ -2247,19 +2283,19 @@ export default function App() {
                   onClick={() => setUserDashboardTab('profile')} 
                   className={`flex items-center gap-3 text-sm p-3 rounded-lg transition-colors font-bold ${userDashboardTab === 'profile' ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                 >
-                  <User className="w-4 h-4" /> Profile & Loyalty
+                  <User className="w-4 h-4" /> {t[language].profileLoyalty}
                 </button>
                 <button 
                   onClick={() => setUserDashboardTab('orders')} 
                   className={`flex items-center gap-3 text-sm p-3 rounded-lg transition-colors font-bold ${userDashboardTab === 'orders' ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                 >
-                  <ShoppingBag className="w-4 h-4" /> Order History
+                  <ShoppingBag className="w-4 h-4" /> {t[language].orderHistory}
                 </button>
                 <button 
                   onClick={() => setUserDashboardTab('settings')} 
                   className={`flex items-center gap-3 text-sm p-3 rounded-lg transition-colors font-bold ${userDashboardTab === 'settings' ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                 >
-                  <Settings className="w-4 h-4" /> Account Settings
+                  <Settings className="w-4 h-4" /> {t[language].accSet}
                 </button>
              </div>
              <div className="p-4 border-t border-gray-800">
@@ -2364,7 +2400,7 @@ export default function App() {
                                     price: product.discountPrice ? Number(product.discountPrice) : Number(product.sellingPrice),
                                     image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=600&auto=format&fit=crop'
                                  };
-                                 addToCart(item as any);
+                                 addToCart(product.id);
                              }}>
                                <ShoppingBag className="w-4 h-4" />
                              </button>
@@ -2391,11 +2427,11 @@ export default function App() {
                   <select 
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
-                    className="px-4 py-2 text-sm border bg-[#0a0a0a] border-purple-900/50 hover:bg-purple-900/20 transition-colors rounded-lg text-gray-300 focus:outline-none w-full md:w-auto min-h-[44px]"
+                    className="px-4 py-2 text-sm border bg-[#0a0a0a] border-purple-900/50 hover:bg-purple-900/20 transition-colors rounded-lg text-gray-300 focus:outline-none w-full md:w-auto min-h-[44px] cursor-pointer"
                   >
-                    <option value="newest">{t[language].sort || 'Newest'}</option>
-                    <option value="price_low">Price: Low to High</option>
-                    <option value="price_high">Price: High to Low</option>
+                    <option value="newest" className="text-gray-200 bg-[#111]">{t[language].newest}</option>
+                    <option value="price_low" className="text-gray-200 bg-[#111]">{t[language].priceLow}</option>
+                    <option value="price_high" className="text-gray-200 bg-[#111]">{t[language].priceHigh}</option>
                   </select>
                 </div>
               </div>
@@ -2490,7 +2526,7 @@ export default function App() {
           )}
 
           {(activeTab === 'orders' || (activeTab === 'user_dashboard' && userDashboardTab === 'orders')) && (
-            <div className="max-w-4xl mx-auto w-full flex flex-col items-start gap-8">
+            <div className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto w-full flex flex-col items-start gap-8">
               <div>
                 <h2 className="text-2xl font-bold text-white mb-2">{t[language].myOrders}</h2>
                 <p className="text-gray-400 text-sm">{t[language].track}</p>
@@ -2545,7 +2581,7 @@ export default function App() {
 
 
           {activeTab === 'cart' && (
-            <div className="max-w-4xl mx-auto w-full flex flex-col gap-6">
+            <div className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto w-full flex flex-col gap-6">
               <h2 className="text-2xl font-bold text-white">{t[language].cart}</h2>
               {cart.length === 0 ? (
                 <div className="w-full p-10 border border-purple-900/30 rounded-2xl bg-[#111] flex flex-col items-center justify-center text-center">
@@ -2640,7 +2676,7 @@ export default function App() {
           )}
 
           {(activeTab === 'profile' || (activeTab === 'user_dashboard' && userDashboardTab === 'profile')) && (
-            <div className="max-w-4xl mx-auto w-full flex flex-col gap-6">
+            <div className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto w-full flex flex-col gap-6">
               <h2 className="text-2xl font-bold text-white tracking-widest uppercase">{t[language].profOverview}</h2>
               <div className="bg-[#111] border border-purple-900/30 rounded-2xl p-6 flex flex-col sm:flex-row items-center sm:items-start gap-6 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[80px] pointer-events-none"></div>
@@ -2664,7 +2700,7 @@ export default function App() {
               {/* Loyalty Card Engine */}
               <h3 className="text-xl font-bold text-white mt-4 tracking-widest uppercase flex items-center gap-2">
                  <Zap className="w-5 h-5 text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
-                 Loyalty Dashboard
+                 {t[language].loyaltyDashboard}
               </h3>
               <div className="bg-[#0a0a0a] border border-purple-500/30 rounded-2xl p-6 lg:p-8 relative overflow-hidden group shadow-[0_0_30px_rgba(147,51,234,0.1)]">
                  <div className="absolute inset-0 bg-gradient-to-r from-purple-900/10 to-transparent pointer-events-none"></div>
@@ -2730,17 +2766,17 @@ export default function App() {
                  </div>
               </div>
 
-              {/* Order History */}
-              <h3 className="text-xl font-bold text-white mt-4 tracking-tight">Order History</h3>
+              {/* {t[language].orderHistory} */}
+              <h3 className="text-xl font-bold text-white mt-4 tracking-tight">{t[language].orderHistory}</h3>
               <div className="overflow-x-auto w-full bg-[#111] border border-gray-800 rounded-xl">
                 <table className="w-full text-left text-sm text-gray-400">
                   <thead className="bg-[#1a1a1a] text-xs uppercase text-gray-500 font-bold border-b border-gray-800">
                     <tr>
-                      <th className="px-6 py-4">{t[language].id}</th>
-                      <th className="px-6 py-4">{t[language].game}</th>
-                      <th className="px-6 py-4">{t[language].stat}</th>
-                      <th className="px-6 py-4">Key</th>
-                      <th className="px-6 py-4 text-right">Invoice</th>
+                      <th className="px-6 py-4 whitespace-nowrap">{t[language].id}</th>
+                      <th className="px-6 py-4 whitespace-nowrap">{t[language].game}</th>
+                      <th className="px-6 py-4 whitespace-nowrap">{t[language].stat}</th>
+                      <th className="px-6 py-4 whitespace-nowrap">{t[language].keyCol}</th>
+                      <th className="px-6 py-4 text-right">{t[language].invoice}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2821,7 +2857,7 @@ export default function App() {
              const page = cmsPages.find(p => p.slug === currentSlug);
              if (!page) return <div className="text-white text-center py-20 font-bold">Page Not Found</div>;
              return (
-               <div className="max-w-4xl mx-auto w-full flex flex-col gap-6">
+               <div className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto w-full flex flex-col gap-6">
                  <h2 className="text-3xl md:text-4xl font-black tracking-tight text-white">{page.title}</h2>
                  <div className="bg-[#111] border border-gray-800 rounded-2xl p-8 text-gray-300 text-sm leading-relaxed whitespace-pre-wrap font-sans">
                    {page.content}
@@ -2832,7 +2868,229 @@ export default function App() {
         </main>
       </div>
 
-      {/* Generic CRUD Modal */}
+      {/* Bottom Bar Info */}
+      <footer className="w-full bg-black/60 backdrop-blur-md border-t border-purple-900/30 px-6 md:px-8 py-6 md:py-0 md:h-12 flex flex-col md:flex-row items-center justify-center md:justify-between text-[10px] text-gray-500 uppercase tracking-[0.2em] font-medium flex-shrink-0 z-10 relative gap-4 md:gap-0 mt-auto">
+        <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
+          <span>&copy; 2026 LUDEX STORE - ALL RIGHTS RESERVED</span>
+          {isLoggedIn && userProfile.role === 'ADMIN' && (
+            <button 
+              onClick={() => setActiveTab('admin')} 
+              className="border border-purple-900 px-3 py-1 rounded text-purple-400 hover:bg-purple-900/30 transition-colors bg-black font-bold flex items-center gap-1.5"
+            >
+              <Shield className="w-3 h-3" /> LUDEX HQ PORTAL
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap justify-center md:flex-row items-center gap-4 md:gap-6 text-center mt-2 md:mt-0">
+          <span className="text-purple-500/80 font-bold">System Status: Optimal</span>
+          {cmsPages.map(page => (
+            <button 
+              key={page.id} 
+              onClick={() => { setActiveTab('page'); setCurrentSlug(page.slug); }} 
+              className="hover:text-purple-400 transition-colors duration-300 uppercase"
+            >
+              {page.title}
+            </button>
+          ))}
+        </div>
+      </footer>
+      </>
+    )}
+    </div>
+
+    {/* Invoice Modal */}
+    {invoiceToView && (
+       <div className="fixed inset-0 z-[200] flex flex-col items-center justify-end md:justify-center bg-black/90 backdrop-blur-md animate-in fade-in">
+          <div className="bg-[#0a0a0a] border-t md:border border-purple-900/40 rounded-t-3xl md:rounded-xl w-full md:max-w-2xl shadow-[0_-10px_50px_rgba(168,85,247,0.2)] md:shadow-[0_0_50px_rgba(168,85,247,0.2)] flex flex-col max-h-[95vh] md:max-h-[90vh] animate-in slide-in-from-bottom-5 duration-300">
+             <div className="p-4 md:p-6 border-b border-gray-800 flex justify-between items-center bg-[#111] flex-shrink-0">
+                <h3 className="text-white font-bold text-lg md:text-xl flex items-center gap-2">DIGITAL INVOICE</h3>
+                <button onClick={() => setInvoiceToView(null)} className="text-gray-500 hover:text-white p-2 min-h-[44px] min-w-[44px] flex items-center justify-center">
+                   <X className="w-6 h-6" />
+                </button>
+             </div>
+             <div className="p-4 md:p-8 overflow-y-auto flex-1 font-mono">
+                <div className="flex justify-between items-start border-b border-gray-800 pb-6 md:pb-8 mb-6 md:mb-8">
+                   <div>
+                      <h2 className="text-2xl font-black text-white tracking-tighter mb-1">LUDEX<span className="text-purple-500">STORE</span></h2>
+                      <p className="text-xs text-gray-500">Baghdad, Iraq</p>
+                      <p className="text-xs text-gray-500 mt-4 max-w-[200px]">support@ludexstore.com<br/>0770 123 4567</p>
+                   </div>
+                   <div className="text-right">
+                      <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Invoice Number</p>
+                      <p className="text-sm text-white font-bold">{invoiceToView.invoiceNumber || 'INV-XXXX'}</p>
+                      <p className="text-xs text-gray-500 uppercase tracking-widest mt-4 mb-1">Date</p>
+                      <p className="text-sm text-white font-bold">{new Date().toLocaleDateString()}</p>
+                   </div>
+                </div>
+                
+                <div className="mb-8 border border-gray-800 rounded-lg p-6 bg-[#111]">
+                   <p className="text-xs text-gray-500 uppercase tracking-widest mb-2 font-bold">Billed To</p>
+                   <p className="text-sm text-white font-bold mb-1">{userProfile.name}</p>
+                   <p className="text-xs text-gray-400">{userProfile.email}</p>
+                </div>
+
+                <table className="w-full text-left text-sm text-gray-300">
+                   <thead>
+                      <tr className="border-b border-gray-800">
+                         <th className="pb-3 text-xs uppercase tracking-widest text-gray-500">{t[language].descriptionCol}</th>
+                         <th className="pb-3 text-xs uppercase tracking-widest text-gray-500 text-right">{t[language].amount}</th>
+                      </tr>
+                   </thead>
+                   <tbody>
+                      <tr className="border-b border-gray-800/50">
+                         <td className="py-4 font-bold text-white">{gamesList.find(g => g.id === invoiceToView.gameId)?.title}</td>
+                         <td className="py-4 text-right">{displayPrice(invoiceToView.amount)}</td>
+                      </tr>
+                   </tbody>
+                </table>
+                
+                <div className="mt-8 flex justify-between items-end border-t border-gray-800 pt-6">
+                   <div className="text-xs text-gray-500 max-w-[250px] leading-relaxed">
+                      Payment Method: Zain Cash / FIB (Manual Transfer)<br />
+                      Thank you for shopping at Ludex Store.
+                   </div>
+                   <div className="text-right w-64">
+                      <div className="flex justify-between items-center mb-2">
+                         <span className="text-xs text-gray-400">Subtotal:</span>
+                         <span className="text-sm text-white">{displayPrice(invoiceToView.amount)}</span>
+                      </div>
+                      {invoiceToView.discountApplied ? (
+                         <div className="flex justify-between items-center mb-2 text-green-400">
+                            <span className="text-xs">Loyalty Discount ({loyaltyDiscountPercent}%):</span>
+                            <span className="text-sm">-{displayPrice(invoiceToView.discountApplied)}</span>
+                         </div>
+                      ) : null}
+                      <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-800">
+                         <span className="text-sm font-bold text-white uppercase tracking-widest">Total:</span>
+                         <span className="text-2xl font-black text-purple-400">
+                            {displayPrice(invoiceToView.finalPrice !== undefined ? invoiceToView.finalPrice : invoiceToView.amount)}
+                         </span>
+                      </div>
+                   </div>
+                </div>
+             </div>
+             <div className="p-6 border-t border-gray-800 bg-[#111] flex justify-end gap-4 rounded-b-xl">
+                <button onClick={() => window.print()} className="px-6 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-bold rounded-lg transition-colors">
+                   Print PDF
+                </button>
+             </div>
+          </div>
+       </div>
+    )}
+          {/* Publish Modal */}
+      {publishModal.isOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setPublishModal({...publishModal, isOpen: false})}></div>
+          <div className="bg-gradient-to-b from-[#151515] to-[#0a0a0a] border border-purple-900/50 rounded-2xl w-full max-w-lg p-8 relative shadow-[0_0_80px_rgba(147,51,234,0.3)] animate-in zoom-in-95 duration-300" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+            
+            <div className="absolute top-0 right-0 w-full h-full bg-purple-600/5 rounded-2xl pointer-events-none"></div>
+
+            <div className="flex justify-between items-center mb-2 relative z-10">
+              <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600 uppercase tracking-widest flex items-center gap-3">
+                <ShoppingBag className="w-6 h-6 text-purple-500" />
+                {t[language].publishItemTitle}
+              </h3>
+              <button type="button" onClick={() => setPublishModal({...publishModal, isOpen: false})} className="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-gray-400 hover:text-white hover:bg-purple-900/50 transition-colors border border-gray-800 hover:border-purple-500/50">✕</button>
+            </div>
+            
+            <p className="text-xs text-gray-500 mb-4">{t[language].publishSubtitle}</p>
+            <div className="mb-6 bg-black/80 p-4 rounded-xl border border-purple-900/30 flex items-center gap-3 relative z-10 shadow-inner">
+               <div className="w-2 h-8 bg-purple-500 rounded-full"></div>
+               <p className="text-md text-white font-mono break-all line-clamp-2" dir="ltr">{publishModal.subscription?.name || publishModal.subscription?.title}</p>
+            </div>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const newGame = {
+                 id: Math.max(...gamesList.map(g => g.id), 0) + 1,
+                 title: publishModal.subscription?.name || publishModal.subscription?.title || 'Unknown',
+                 price: parseFloat(publishModal.sellingPrice),
+                 category: publishModal.category,
+                 type: publishModal.type,
+                 image: publishModal.image || "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop",
+                 stock: 1,
+                 rating: 5.0,
+                 description: "Account published from admin dashboard."
+              };
+              setGamesList([...gamesList, newGame]);
+              
+              try {
+                await fetch('/api/admin/products', {
+                   method: 'POST',
+                   headers: { 
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${localStorage.getItem('ludex_token')}`
+                   },
+                   body: JSON.stringify({
+                      name: newGame.title,
+                      costPrice: parseFloat(publishModal.costPrice) || 0,
+                      sellingPrice: newGame.price,
+                      supplier: publishModal.subscription?.supplier || publishModal.subscription?.account_username || 'Local',
+                      category: newGame.category,
+                      type: newGame.type,
+                      image_url: newGame.image
+                   })
+                });
+              } catch (err) {}
+              
+              setPublishModal({...publishModal, isOpen: false});
+              setToastMessage('Subscription published successfully!');
+              setTimeout(() => setToastMessage(null), 3000);
+            }} className="flex flex-col gap-4 relative z-10">
+               
+               <div className="grid grid-cols-2 gap-4">
+                 <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2 text-start">{t[language].costPriceOpt}</label>
+                    <div className="relative">
+                      <span className={"absolute top-1/2 -translate-y-1/2 text-purple-500 font-bold " + (language === 'ar' ? 'right-3' : 'left-3')}>$</span>
+                      <input dir="ltr" type="number" step="0.01" value={publishModal.costPrice} onChange={e => setPublishModal({...publishModal, costPrice: e.target.value})} className={"w-full bg-[#111] border border-gray-800 rounded-xl py-3 text-sm focus:outline-none focus:border-purple-500 text-white transition-all focus:bg-purple-900/10 focus:shadow-[0_0_15px_rgba(168,85,247,0.2)] " + (language === 'ar' ? 'pr-8 pl-3' : 'pl-8 pr-3')} placeholder={t[language].placeholder0} />
+                    </div>
+                 </div>
+                 <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-purple-400 font-bold mb-2 text-start">{t[language].sellPriceRequired}</label>
+                    <div className="relative">
+                      <span className={"absolute top-1/2 -translate-y-1/2 text-purple-500 font-bold " + (language === 'ar' ? 'right-3' : 'left-3')}>$</span>
+                      <input dir="ltr" type="number" step="0.01" required value={publishModal.sellingPrice} onChange={e => setPublishModal({...publishModal, sellingPrice: e.target.value})} className={"w-full bg-[#111] border border-gray-800 rounded-xl py-3 text-sm focus:outline-none focus:border-purple-500 text-white transition-all focus:bg-purple-900/10 focus:shadow-[0_0_15px_rgba(168,85,247,0.2)] " + (language === 'ar' ? 'pr-8 pl-3' : 'pl-8 pr-3')} placeholder={t[language].placeholder0} />
+                    </div>
+                 </div>
+               </div>
+
+               <div className="grid grid-cols-2 gap-4">
+                 <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2 text-start">{t[language].catSelect}</label>
+                    <select value={publishModal.category} onChange={e => setPublishModal({...publishModal, category: e.target.value})} className="w-full bg-[#111] border border-gray-800 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-500 text-white transition-all focus:bg-purple-900/10 cursor-pointer">
+                       <option value="PC Game Keys">PC Game Keys</option>
+                       <option value="Console Subs">Console Subs</option>
+                       <option value="In-game Currency">In-game Currency</option>
+                       <option value="Software">Software</option>
+                       <option value="Subscription">Subscription</option>
+                    </select>
+                 </div>
+                 <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2 text-start">{t[language].typeRegInput}</label>
+                    <input dir="ltr" type="text" value={publishModal.type} onChange={e => setPublishModal({...publishModal, type: e.target.value})} className="w-full bg-[#111] border border-gray-800 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-500 text-white text-start transition-all focus:bg-purple-900/10 focus:shadow-[0_0_15px_rgba(168,85,247,0.2)]" placeholder={t[language].placeholderReg} />
+                 </div>
+               </div>
+
+               <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2 text-start">{t[language].coverImgOpt}</label>
+                  <input dir="ltr" type="text" value={publishModal.image} onChange={e => setPublishModal({...publishModal, image: e.target.value})} className="w-full bg-[#111] border border-gray-800 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-500 text-white text-start transition-all focus:bg-purple-900/10 focus:shadow-[0_0_15px_rgba(168,85,247,0.2)]" placeholder={t[language].leaveEmpty} />
+               </div>
+
+               <div className="flex items-center gap-3 mt-6">
+                 <button type="button" onClick={() => setPublishModal({...publishModal, isOpen: false})} className="flex-1 bg-black border border-gray-800 text-white py-3.5 rounded-xl hover:bg-gray-900 hover:border-gray-600 transition-all font-bold text-sm">
+                   {t[language].cancelText}
+                 </button>
+                 <button type="submit" className="flex-1 bg-gradient-to-r from-purple-600 to-purple-800 text-white py-3.5 rounded-xl hover:from-purple-500 hover:to-purple-700 transition-all font-black text-sm uppercase tracking-widest shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_30px_rgba(168,85,247,0.6)]">
+                   {t[language].confirmPub}
+                 </button>
+               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+          {/* Generic CRUD Modal */}
       {crudModal.isOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className="bg-[#111] border border-gray-800 rounded-xl w-full max-w-md p-6 relative shadow-2xl">
@@ -2874,8 +3132,8 @@ export default function App() {
                 </div>
               ))}
               <div className="flex gap-3 justify-end mt-4">
-                <button type="button" onClick={() => setCrudModal({...crudModal, isOpen: false})} className="px-4 py-2 text-gray-400 hover:text-white font-bold text-sm transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded font-bold text-sm transition-colors">Save</button>
+                <button type="button" onClick={() => setCrudModal({...crudModal, isOpen: false})} className="px-4 py-2 text-gray-400 hover:text-white font-bold text-sm transition-colors">{t[language].cancelText}</button>
+                <button type="submit" className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded font-bold text-sm transition-colors">{t[language].save}</button>
               </div>
             </form>
           </div>
@@ -2916,7 +3174,7 @@ export default function App() {
                 <button 
                   onClick={() => setPromoModal({isOpen: false, product: null, discountPrice: '', isFeatured: false})} 
                   className="px-4 py-2 text-gray-400 hover:text-white font-bold text-sm transition-colors"
-                >Cancel</button>
+                >{t[language].cancelText}</button>
                 <button 
                   onClick={async () => {
                     const dp = parseFloat(promoModal.discountPrice) || null;
@@ -3063,7 +3321,7 @@ export default function App() {
           <div className="bg-[#111] border border-purple-900/40 rounded-2xl w-full max-w-sm shadow-[0_0_50px_rgba(147,51,234,0.3)] flex flex-col overflow-hidden animate-in fade-in duration-200">
             <div className="p-5 border-b border-gray-800 flex justify-between items-center bg-[#0a0a0a]">
               <h2 className="text-lg font-bold text-white uppercase tracking-widest">
-                 {showAuthModal === 'login' ? 'System Login' : 'Create Account'}
+                 {showAuthModal === 'login' ? t[language].systemLogin : t[language].systemRegister}
               </h2>
               <button onClick={() => setShowAuthModal(null)} className="text-gray-400 hover:text-white transition-colors">
                 <X className="w-5 h-5" />
@@ -3077,42 +3335,68 @@ export default function App() {
                 </div>
               )}
               <div>
-                <label className="block text-xs uppercase text-gray-500 font-bold mb-1">{showAuthModal === 'login' ? 'Email / Username' : 'Email Address'}</label>
+                <label className="block text-xs uppercase text-gray-500 font-bold mb-1">{showAuthModal === 'login' ? t[language].emailOrUsername : t[language].eml}</label>
                 <input type="text" value={authForm.email} onChange={e => setAuthForm({...authForm, email: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder={showAuthModal === 'login' ? 'felix@example.com or AbuHassan_Admin' : 'felix@example.com'} />
               </div>
               <div>
-                <label className="block text-xs uppercase text-gray-500 font-bold mb-1">Password</label>
+                <label className="block text-xs uppercase text-gray-500 font-bold mb-1">{t[language].passwordUpper}</label>
                 <input type="password" value={authForm.password} onChange={e => setAuthForm({...authForm, password: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder="••••••••" />
               </div>
               
               <button 
-                onClick={() => {
+                onClick={async () => {
                   if (authForm.email && authForm.password) {
-                     // VERY BASIC MOCK AUTH
-                     if (showAuthModal === 'login') {
-                        if (authForm.email === 'AbuHassan_Admin' && authForm.password === 'Admin123!') {
-                           setUserProfile({ name: 'AbuHassan_Admin', email: 'admin@ludexstore.com', role: 'ADMIN' });
+                     try {
+                        const res = await fetch('/api/auth/login', {
+                           method: 'POST',
+                           headers: { 'Content-Type': 'application/json' },
+                           body: JSON.stringify({ email: authForm.email, password: authForm.password })
+                        });
+                        
+                        if (res.ok) {
+                           const data = await res.json();
+                           localStorage.setItem('ludex_token', data.token);
+                           setUserProfile({ name: data.user.username, email: authForm.email, role: data.user.role });
                            setIsLoggedIn(true);
                            setShowAuthModal(null);
-                           setActiveTab('admin');
-                           setToastMessage('Admin Access Granted. Welcome to HQ.');
+                           if (data.user.role === 'ADMIN') {
+                              setActiveTab('admin');
+                              setToastMessage('Admin Access Granted. Welcome to HQ.');
+                           } else {
+                              setToastMessage(showAuthModal === 'login' ? 'Successfully logged in.' : 'Account created.');
+                           }
                            setTimeout(() => setToastMessage(null), 3000);
-                           return; // Early return to avoid setting standard user message
                         } else {
-                           setUserProfile({ name: authForm.email.split('@')[0], email: authForm.email, role: 'CUSTOMER' });
+                           // Fallback to local mock if server fails or credentials are for local mock
+                           if (showAuthModal === 'login') {
+                              if (authForm.email === 'AbuHassan_Admin' && authForm.password === 'Admin123!') {
+                                 setUserProfile({ name: 'AbuHassan_Admin', email: 'admin@ludexstore.com', role: 'ADMIN' });
+                                 setIsLoggedIn(true);
+                                 setShowAuthModal(null);
+                                 setActiveTab('admin');
+                                 setToastMessage('Admin Action Required: Backend Auth Failed. Local Admin granted.');
+                                 setTimeout(() => setToastMessage(null), 3000);
+                              } else {
+                                 setToastMessage('Invalid credentials.');
+                                 setTimeout(() => setToastMessage(null), 3000);
+                              }
+                           } else {
+                              setUserProfile({ name: authForm.name || 'New User', email: authForm.email, role: 'CUSTOMER' });
+                              setIsLoggedIn(true);
+                              setShowAuthModal(null);
+                              setToastMessage('Account created locally.');
+                              setTimeout(() => setToastMessage(null), 3000);
+                           }
                         }
-                     } else {
-                        setUserProfile({ name: authForm.name || 'New User', email: authForm.email, role: 'CUSTOMER' });
+                     } catch (error) {
+                        setToastMessage('Server error during login.');
+                        setTimeout(() => setToastMessage(null), 3000);
                      }
-                     setIsLoggedIn(true);
-                     setShowAuthModal(null);
-                     setToastMessage(showAuthModal === 'login' ? 'Successfully logged in.' : 'Account created.');
-                     setTimeout(() => setToastMessage(null), 3000);
                   }
                 }}
                 className="w-full bg-purple-600 font-bold text-white py-3 rounded-lg hover:bg-purple-500 transition-colors mt-2"
               >
-                {showAuthModal === 'login' ? 'Authenticate' : 'Register Now'}
+                {showAuthModal === 'login' ? t[language].authenticate : t[language].registerNow}
               </button>
               
               <div className="text-center mt-2">
@@ -3120,7 +3404,7 @@ export default function App() {
                   onClick={() => setShowAuthModal(showAuthModal === 'login' ? 'register' : 'login')} 
                   className="text-xs text-gray-400 hover:text-purple-400 transition-colors"
                 >
-                  {showAuthModal === 'login' ? "Don't have an account? Register" : "Already have an account? Login"}
+                  {showAuthModal === 'login' ? t[language].noAccount : t[language].hasAccount}
                 </button>
               </div>
             </div>
@@ -3296,114 +3580,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Bottom Bar Info */}
-      <footer className="w-full bg-black/60 backdrop-blur-md border-t border-purple-900/30 px-6 md:px-8 py-6 md:py-0 md:h-12 flex flex-col md:flex-row items-center justify-center md:justify-between text-[10px] text-gray-500 uppercase tracking-[0.2em] font-medium flex-shrink-0 z-10 relative gap-4 md:gap-0 mt-auto">
-        <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
-          <span>&copy; 2026 LUDEX STORE - ALL RIGHTS RESERVED</span>
-          {isLoggedIn && userProfile.role === 'ADMIN' && (
-            <button 
-              onClick={() => setActiveTab('admin')} 
-              className="border border-purple-900 px-3 py-1 rounded text-purple-400 hover:bg-purple-900/30 transition-colors bg-black font-bold flex items-center gap-1.5"
-            >
-              <Shield className="w-3 h-3" /> LUDEX HQ PORTAL
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap justify-center md:flex-row items-center gap-4 md:gap-6 text-center mt-2 md:mt-0">
-          <span className="text-purple-500/80 font-bold">System Status: Optimal</span>
-          {cmsPages.map(page => (
-            <button 
-              key={page.id} 
-              onClick={() => { setActiveTab('page'); setCurrentSlug(page.slug); }} 
-              className="hover:text-purple-400 transition-colors duration-300 uppercase"
-            >
-              {page.title}
-            </button>
-          ))}
-        </div>
-      </footer>
-      </>
-    )}
-
-    {/* Invoice Modal */}
-    {invoiceToView && (
-       <div className="fixed inset-0 z-[200] flex flex-col items-center justify-end md:justify-center bg-black/90 backdrop-blur-md animate-in fade-in">
-          <div className="bg-[#0a0a0a] border-t md:border border-purple-900/40 rounded-t-3xl md:rounded-xl w-full md:max-w-2xl shadow-[0_-10px_50px_rgba(168,85,247,0.2)] md:shadow-[0_0_50px_rgba(168,85,247,0.2)] flex flex-col max-h-[95vh] md:max-h-[90vh] animate-in slide-in-from-bottom-5 duration-300">
-             <div className="p-4 md:p-6 border-b border-gray-800 flex justify-between items-center bg-[#111] flex-shrink-0">
-                <h3 className="text-white font-bold text-lg md:text-xl flex items-center gap-2">DIGITAL INVOICE</h3>
-                <button onClick={() => setInvoiceToView(null)} className="text-gray-500 hover:text-white p-2 min-h-[44px] min-w-[44px] flex items-center justify-center">
-                   <X className="w-6 h-6" />
-                </button>
-             </div>
-             <div className="p-4 md:p-8 overflow-y-auto flex-1 font-mono">
-                <div className="flex justify-between items-start border-b border-gray-800 pb-6 md:pb-8 mb-6 md:mb-8">
-                   <div>
-                      <h2 className="text-2xl font-black text-white tracking-tighter mb-1">LUDEX<span className="text-purple-500">STORE</span></h2>
-                      <p className="text-xs text-gray-500">Baghdad, Iraq</p>
-                      <p className="text-xs text-gray-500 mt-4 max-w-[200px]">support@ludexstore.com<br/>0770 123 4567</p>
-                   </div>
-                   <div className="text-right">
-                      <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Invoice Number</p>
-                      <p className="text-sm text-white font-bold">{invoiceToView.invoiceNumber || 'INV-XXXX'}</p>
-                      <p className="text-xs text-gray-500 uppercase tracking-widest mt-4 mb-1">Date</p>
-                      <p className="text-sm text-white font-bold">{new Date().toLocaleDateString()}</p>
-                   </div>
-                </div>
-                
-                <div className="mb-8 border border-gray-800 rounded-lg p-6 bg-[#111]">
-                   <p className="text-xs text-gray-500 uppercase tracking-widest mb-2 font-bold">Billed To</p>
-                   <p className="text-sm text-white font-bold mb-1">{userProfile.name}</p>
-                   <p className="text-xs text-gray-400">{userProfile.email}</p>
-                </div>
-
-                <table className="w-full text-left text-sm text-gray-300">
-                   <thead>
-                      <tr className="border-b border-gray-800">
-                         <th className="pb-3 text-xs uppercase tracking-widest text-gray-500">Description</th>
-                         <th className="pb-3 text-xs uppercase tracking-widest text-gray-500 text-right">Amount</th>
-                      </tr>
-                   </thead>
-                   <tbody>
-                      <tr className="border-b border-gray-800/50">
-                         <td className="py-4 font-bold text-white">{gamesList.find(g => g.id === invoiceToView.gameId)?.title}</td>
-                         <td className="py-4 text-right">{displayPrice(invoiceToView.amount)}</td>
-                      </tr>
-                   </tbody>
-                </table>
-                
-                <div className="mt-8 flex justify-between items-end border-t border-gray-800 pt-6">
-                   <div className="text-xs text-gray-500 max-w-[250px] leading-relaxed">
-                      Payment Method: Zain Cash / FIB (Manual Transfer)<br />
-                      Thank you for shopping at Ludex Store.
-                   </div>
-                   <div className="text-right w-64">
-                      <div className="flex justify-between items-center mb-2">
-                         <span className="text-xs text-gray-400">Subtotal:</span>
-                         <span className="text-sm text-white">{displayPrice(invoiceToView.amount)}</span>
-                      </div>
-                      {invoiceToView.discountApplied ? (
-                         <div className="flex justify-between items-center mb-2 text-green-400">
-                            <span className="text-xs">Loyalty Discount ({loyaltyDiscountPercent}%):</span>
-                            <span className="text-sm">-{displayPrice(invoiceToView.discountApplied)}</span>
-                         </div>
-                      ) : null}
-                      <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-800">
-                         <span className="text-sm font-bold text-white uppercase tracking-widest">Total:</span>
-                         <span className="text-2xl font-black text-purple-400">
-                            {displayPrice(invoiceToView.finalPrice !== undefined ? invoiceToView.finalPrice : invoiceToView.amount)}
-                         </span>
-                      </div>
-                   </div>
-                </div>
-             </div>
-             <div className="p-6 border-t border-gray-800 bg-[#111] flex justify-end gap-4 rounded-b-xl">
-                <button onClick={() => window.print()} className="px-6 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-bold rounded-lg transition-colors">
-                   Print PDF
-                </button>
-             </div>
-          </div>
-       </div>
-    )}
-    </div>
+    </>
   );
 }

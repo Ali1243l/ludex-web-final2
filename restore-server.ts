@@ -1,4 +1,6 @@
-import express from 'express';
+import * as fs from 'fs';
+
+let ts = `import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { createClient } from '@supabase/supabase-js';
 import multer from 'multer';
@@ -122,7 +124,7 @@ async function startServer() {
 
       if (req.file) {
         const fileExt = req.file.originalname.split('.').pop();
-        const fileName = `receipt-${Date.now()}.${fileExt}`;
+        const fileName = \`receipt-\${Date.now()}.\${fileExt}\`;
         const { error } = await supabase.storage
           .from('receipts')
           .upload(fileName, req.file.buffer, { contentType: req.file.mimetype });
@@ -165,7 +167,7 @@ async function startServer() {
         .from('sales')
         .insert([{
           productName, price, customerName, customerUsername, customerCode, 
-          notes: `Approved order ${orderId}`,
+          notes: \`Approved order \${orderId}\`,
           date: new Date().toISOString()
         }])
         .select().single();
@@ -174,7 +176,7 @@ async function startServer() {
       const { data: existingCustomers } = await supabase
         .from('customers')
         .select('*')
-        .or(`customer_code.eq.${customerCode},username.eq.${customerUsername}`);
+        .or(\`customer_code.eq.\${customerCode},username.eq.\${customerUsername}\`);
         
       if (existingCustomers && existingCustomers.length > 0) {
         const customer = existingCustomers[0];
@@ -188,7 +190,7 @@ async function startServer() {
         amount: price,
         person: customerName || customerUsername,
         description: 'Sale Income',
-        notes: `[تلقائي] رقم المبيعة: ${saleData.id}`
+        notes: \`[تلقائي] رقم المبيعة: \${saleData.id}\`
       }]);
 
       res.status(200).json({ message: 'Sale approved & logged successfully.', sale: saleData });
@@ -290,7 +292,7 @@ async function startServer() {
       res.json({
         success: true,
         message: 'Loyalty card successfully connected.',
-        card_link: `${loyaltyUrl}?user=${email}`
+        card_link: \`\${loyaltyUrl}?user=\${email}\`
       });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -312,8 +314,12 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(\`Server running on port \${PORT}\`);
   });
 }
 
 startServer();
+`
+
+fs.writeFileSync('server.ts', ts);
+console.log("Restored server.ts back to supabase implementation.");
