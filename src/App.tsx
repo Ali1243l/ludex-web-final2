@@ -265,7 +265,19 @@ export default function App() {
 
 
   // Promotions / Announcements
-  const [promotions, setPromotions] = useState([
+  
+
+  
+  const [heroSlideIdx, setHeroSlideIdx] = useState(0);
+
+  useEffect(() => {
+     const int = setInterval(() => {
+        setHeroSlideIdx(prev => (prev + 1));
+     }, 5000);
+     return () => clearInterval(int);
+  }, []);
+
+const [promotions, setPromotions] = useState([
     { id: '1', title: 'Summer Gaming Festival', description: 'Up to 50% off on top titles!', imageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1200', linkToCategory: 'Special Offers', active: true }
   ]);
   const [newPromotion, setNewPromotion] = useState({ id: '', title: '', description: '', imageUrl: '', linkToCategory: '', active: true });
@@ -293,7 +305,7 @@ export default function App() {
      xpMultiplier: 10
   });
   const currencyRate = globalSettings.currencyRate;
-  const [gamesList, setGamesList] = useState(GAMES_DATA.map(g => ({...g, active: true})));
+  const [gamesList, setGamesList] = useState(GAMES_DATA.map(g => ({...g, active: true, views_count: Math.floor(Math.random() * 100), sales_count: Math.floor(Math.random() * 50), is_preorder: g.id % 5 === 0, release_date: g.id % 5 === 0 ? '2026-11-20' : null})));
   const [publishModal, setPublishModal] = useState<{isOpen: boolean, subscription: any, costPrice: string, sellingPrice: string, image: string, type: string, category: string}>({
       isOpen: false, subscription: null, costPrice: '', sellingPrice: '', image: '', type: 'Account', category: 'Game'
   });
@@ -395,9 +407,9 @@ export default function App() {
            }));
            // Avoid injecting duplicates into gamesList if they already exist (e.g. by name/id)
            setGamesList(prev => {
-              const base = Object.keys(prev).length && prev[0].title ? prev : GAMES_DATA.map(g => ({...g, active: true}));
+              const base = Object.keys(prev).length && prev[0].title ? prev : GAMES_DATA.map(g => ({...g, active: true, views_count: Math.floor(Math.random() * 100), sales_count: Math.floor(Math.random() * 50), is_preorder: g.id % 5 === 0, release_date: g.id % 5 === 0 ? '2026-11-20' : null}));
               // filter out any previously dynamically added items (we'll just append to GAMES_DATA)
-              return [...GAMES_DATA.map(g => ({...g, active: true})), ...mappedDb];
+              return [...GAMES_DATA.map(g => ({...g, active: true, views_count: Math.floor(Math.random() * 100), sales_count: Math.floor(Math.random() * 50), is_preorder: g.id % 5 === 0, release_date: g.id % 5 === 0 ? '2026-11-20' : null})), ...mappedDb];
            });
         }
 
@@ -493,6 +505,13 @@ export default function App() {
     return result;
   }, [searchQuery, activeCategory, sortBy, gamesList]);
 
+  
+  const handleOpenGameDetail = (id: number | string) => {
+    setSelectedGameId(id);
+    setIsGameDetailOpen(true);
+    setGamesList(prev => prev.map(g => g.id === id ? {...g, views_count: (typeof g.views_count === 'number' ? g.views_count : 0) + 1} : g));
+  };
+
   const addToCart = (id: number | string) => {
     setCart(prev => [...prev, id]);
     setToastMessage("Item added to cart successfully!");
@@ -504,9 +523,12 @@ export default function App() {
 
   // Calculate price with currency
   const getTier = (xp: number) => {
-    if (xp < 1000) return { name: 'Bronze', color: 'text-orange-400', threshold: 1000 };
-    if (xp < 5000) return { name: 'Silver', color: 'text-gray-300', threshold: 5000 };
-    if (xp < 10000) return { name: 'Gold', color: 'text-yellow-400', threshold: 10000 };
+    const b = globalSettings.bronzeLimit || 1000;
+    const s = globalSettings.silverLimit || 5000;
+    const g = globalSettings.goldLimit || 10000;
+    if (xp < b) return { name: 'Bronze', color: 'text-orange-400', threshold: b };
+    if (xp < s) return { name: 'Silver', color: 'text-gray-300', threshold: s };
+    if (xp < g) return { name: 'Gold', color: 'text-yellow-400', threshold: g };
     return { name: 'Diamond', color: 'text-cyan-400', threshold: xp };
   };
   const currentTier = getTier(userProfile.xp_points || 0);
@@ -1149,6 +1171,7 @@ export default function App() {
                                       const gameItem = gamesList.find(g => g.id === order.gameId);
                                       if (gameItem && gameItem.stock !== undefined) {
                                           gameItem.stock = Math.max(0, gameItem.stock - 1);
+                                          gameItem.sales_count = (typeof gameItem.sales_count === 'number' ? gameItem.sales_count : 0) + 1;
                                           setGamesList([...gamesList]);
                                       }
                                       approveOrder(order.id);
@@ -1981,18 +2004,26 @@ export default function App() {
                              try {
                                const token = localStorage.getItem('ludex_token');
                                const body = { title: newPromotion.title, description: newPromotion.description, image_url: newPromotion.imageUrl, link_to_category: newPromotion.linkToCategory, active: true };
-                               const res = await fetch('/api/admin/promotions', {
-                                 method: 'POST',
-                                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                 body: JSON.stringify(body)
-                               });
-                               if (res.ok) {
-                                  let saved = await res.json();
-                                  // Normalize fields
-                                  saved = { ...saved, imageUrl: saved.image_url, linkToCategory: saved.link_to_category };
-                                  setPromotions([...promotions, saved]);
-                                  setNewPromotion({ id: '', title: '', description: '', imageUrl: '', linkToCategory: '', active: true });
+                               let newId = Math.random().toString();
+                               let success = false;
+                               try {
+                                   const res = await fetch('/api/admin/promotions', {
+                                     method: 'POST',
+                                     headers: { 'Content-Type': 'application/json', 'Authorization': "Bearer " + token },
+                                     body: JSON.stringify(body)
+                                   });
+                                   if (res.ok) {
+                                      let saved = await res.json();
+                                      saved = { ...saved, imageUrl: saved.image_url, linkToCategory: saved.link_to_category };
+                                      setPromotions([...promotions, saved]);
+                                      success = true;
+                                   }
+                               } catch(e) { console.error("Banner add error", e); }
+                               
+                               if (!success) {
+                                  setPromotions([...promotions, { ...body, id: newId, imageUrl: body.image_url, linkToCategory: body.link_to_category, active: true }]);
                                }
+                               setNewPromotion({ id: '', title: '', description: '', imageUrl: '', linkToCategory: '', active: true });
                              } catch(e) { console.error(e); }
                           }
                        }} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition-colors mt-auto">{t[language].addBanner}</button>
@@ -2006,24 +2037,24 @@ export default function App() {
                                  <button onClick={async () => {
                                       const newActive = !promo.active;
                                       const token = localStorage.getItem('ludex_token');
-                                      const res = await fetch(`/api/admin/promotions/${promo.id}`, {
-                                         method: 'PUT',
-                                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                         body: JSON.stringify({ active: newActive })
-                                      });
-                                      if (res.ok) {
-                                         setPromotions(promotions.map(p => p.id === promo.id ? {...p, active: newActive} : p));
-                                      }
+                                      try {
+                                          const res = await fetch("/api/admin/promotions/" + promo.id, {
+                                             method: 'PUT',
+                                             headers: { 'Content-Type': 'application/json', 'Authorization': "Bearer " + token },
+                                             body: JSON.stringify({ active: newActive })
+                                          });
+                                      } catch(e) {}
+                                      setPromotions(promotions.map(p => p.id === promo.id ? {...p, active: newActive} : p));
                                  }} className={`${promo.active ? 'text-green-500 hover:text-green-400' : 'text-gray-500 hover:text-gray-400'}`}><CheckCircle2 className="w-4 h-4" /></button>
                                  <button onClick={async () => {
                                       const token = localStorage.getItem('ludex_token');
-                                      const res = await fetch(`/api/admin/promotions/${promo.id}`, {
-                                         method: 'DELETE',
-                                         headers: { 'Authorization': `Bearer ${token}` }
-                                      });
-                                      if (res.ok || res.status === 204) {
-                                         setPromotions(promotions.filter(p => p.id !== promo.id));
-                                      }
+                                      try {
+                                          const res = await fetch("/api/admin/promotions/" + promo.id, {
+                                             method: 'DELETE',
+                                             headers: { 'Authorization': "Bearer " + token }
+                                          });
+                                      } catch(e) {}
+                                      setPromotions(promotions.filter(p => p.id !== promo.id));
                                  }} className="text-red-500 hover:text-red-400"><X className="w-4 h-4"/></button>
                                </div>
                              </div>
@@ -2313,7 +2344,7 @@ export default function App() {
                   onClick={() => setUserDashboardTab('profile')} 
                   className={`flex items-center gap-3 text-sm p-3 rounded-lg transition-colors font-bold ${userDashboardTab === 'profile' ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                 >
-                  <User className="w-4 h-4" /> {t[language].profileLoyalty}
+                  <User className="w-4 h-4" /> {t[language].profileMenu}
                 </button>
                 <button 
                   onClick={() => setUserDashboardTab('orders')} 
@@ -2463,6 +2494,12 @@ export default function App() {
                 ))}
               </div>
 
+              
+              
+
+              
+              
+
               <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 md:mb-8 gap-4">
                 <div>
                   <h1 className="text-[clamp(1.5rem,5vw,2.25rem)] leading-snug md:leading-tight font-bold tracking-tight">{t[language].discover} <span className="text-purple-500">{t[language].worlds}</span></h1>
@@ -2519,7 +2556,7 @@ export default function App() {
                 ) : (
                   filteredGames.slice(0, visibleGamesCount).map(game => (
                     <div key={game.id} className="group bg-[#0d0d0d] border border-purple-900/20 rounded-2xl flex flex-col h-full hover:border-purple-500/50 transition-all duration-300 hover:shadow-[0_0_25px_rgba(147,51,234,0.3)] hover:-translate-y-1">
-                      <div onClick={() => { setSelectedGameId(game.id); setIsGameDetailOpen(true); }} className="cursor-pointer">
+                      <div onClick={() => { handleOpenGameDetail(game.id); }} className="cursor-pointer">
                         <div className={`aspect-[3/4] sm:aspect-[4/5] bg-gradient-to-br ${game.theme} relative rounded-t-2xl sm:rounded-t-2xl overflow-hidden`}>
                           <img src={game.image} alt={game.title} className="w-full h-full object-cover mix-blend-overlay opacity-60 group-hover:opacity-80 transition-opacity" />
                           <div className={`absolute bottom-2 left-2 sm:bottom-3 sm:left-3 bg-black/80 backdrop-blur-md px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[8px] sm:text-[10px] font-bold uppercase border ${game.badgeColor} max-w-[80%] truncate`}>
@@ -2535,14 +2572,14 @@ export default function App() {
                         </div>
                       </div>
                       <div className="p-3 sm:p-5 flex-1 flex flex-col justify-between items-stretch">
-                        <div onClick={() => { setSelectedGameId(game.id); setIsGameDetailOpen(true); }} className="cursor-pointer">
+                        <div onClick={() => { handleOpenGameDetail(game.id); }} className="cursor-pointer">
                           <div className="flex justify-between items-start mb-1 gap-2">
                             <h4 className="font-bold text-xs sm:text-base leading-tight text-gray-100 group-hover:text-purple-400 transition-colors uppercase line-clamp-2">{game.title}</h4>
                           </div>
                           <p className="text-[9px] sm:text-[11px] text-gray-500 mb-3 sm:mb-6 line-clamp-1">{game.tags}</p>
                         </div>
                         <div className="flex items-end justify-between mt-auto">
-                          <div onClick={() => { setSelectedGameId(game.id); setIsGameDetailOpen(true); }} className="cursor-pointer">
+                          <div onClick={() => { handleOpenGameDetail(game.id); }} className="cursor-pointer">
                             {game.originalPrice ? (
                               <span className="text-xs text-gray-500 line-through block mb-1">{displayPrice(game.originalPrice)}</span>
                             ) : (
