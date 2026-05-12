@@ -95,7 +95,7 @@ export default function App() {
   const [newPaymentForm, setNewPaymentForm] = useState({ name: '', accountDetails: '', surcharge_percentage: '0' });
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
 
-  const [userProfile, setUserProfile] = useState<{name: string, email: string, role: 'CUSTOMER' | 'MODERATOR' | 'ADMIN'}>({ name: 'Felix user', email: 'felix@example.com', role: 'ADMIN' });
+  const [userProfile, setUserProfile] = useState<{name: string, email: string, role: 'CUSTOMER' | 'MODERATOR' | 'ADMIN', xp_points: number, platformPreference: string, favoriteGenres: string[], emailNotifications: boolean, twoFactorEnabled: boolean, avatarUrl?: string}>({ name: 'Felix user', email: 'felix@example.com', role: 'ADMIN', xp_points: 1250, platformPreference: 'PC', favoriteGenres: ['Action', 'RPG'], emailNotifications: true, twoFactorEnabled: false, avatarUrl: '' });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState<'login' | 'register' | null>(null);
   const [authForm, setAuthForm] = useState({email: '', password: '', name: ''});
@@ -280,12 +280,17 @@ export default function App() {
   const [newPromoCode, setNewPromoCode] = useState({ id: '', code: '', discountPercent: '', expiryDate: '', usageLimit: '', usedCount: 0, active: true });
 
   const [language, setLanguage] = useState<'en' | 'ar'>('ar');
-  const [currency, setCurrency] = useState<'USD' | 'IQD'>('IQD');
+  const [currency, setCurrency] = useState<'USD' | 'IQD'>((localStorage.getItem('ludex_currency') as 'USD' | 'IQD') || 'IQD');
+  useEffect(() => {
+    localStorage.setItem('ludex_currency', currency);
+  }, [currency]);
+
   const [globalSettings, setGlobalSettings] = useState({
      currencyRate: 1500,
-     storeName: "LUDEX STORE",
+     storeName: "Ludex Store",
      contactEmail: "support@ludexstore.com",
-     contactPhone: "0770 123 4567"
+     contactPhone: "0770 123 4567",
+     xpMultiplier: 10
   });
   const currencyRate = globalSettings.currencyRate;
   const [gamesList, setGamesList] = useState(GAMES_DATA.map(g => ({...g, active: true})));
@@ -318,7 +323,7 @@ export default function App() {
        if (isLoggedIn) {
           timeout = setTimeout(() => {
              setIsLoggedIn(false);
-             setUserProfile({ name: '', email: '', role: 'CUSTOMER' });
+             setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false});
              if (activeTab === 'admin' || activeTab === 'user_dashboard' || activeTab === 'profile' || activeTab === 'settings' || activeTab === 'orders' || activeTab === 'cart') {
                 setActiveTab('store');
              }
@@ -333,7 +338,8 @@ export default function App() {
     const activityEvents = ['mousemove', 'keydown', 'scroll', 'click'];
     activityEvents.forEach(event => window.addEventListener(event, resetTimer));
     
-    return () => {
+  
+  return () => {
        clearTimeout(timeout);
        activityEvents.forEach(event => window.removeEventListener(event, resetTimer));
     };
@@ -495,7 +501,18 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+
   // Calculate price with currency
+  const getTier = (xp: number) => {
+    if (xp < 1000) return { name: 'Bronze', color: 'text-orange-400', threshold: 1000 };
+    if (xp < 5000) return { name: 'Silver', color: 'text-gray-300', threshold: 5000 };
+    if (xp < 10000) return { name: 'Gold', color: 'text-yellow-400', threshold: 10000 };
+    return { name: 'Diamond', color: 'text-cyan-400', threshold: xp };
+  };
+  const currentTier = getTier(userProfile.xp_points || 0);
+  const xpPercentage = currentTier.name === 'Diamond' ? 100 : Math.min(((userProfile.xp_points || 0) / currentTier.threshold) * 100, 100);
+
+
   const displayPrice = (priceInUsd: number) => {
       return currency === 'USD' ? `$${priceInUsd.toFixed(2)}` : `${(priceInUsd * currencyRate).toLocaleString()} IQD`;
   };
@@ -679,7 +696,7 @@ export default function App() {
           <div className="w-64 bg-[#0a0a0a] border-e border-purple-900/40 p-4 flex flex-col gap-2 relative z-20 overflow-y-auto custom-scrollbar flex-shrink-0 h-full">
             <div className="px-4 py-6 border-b border-gray-800 mb-6 flex flex-col gap-2">
               <h3 className="font-black text-purple-500 text-xl flex items-center gap-2">
-                <Shield className="w-6 h-6" /> LUDEX HQ
+                <Shield className="w-6 h-6" /> Ludex HQ
               </h3>
               <p className="text-[10px] text-green-400 mt-1 uppercase font-mono bg-green-500/10 px-2 py-1 rounded inline-block w-fit">/ludex-hq-portal</p>
             </div>
@@ -788,7 +805,7 @@ export default function App() {
               <button 
                 onClick={() => { 
                   setIsLoggedIn(false); 
-                  setUserProfile({name: '', email: '', role: 'CUSTOMER'}); 
+                  setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
                   setActiveTab('store'); 
                   setActiveCategory(null); 
                 }} 
@@ -894,7 +911,7 @@ export default function App() {
                           <th className="px-4 py-3">{t[language].username}</th>
                           <th className="px-4 py-3">{t[language].passwordUpper}</th>
                           <th className="px-4 py-3">{t[language].catCol}</th>
-                          <th className="px-4 py-3">{t[language].status}</th>
+                          <th className="px-4 py-3">{t[language].statusMsg}</th>
                           <th className="px-4 py-3">{t[language].sellCount}</th>
                           <th className="px-4 py-3">{t[language].actions}</th>
                         </tr>
@@ -1339,7 +1356,7 @@ export default function App() {
                           <th className="px-4 py-3">{t[language].emailUpper}</th>
                           <th className="px-4 py-3">{t[language].purchases}</th>
                           <th className="px-4 py-3">{t[language].points}</th>
-                          <th className="px-4 py-3">{t[language].status}</th>
+                          <th className="px-4 py-3">{t[language].statusMsg}</th>
                           <th className="px-4 py-3">{t[language].actions}</th>
                         </tr>
                       </thead>
@@ -2144,13 +2161,13 @@ export default function App() {
               {isLoggedIn ? (
                 <>
                   <div onClick={() => setIsProfileOpen(!isProfileOpen)} className="w-8 h-8 md:w-10 md:h-10 bg-purple-900 rounded-full border border-purple-500/50 cursor-pointer overflow-hidden hover:border-purple-400 transition-colors flex items-center justify-center font-bold text-white uppercase select-none">
-                     {userProfile.name.charAt(0)}
+                     <img src={userProfile.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile.name}&backgroundColor=4c1d95`} alt="Avatar" className="w-full h-full object-cover" />
                   </div>
                   {isProfileOpen && (
                     <div className={`absolute ${language === 'ar' ? 'left-0' : 'right-0'} mt-2 w-48 bg-[#111] border border-purple-900/50 rounded-xl shadow-xl overflow-hidden z-20 flex flex-col`}>
                       {userProfile.role === 'ADMIN' && (
                         <button onClick={() => { setActiveTab('admin'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-purple-400 font-bold uppercase tracking-widest">
-                          <Shield className="w-4 h-4" /> LUDEX HQ PORTAL
+                          <Shield className="w-4 h-4" /> Ludex HQ Portal
                         </button>
                       )}
                       <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('profile'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-white">
@@ -2175,7 +2192,7 @@ export default function App() {
                       </div>
                       <button onClick={() => { 
                           setIsLoggedIn(false); 
-                          setUserProfile({name: '', email: '', role: 'CUSTOMER'}); 
+                          setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
                           setIsProfileOpen(false); 
                           if(activeTab === 'admin' || activeTab === 'profile') { setActiveTab('store'); setActiveCategory(null); }
                       }} className="px-4 py-3 text-sm text-start text-red-500 hover:bg-red-500/10 transition-colors">{t[language].logout}</button>
@@ -2302,7 +2319,7 @@ export default function App() {
                   onClick={() => setUserDashboardTab('orders')} 
                   className={`flex items-center gap-3 text-sm p-3 rounded-lg transition-colors font-bold ${userDashboardTab === 'orders' ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                 >
-                  <ShoppingBag className="w-4 h-4" /> {t[language].orderHistory}
+                  <ShoppingBag className="w-4 h-4" /> {t[language].secureVault}
                 </button>
                 <button 
                   onClick={() => setUserDashboardTab('settings')} 
@@ -2314,7 +2331,7 @@ export default function App() {
              <div className="p-4 border-t border-gray-800">
                <button onClick={() => {
                    setIsLoggedIn(false); 
-                   setUserProfile({name: '', email: '', role: 'CUSTOMER'}); 
+                   setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
                    setActiveTab('store');
                    setActiveCategory(null);
                }} className="flex items-center gap-3 text-sm p-3 rounded-lg transition-colors font-bold text-red-500 hover:bg-red-500/10 w-full">
@@ -2676,7 +2693,7 @@ export default function App() {
                       <span>{displayPrice(cart.reduce((sum, id) => sum + (gamesList.find(g => g.id === id)?.price || 0), 0))}</span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-400 font-mono">
-                      <span>{t[language].fee}</span>
+                      <span>{t[language].serviceFee}</span>
                       <span>{displayPrice(0)}</span>
                     </div>
                     {isEligibleForLoyaltyDiscount && (
@@ -2715,7 +2732,7 @@ export default function App() {
               <h2 className="text-2xl font-bold text-white tracking-widest uppercase">{t[language].profOverview}</h2>
               <div className="bg-[#111] border border-purple-900/30 rounded-2xl p-6 flex flex-col sm:flex-row items-center sm:items-start gap-6 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[80px] pointer-events-none"></div>
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=4c1d95" alt="Avatar" className="w-24 h-24 rounded-full border-2 border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.3)] relative z-10" />
+                <img src={userProfile.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile.name}&backgroundColor=4c1d95`} alt="Avatar" className="w-24 h-24 rounded-full border-2 border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.3)] relative z-10 object-cover" />
                 <div className="flex flex-col items-center sm:items-start text-center sm:text-start relative z-10">
                   <h3 className="text-2xl font-bold text-white mb-1 uppercase tracking-widest">{userProfile.name}</h3>
                   <p className="text-gray-400 text-sm mb-4 font-mono">Player ID: <span className="text-purple-400 font-bold">#LUDEX-9034</span></p>
@@ -2732,76 +2749,44 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Loyalty Card Engine */}
+              {/* Ludex Elite Gamer Card */}
               <h3 className="text-xl font-bold text-white mt-4 tracking-widest uppercase flex items-center gap-2">
                  <Zap className="w-5 h-5 text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
-                 {t[language].loyaltyDashboard}
+                 Ludex Elite Loyalty
               </h3>
               <div className="bg-[#0a0a0a] border border-purple-500/30 rounded-2xl p-6 lg:p-8 relative overflow-hidden group shadow-[0_0_30px_rgba(147,51,234,0.1)]">
                  <div className="absolute inset-0 bg-gradient-to-r from-purple-900/10 to-transparent pointer-events-none"></div>
                  
                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
-                    <div>
-                       <h4 className="text-lg font-black text-white uppercase tracking-wider mb-2">LUDEX Elite Card</h4>
-                       <p className="text-sm text-gray-400 max-w-md">Your progress towards the next loyalty reward. Connected live to Pixel Store ERP.</p>
+                    <div className="flex-1 w-full">
+                       <div className="flex items-center gap-4 mb-3">
+                          <h4 className="text-lg font-black text-white uppercase tracking-wider">LUDEX Elite Card</h4>
+                          <span className={`px-3 py-1 bg-black border border-gray-800 rounded-full font-bold text-[10px] uppercase tracking-widest ${currentTier.color}`}>
+                             {currentTier.name} Tier
+                          </span>
+                       </div>
+                       <p className="text-sm text-gray-400 mb-6 max-w-md">Earn {globalSettings.xpMultiplier} XP for every $1 spent. Unlock exclusive rewards by reaching higher tiers!</p>
+                       
+                       <div className="mb-2 flex justify-between items-end">
+                         <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">XP Progress</span>
+                         <span className="text-xs font-bold text-purple-400">{userProfile.xp_points || 0} / {currentTier.name === 'Diamond' ? 'MAX' : currentTier.threshold} XP</span>
+                       </div>
+                       {/* Progress Bar Line */}
+                       <div className="h-2 bg-gray-800 rounded-full w-full max-w-2xl relative overflow-hidden">
+                          <div 
+                             className={`absolute top-0 bottom-0 left-0 bg-gradient-to-r from-purple-600 to-purple-400 transition-all duration-1000 shadow-[0_0_15px_#a855f7]`} 
+                             style={{ width: `${xpPercentage}%`, right: language === 'ar' ? 0 : 'auto', left: language === 'ar' ? 'auto' : 0 }}
+                          ></div>
+                       </div>
                     </div>
-                    <button onClick={() => setToastMessage('Exporting Loyalty Card... Please wait.')} className="flex items-center gap-2 px-5 py-2.5 bg-purple-600/20 text-purple-400 border border-purple-500 hover:bg-purple-600 hover:text-white transition-all rounded-lg text-xs font-bold uppercase tracking-widest">
+
+                    <button onClick={() => setToastMessage('Exporting Gamer Card... Please wait.')} className="flex items-center gap-2 px-5 py-2.5 bg-purple-600/20 text-purple-400 border border-purple-500 hover:bg-purple-600 hover:text-white transition-all rounded-lg text-xs font-bold uppercase tracking-widest whitespace-nowrap">
                        <Download className="w-4 h-4" /> Export Card
                     </button>
                  </div>
-
-                 <div className="mt-10 flex items-center justify-between relative max-w-2xl mx-auto">
-                    {/* Progress Bar Line */}
-                    <div className="absolute left-0 right-0 h-1 bg-gray-800 top-1/2 -translate-y-1/2 z-0 rounded-full">
-                       <div 
-                          className="h-full bg-purple-500 rounded-full transition-all duration-1000 shadow-[0_0_15px_#a855f7]" 
-                          style={{ width: `${Math.min((approvedOrdersCount % loyaltyThreshold) / (loyaltyThreshold - 1) * 100, 100)}%` }}
-                       ></div>
-                    </div>
-
-                    {/* Steps mapping based on loyaltyThreshold */}
-                    {Array.from({ length: loyaltyThreshold }).map((_, i) => {
-                       const isCompleted = (approvedOrdersCount % loyaltyThreshold) > i || (approvedOrdersCount > 0 && (approvedOrdersCount % loyaltyThreshold) === 0);
-                       const isFinalStep = i === loyaltyThreshold - 1;
-                       const isActive = (approvedOrdersCount % loyaltyThreshold) === i;
-
-                       return (
-                          <div key={i} className="relative z-10 flex flex-col items-center gap-3">
-                             <div className={`w-12 h-12 rounded-full border-4 flex items-center justify-center transition-all duration-500 ${
-                                isCompleted 
-                                ? 'bg-purple-600 border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.6)] text-white scale-110' 
-                                : isActive 
-                                   ? 'bg-[#111] border-purple-400 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.3)] animate-pulse-glow'
-                                   : 'bg-[#111] border-gray-800 text-gray-600'
-                             }`}>
-                                {isFinalStep ? (
-                                   <Gift className={`w-5 h-5 ${isCompleted ? 'text-white' : isActive ? 'text-purple-400' : 'text-gray-600'}`} />
-                                ) : isCompleted ? (
-                                   <Check className="w-5 h-5 text-white" />
-                                ) : (
-                                   <span className="font-bold">{i + 1}</span>
-                                )}
-                             </div>
-                             <div className="absolute -bottom-8 whitespace-nowrap">
-                                <span className={`text-[10px] uppercase font-bold tracking-widest ${isCompleted || isActive ? 'text-purple-400' : 'text-gray-600'}`}>
-                                   {isFinalStep ? 'Reward' : `Purchase ${i + 1}`}
-                                </span>
-                             </div>
-                          </div>
-                       );
-                    })}
-                 </div>
-                 
-                 <div className="mt-16 text-center">
-                    {isEligibleForLoyaltyDiscount ? (
-                       <p className="text-green-400 text-sm font-bold animate-pulse">🎉 Congratulations! {loyaltyDiscountPercent}% Discount unlocked for your next purchase.</p>
-                    ) : (
-                       <p className="text-gray-500 text-xs uppercase tracking-widest">Only {loyaltyThreshold - (approvedOrdersCount % loyaltyThreshold)} purchase(s) away from your next discount.</p>
-                    )}
-                 </div>
               </div>
 
-              {/* {t[language].orderHistory} */}
+              {/* {t[language].secureVault} */}
               <h3 className="text-xl font-bold text-white mt-4 tracking-tight">{t[language].orderHistory}</h3>
               <div className="overflow-x-auto w-full bg-[#111] border border-gray-800 rounded-xl">
                 <table className="w-full text-left text-sm text-gray-400">
@@ -2836,7 +2821,16 @@ export default function App() {
                             </span>
                           </td>
                           <td className="px-6 py-4 font-mono text-xs text-purple-400 font-bold">
-                            {order.status === 'Approved' ? order.gameKey : '---'}
+                            {order.status === 'Approved' ? (
+                               <div className="flex items-center gap-3">
+                                  <span className="blur-sm hover:blur-none transition-all duration-300 cursor-pointer select-all px-2 py-1 bg-purple-900/20 rounded border border-purple-500/20">
+                                     {order.gameKey}
+                                  </span>
+                                  <button onClick={() => { navigator.clipboard.writeText(order.gameKey || ''); setToastMessage('Key Copied to Clipboard!'); }} className="text-gray-400 hover:text-white" title="Copy to Clipboard">
+                                    <svg xmlns="http://www.w0.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                  </button>
+                               </div>
+                            ) : '---'}
                           </td>
                           <td className="px-6 py-4 text-right">
                              {order.status === 'Approved' && (
@@ -2869,6 +2863,16 @@ export default function App() {
                   />
                 </div>
                 <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">{t[language].avatarImg}</label>
+                  <input 
+                    type="text" 
+                    value={userProfile.avatarUrl || ''}
+                    onChange={e => setUserProfile({...userProfile, avatarUrl: e.target.value})}
+                    className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white transition-colors mb-4" 
+                    placeholder="https://..."
+                  />
+                </div>
+                <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">{t[language].eml}</label>
                   <input 
                     type="email" 
@@ -2881,7 +2885,61 @@ export default function App() {
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">{t[language].pwd}</label>
                   <input type="password" placeholder="••••••••" className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white transition-colors" />
                 </div>
-                <button type="submit" className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-6 rounded-lg transition-colors mt-2 self-start shadow-[0_0_15px_rgba(147,51,234,0.2)]">
+                
+                <div className="pt-4 border-t border-gray-800 mt-2">
+                  <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Preferences</h3>
+                  
+                  <div className="flex flex-col gap-4">
+                     <div>
+                       <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Platform Preference</label>
+                       <select value={userProfile.platformPreference || "PC"} onChange={e => setUserProfile({...userProfile, platformPreference: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white cursor-pointer">
+                          <option value="PC">PC</option>
+                          <option value="PlayStation">PlayStation</option>
+                          <option value="Xbox">Xbox</option>
+                          <option value="Nintendo">Nintendo</option>
+                       </select>
+                     </div>
+                     
+                     <div>
+                       <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Favorite Genres (Comma separated)</label>
+                       <input 
+                         type="text" 
+                         value={(userProfile.favoriteGenres || []).join(', ')}
+                         onChange={e => setUserProfile({...userProfile, favoriteGenres: e.target.value.split(',').map(s => s.trim())})}
+                         placeholder="Action, RPG, FPS..."
+                         className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white transition-colors" 
+                       />
+                     </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-800 mt-2">
+                  <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Security & Notifications</h3>
+                  
+                  <div className="flex items-center justify-between mb-4 bg-black p-4 rounded-lg border border-gray-800">
+                     <div>
+                        <p className="text-sm font-bold text-white">Email Notifications</p>
+                        <p className="text-xs text-gray-500">Receive order updates and promos.</p>
+                     </div>
+                     <label className="relative inline-flex items-center cursor-pointer">
+                       <input type="checkbox" checked={userProfile.emailNotifications || false} onChange={e => setUserProfile({...userProfile, emailNotifications: e.target.checked})} className="sr-only peer" />
+                       <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                     </label>
+                  </div>
+                  
+                  <div className="flex items-center justify-between bg-black p-4 rounded-lg border border-gray-800">
+                     <div>
+                        <p className="text-sm font-bold text-white">Two-Factor Auth (2FA)</p>
+                        <p className="text-xs text-gray-500">Protect your account with extra security.</p>
+                     </div>
+                     <label className="relative inline-flex items-center cursor-pointer">
+                       <input type="checkbox" checked={userProfile.twoFactorEnabled || false} onChange={e => setUserProfile({...userProfile, twoFactorEnabled: e.target.checked})} className="sr-only peer" />
+                       <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                     </label>
+                  </div>
+                </div>
+
+                <button type="submit" className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-6 rounded-lg transition-colors mt-4 self-start shadow-[0_0_15px_rgba(147,51,234,0.2)]">
                   {t[language].save}
                 </button>
               </form>
@@ -2938,13 +2996,13 @@ export default function App() {
 
       <footer className="hidden md:flex w-full bg-black/60 backdrop-blur-md border-t border-purple-900/30 px-6 md:px-8 py-6 md:py-0 md:h-12 flex-col md:flex-row items-center justify-center md:justify-between text-[10px] text-gray-500 uppercase tracking-[0.2em] font-medium flex-shrink-0 z-10 relative gap-4 md:gap-0 mt-auto">
         <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
-          <span>&copy; 2026 LUDEX STORE - ALL RIGHTS RESERVED</span>
+          <span>&copy; 2026 Ludex Store - ALL RIGHTS RESERVED</span>
           {isLoggedIn && userProfile.role === 'ADMIN' && (
             <button 
               onClick={() => setActiveTab('admin')} 
               className="border border-purple-900 px-3 py-1 rounded text-purple-400 hover:bg-purple-900/30 transition-colors bg-black font-bold flex items-center gap-1.5"
             >
-              <Shield className="w-3 h-3" /> LUDEX HQ PORTAL
+              <Shield className="w-3 h-3" /> Ludex HQ Portal
             </button>
           )}
         </div>
@@ -3423,7 +3481,7 @@ export default function App() {
                         if (res.ok) {
                            const data = await res.json();
                            localStorage.setItem('ludex_token', data.token);
-                           setUserProfile({ name: data.user.username, email: authForm.email, role: data.user.role });
+                           setUserProfile((prev: any) => ({ ...prev, name: data.user.username, email: authForm.email, role: data.user.role }));
                            setIsLoggedIn(true);
                            setShowAuthModal(null);
                            if (data.user.role === 'ADMIN') {
@@ -3437,7 +3495,7 @@ export default function App() {
                            // Fallback to local mock if server fails or credentials are for local mock
                            if (showAuthModal === 'login') {
                               if (authForm.email === 'AbuHassan_Admin' && authForm.password === 'Admin123!') {
-                                 setUserProfile({ name: 'AbuHassan_Admin', email: 'admin@ludexstore.com', role: 'ADMIN' });
+                                 setUserProfile((prev: any) => ({ ...prev, name: 'AbuHassan_Admin', email: 'admin@ludexstore.com', role: 'ADMIN' }));
                                  setIsLoggedIn(true);
                                  setShowAuthModal(null);
                                  setActiveTab('admin');
@@ -3448,7 +3506,7 @@ export default function App() {
                                  setTimeout(() => setToastMessage(null), 3000);
                               }
                            } else {
-                              setUserProfile({ name: authForm.name || 'New User', email: authForm.email, role: 'CUSTOMER' });
+                              setUserProfile((prev: any) => ({ ...prev, name: authForm.name || 'New User', email: authForm.email, role: 'CUSTOMER' }));
                               setIsLoggedIn(true);
                               setShowAuthModal(null);
                               setToastMessage('Account created locally.');
