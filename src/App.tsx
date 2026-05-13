@@ -5,6 +5,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ShoppingBag, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, Send, CreditCard, Upload, User, Settings, Home, ListOrdered, AlertCircle, CheckCircle2, Shield, Key, Package, Layers, Clock, Gift, Download, Check, Menu, Filter, ChevronDown, LogOut, Star, Tag, TrendingUp } from 'lucide-react';
+import { supabase } from './supabase';
 import { t } from './translations';
 
 const GAMES_DATA = [
@@ -27,6 +28,7 @@ interface Order {
   gameId: number;
   status: 'Pending' | 'Approved';
   receiptUploaded: boolean;
+  receiptUrl?: string;
   gameKey?: string;
   amount: number;
   discountApplied?: number;
@@ -474,6 +476,28 @@ const [promotions, setPromotions] = useState([
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
   }, [language]);
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setIsLoggedIn(true);
+        setUserProfile((prev: any) => ({ ...prev, email: session.user.email, name: session.user.user_metadata?.full_name || 'Pixel User' }));
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setIsLoggedIn(true);
+        setUserProfile((prev: any) => ({ ...prev, email: session.user.email, name: session.user.user_metadata?.full_name || 'Pixel User' }));
+      } else {
+        setIsLoggedIn(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
     { id: '1', sender: 'admin', receiver: 'user', content: 'Welcome to Pixel Store! How can I help you today?', timestamp: new Date().toISOString() }
@@ -602,6 +626,27 @@ const [promotions, setPromotions] = useState([
       setTimeout(() => setToastMessage(null), 3000);
       return;
     }
+    
+    let receiptUrl = '';
+    if (receiptFile) {
+       const fileExt = receiptFile.name.split('.').pop();
+       const fileName = `receipt-\${Math.random().toString(36).substring(2, 10)}.\${fileExt}`;
+       try {
+         const { data, error } = await supabase.storage.from('receipts').upload(fileName, receiptFile);
+         if (error) {
+            setToastMessage('Error uploading receipt: ' + error.message);
+            setTimeout(() => setToastMessage(null), 3000);
+            return;
+         }
+         receiptUrl = data.path;
+       } catch(err) {
+         console.error(err);
+         setToastMessage('Failed to connect to storage.');
+         setTimeout(() => setToastMessage(null), 3000);
+         return;
+       }
+    }
+
     const newOrders = cart.map(gameId => {
       const gamePrice = gamesList.find(g => g.id === gameId)?.price || 0;
       const { finalPrice, discountApplied } = calculateFinalPrice(gamePrice);
@@ -610,6 +655,7 @@ const [promotions, setPromotions] = useState([
         gameId,
         status: 'Pending' as const,
         receiptUploaded: receiptFile !== null,
+        receiptUrl,
         amount: gamePrice,
         finalPrice,
         discountApplied
@@ -823,8 +869,9 @@ const [promotions, setPromotions] = useState([
                 ← {t[language].exitDashboard}
               </button>
               <button 
-                onClick={() => { 
-                  setIsLoggedIn(false); 
+                onClick={async () => { 
+                          await supabase.auth.signOut(); 
+                          setIsLoggedIn(false); 
                   setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
                   setActiveTab('store'); 
                   setActiveCategory(null); 
@@ -2219,7 +2266,8 @@ const [promotions, setPromotions] = useState([
                           <button onClick={() => setCurrency('IQD')} className={`px-2 py-1 text-[10px] rounded font-bold transition-colors ${currency === 'IQD' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}>IQD</button>
                         </div>
                       </div>
-                      <button onClick={() => { 
+                      <button onClick={async () => { 
+                          await supabase.auth.signOut(); 
                           setIsLoggedIn(false); 
                           setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
                           setIsProfileOpen(false); 
@@ -2358,8 +2406,9 @@ const [promotions, setPromotions] = useState([
                 </button>
              </div>
              <div className="p-4 border-t border-gray-800">
-               <button onClick={() => {
-                   setIsLoggedIn(false); 
+               <button onClick={async () => { 
+                          await supabase.auth.signOut(); 
+                          setIsLoggedIn(false); 
                    setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
                    setActiveTab('store');
                    setActiveCategory(null);
@@ -3606,49 +3655,34 @@ const [promotions, setPromotions] = useState([
                 onClick={async () => {
                   if (authForm.email && authForm.password) {
                      try {
-                        const res = await fetch('/api/auth/login', {
-                           method: 'POST',
-                           headers: { 'Content-Type': 'application/json' },
-                           body: JSON.stringify({ email: authForm.email, password: authForm.password })
-                        });
-                        
-                        if (res.ok) {
-                           const data = await res.json();
-                           localStorage.setItem('pixel_token', data.token);
-                           setUserProfile((prev: any) => ({ ...prev, name: data.user.username, email: authForm.email, role: data.user.role }));
+                        if (showAuthModal === 'login') {
+                           const { data, error } = await supabase.auth.signInWithPassword({
+                              email: authForm.email,
+                              password: authForm.password,
+                           });
+                           if (error) throw error;
                            setIsLoggedIn(true);
                            setShowAuthModal(null);
-                           if (data.user.role === 'ADMIN') {
-                              setActiveTab('admin');
-                              setToastMessage('Admin Access Granted. Welcome to HQ.');
-                           } else {
-                              setToastMessage(showAuthModal === 'login' ? 'Successfully logged in.' : 'Account created.');
-                           }
+                           setToastMessage('Successfully logged in.');
                            setTimeout(() => setToastMessage(null), 3000);
                         } else {
-                           // Fallback to local mock if server fails or credentials are for local mock
-                           if (showAuthModal === 'login') {
-                              if (authForm.email === 'AbuHassan_Admin' && authForm.password === 'Admin123!') {
-                                 setUserProfile((prev: any) => ({ ...prev, name: 'AbuHassan_Admin', email: 'admin@pixelstore.com', role: 'ADMIN' }));
-                                 setIsLoggedIn(true);
-                                 setShowAuthModal(null);
-                                 setActiveTab('admin');
-                                 setToastMessage('Admin Action Required: Backend Auth Failed. Local Admin granted.');
-                                 setTimeout(() => setToastMessage(null), 3000);
-                              } else {
-                                 setToastMessage('Invalid credentials.');
-                                 setTimeout(() => setToastMessage(null), 3000);
+                           const { data, error } = await supabase.auth.signUp({
+                              email: authForm.email,
+                              password: authForm.password,
+                              options: {
+                                data: {
+                                  full_name: authForm.name || 'Pixel User',
+                                }
                               }
-                           } else {
-                              setUserProfile((prev: any) => ({ ...prev, name: authForm.name || 'New User', email: authForm.email, role: 'CUSTOMER' }));
-                              setIsLoggedIn(true);
-                              setShowAuthModal(null);
-                              setToastMessage('Account created locally.');
-                              setTimeout(() => setToastMessage(null), 3000);
-                           }
+                           });
+                           if (error) throw error;
+                           setIsLoggedIn(true);
+                           setShowAuthModal(null);
+                           setToastMessage('Account created successfully!');
+                           setTimeout(() => setToastMessage(null), 3000);
                         }
-                     } catch (error) {
-                        setToastMessage('Server error during login.');
+                     } catch (error: any) {
+                        setToastMessage(error.message || 'Authentication error.');
                         setTimeout(() => setToastMessage(null), 3000);
                      }
                   }
@@ -3658,6 +3692,22 @@ const [promotions, setPromotions] = useState([
                 {showAuthModal === 'login' ? t[language].authenticate : t[language].registerNow}
               </button>
               
+              <div className="relative flex items-center py-2">
+                <div className="flex-grow border-t border-gray-800"></div>
+                <span className="flex-shrink-0 mx-4 text-gray-500 text-xs font-bold uppercase">OR</span>
+                <div className="flex-grow border-t border-gray-800"></div>
+              </div>
+              <button 
+                onClick={async () => { 
+                   const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' }); 
+                   if(error) setToastMessage(error.message); 
+                }} 
+                className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+              >
+                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
+                {showAuthModal === 'login' ? 'Sign in with Google' : 'Sign up with Google'}
+              </button>
+
               <div className="text-center mt-2">
                 <button 
                   onClick={() => setShowAuthModal(showAuthModal === 'login' ? 'register' : 'login')} 
