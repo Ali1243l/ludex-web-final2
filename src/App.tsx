@@ -2184,12 +2184,6 @@ const [promotions, setPromotions] = useState([
         <>
           {/* Navbar */}
       <nav className="h-16 md:h-20 w-full px-4 md:px-8 flex items-center justify-between border-b border-purple-900/30 bg-[#050505]/80 backdrop-blur-md z-10 flex-shrink-0 relative">
-        {toastMessage && (
-          <div className="fixed top-24 left-1/2 -translate-x-1/2 md:translate-x-0 md:top-auto md:left-auto md:bottom-10 md:right-10 z-[300] bg-[#111] border border-purple-500 backdrop-blur w-[90%] md:w-auto md:min-w-[300px] text-white px-6 py-4 rounded-xl shadow-[0_0_25px_rgba(168,85,247,0.4)] font-bold flex items-center gap-3 animate-in fade-in duration-300">
-            <CheckCircle2 className="w-5 h-5 text-purple-400" />
-            {toastMessage}
-          </div>
-        )}
         <div className="flex items-center justify-center flex-none md:justify-start gap-10">
           <div className="text-xl md:text-2xl font-black tracking-tighter text-white cursor-pointer text-center hidden md:block" onClick={() => { setActiveTab('store'); setActiveCategory(null); setIsMobileMenuOpen(false); }}>
             PIXEL<span className="text-purple-500">STORE</span>
@@ -3636,6 +3630,13 @@ const [promotions, setPromotions] = useState([
         );
       })()}
 
+      {toastMessage && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 md:translate-x-0 md:top-auto md:left-auto md:bottom-10 md:right-10 z-[300] bg-[#111] border border-purple-500 backdrop-blur w-[90%] md:w-auto md:min-w-[300px] text-white px-6 py-4 rounded-xl shadow-[0_0_25px_rgba(168,85,247,0.4)] font-bold flex items-center gap-3 animate-in fade-in duration-300 pointer-events-none">
+          <CheckCircle2 className="w-5 h-5 text-purple-400" />
+          {toastMessage}
+        </div>
+      )}
+
       {showAuthModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
           <div className="bg-[#111] border border-purple-900/40 rounded-2xl w-full max-w-sm shadow-[0_0_50px_rgba(147,51,234,0.3)] flex flex-col overflow-hidden animate-in fade-in duration-200">
@@ -3693,9 +3694,13 @@ const [promotions, setPromotions] = useState([
                            setTimeout(() => setToastMessage(null), 3000);
                         }
                      } catch (error: any) {
+                        console.error('Auth Error:', error);
                         setToastMessage(error.message || 'Authentication error.');
                         setTimeout(() => setToastMessage(null), 3000);
                      }
+                  } else {
+                     setToastMessage('Please fill all fields');
+                     setTimeout(() => setToastMessage(null), 3000);
                   }
                 }}
                 className="w-full bg-purple-600 font-bold text-white py-3 rounded-lg hover:bg-purple-500 transition-colors mt-2"
