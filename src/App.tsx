@@ -5,7 +5,10 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ShoppingBag, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, Send, CreditCard, Upload, User, Settings, Home, ListOrdered, AlertCircle, CheckCircle2, Shield, Key, Package, Layers, Clock, Gift, Download, Check, Menu, Filter, ChevronDown, LogOut, Star, Tag, TrendingUp } from 'lucide-react';
-import { supabase } from './supabase';
+import { supabase } from './supabase'; // Keep it for storage for now
+import { signUp, signIn, signOut, getCurrentUser, fetchUserAttributes, signInWithRedirect } from 'aws-amplify/auth';
+import { Hub } from 'aws-amplify/utils';
+import './aws-config'; // import aws config
 import { t } from './translations';
 
 const GAMES_DATA = [
@@ -477,25 +480,34 @@ const [promotions, setPromotions] = useState([
   }, [language]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setIsLoggedIn(true);
-        setUserProfile((prev: any) => ({ ...prev, email: session.user.email, name: session.user.user_metadata?.full_name || 'Pixel User' }));
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setIsLoggedIn(true);
-        setUserProfile((prev: any) => ({ ...prev, email: session.user.email, name: session.user.user_metadata?.full_name || 'Pixel User' }));
-      } else {
+    // Check initial AWS Auth Session
+    const checkUser = async () => {
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          const attributes = await fetchUserAttributes();
+          setIsLoggedIn(true);
+          setUserProfile((prev: any) => ({ ...prev, email: attributes.email, name: attributes.name || 'Pixel User' }));
+        }
+      } catch (err) {
         setIsLoggedIn(false);
       }
+    };
+    checkUser();
+
+    // Listen for Auth changes in Hub
+    const unsubscribe = Hub.listen('auth', ({ payload }) => {
+      switch (payload.event) {
+        case 'signedIn':
+          checkUser();
+          break;
+        case 'signedOut':
+          setIsLoggedIn(false);
+          break;
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return unsubscribe;
   }, []);
 
   const [chatMessage, setChatMessage] = useState('');
@@ -870,7 +882,7 @@ const [promotions, setPromotions] = useState([
               </button>
               <button 
                 onClick={async () => { 
-                          await supabase.auth.signOut(); 
+                          await signOut(); 
                           setIsLoggedIn(false); 
                   setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
                   setActiveTab('store'); 
@@ -2267,7 +2279,7 @@ const [promotions, setPromotions] = useState([
                         </div>
                       </div>
                       <button onClick={async () => { 
-                          await supabase.auth.signOut(); 
+                          await signOut(); 
                           setIsLoggedIn(false); 
                           setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
                           setIsProfileOpen(false); 
@@ -2407,7 +2419,7 @@ const [promotions, setPromotions] = useState([
              </div>
              <div className="p-4 border-t border-gray-800">
                <button onClick={async () => { 
-                          await supabase.auth.signOut(); 
+                          await signOut(); 
                           setIsLoggedIn(false); 
                    setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
                    setActiveTab('store');
@@ -3656,29 +3668,28 @@ const [promotions, setPromotions] = useState([
                   if (authForm.email && authForm.password) {
                      try {
                         if (showAuthModal === 'login') {
-                           const { data, error } = await supabase.auth.signInWithPassword({
-                              email: authForm.email,
+                           const { isSignedIn } = await signIn({
+                              username: authForm.email,
                               password: authForm.password,
                            });
-                           if (error) throw error;
                            setIsLoggedIn(true);
                            setShowAuthModal(null);
                            setToastMessage('Successfully logged in.');
                            setTimeout(() => setToastMessage(null), 3000);
                         } else {
-                           const { data, error } = await supabase.auth.signUp({
-                              email: authForm.email,
+                           const { isSignUpComplete } = await signUp({
+                              username: authForm.email,
                               password: authForm.password,
                               options: {
-                                data: {
-                                  full_name: authForm.name || 'Pixel User',
+                                userAttributes: {
+                                  email: authForm.email,
+                                  name: authForm.name || 'Pixel User',
                                 }
                               }
                            });
-                           if (error) throw error;
                            setIsLoggedIn(true);
                            setShowAuthModal(null);
-                           setToastMessage('Account created successfully!');
+                           setToastMessage('Account created successfully! Check email if verification is required.');
                            setTimeout(() => setToastMessage(null), 3000);
                         }
                      } catch (error: any) {
@@ -3699,8 +3710,11 @@ const [promotions, setPromotions] = useState([
               </div>
               <button 
                 onClick={async () => { 
-                   const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' }); 
-                   if(error) setToastMessage(error.message); 
+                   try {
+                     await signInWithRedirect({ provider: 'Google' }); 
+                   } catch (error: any) {
+                     setToastMessage(error.message); 
+                   }
                 }} 
                 className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
               >
