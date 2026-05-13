@@ -3749,13 +3749,9 @@ const [promotions, setPromotions] = useState([
               </div>
               <button 
                 type="button"
-                onClick={async (e) => { 
+                onClick={(e) => { 
                    e.preventDefault();
-                   try {
-                     await signInWithRedirect({ provider: 'Google' }); 
-                   } catch (error: any) {
-                     setToastMessage(error.message); 
-                   }
+                   signInWithRedirect({ provider: 'Google' }); 
                 }} 
                 className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
               >
