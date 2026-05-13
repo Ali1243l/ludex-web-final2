@@ -8,7 +8,6 @@ import { Search, ShoppingBag, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, S
 import { supabase } from './supabase'; // Keep it for storage for now
 import { signUp, signIn, signOut, getCurrentUser, fetchUserAttributes, signInWithRedirect } from 'aws-amplify/auth';
 import { Hub } from 'aws-amplify/utils';
-import './aws-config'; // import aws config
 import { t } from './translations';
 
 const GAMES_DATA = [
