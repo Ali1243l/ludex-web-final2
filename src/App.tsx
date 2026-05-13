@@ -3747,17 +3747,18 @@ const [promotions, setPromotions] = useState([
                 <span className="flex-shrink-0 mx-4 text-gray-500 text-xs font-bold uppercase">OR</span>
                 <div className="flex-grow border-t border-gray-800"></div>
               </div>
-              <button 
-                type="button"
+              <div 
+                role="button"
+                tabIndex={0}
                 onClick={(e) => { 
                    e.preventDefault();
                    signInWithRedirect({ provider: 'Google' }); 
                 }} 
-                className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
                 <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
                 {showAuthModal === 'login' ? 'Sign in with Google' : 'Sign up with Google'}
-              </button>
+              </div>
 
               <div className="text-center mt-2">
                 <button 
