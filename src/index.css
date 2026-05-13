@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+@theme {
+  --color-purple-400: #d65cff;
+  --color-purple-500: #bc13fe;
+  --color-purple-600: #9e0acc;
+  --color-purple-900: #4a0066;
+  --color-black: #000000;
+  --color-gray-900: #151515;
+}
+
 @layer utilities {
   .animate-pulse-glow {
     animation: pulse-glow 3s infinite ease-in-out;
@@ -10,17 +19,27 @@
   .animate-slide-in-toast {
     animation: slide-in-toast 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
   }
+  .animate-skeleton {
+    animation: skeleton-loading 1.5s infinite linear;
+    background: linear-gradient(90deg, #151515 25%, #222 50%, #151515 75%);
+    background-size: 200% 100%;
+  }
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 @keyframes pulse-glow {
   0% {
-    box-shadow: 0 0 15px rgba(168, 85, 247, 0.4), 0 0 0 0 rgba(168, 85, 247, 0.3);
+    box-shadow: 0 0 15px rgba(188, 19, 254, 0.4), 0 0 0 0 rgba(188, 19, 254, 0.3);
   }
   50% {
-    box-shadow: 0 0 25px rgba(168, 85, 247, 0.8), 0 0 0 15px rgba(168, 85, 247, 0);
+    box-shadow: 0 0 25px rgba(188, 19, 254, 0.8), 0 0 0 15px rgba(188, 19, 254, 0);
   }
   100% {
-    box-shadow: 0 0 15px rgba(168, 85, 247, 0.4), 0 0 0 0 rgba(168, 85, 247, 0);
+    box-shadow: 0 0 15px rgba(188, 19, 254, 0.4), 0 0 0 0 rgba(188, 19, 254, 0);
   }
 }
 

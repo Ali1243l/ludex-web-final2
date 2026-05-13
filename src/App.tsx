@@ -69,7 +69,7 @@ interface CMSPage {
 const INITIAL_PAGES: CMSPage[] = [
   { id: 1, title: 'Privacy Policy', slug: 'privacy', content: 'Our privacy policy details.', lastUpdated: new Date().toISOString() },
   { id: 2, title: 'Terms of Service', slug: 'terms', content: 'Our terms of service.', lastUpdated: new Date().toISOString() },
-  { id: 3, title: 'About Us', slug: 'about', content: 'About Ludex Store.', lastUpdated: new Date().toISOString() }
+  { id: 3, title: 'About Us', slug: 'about', content: 'About Pixel Store.', lastUpdated: new Date().toISOString() }
 ];
 
 export default function App() {
@@ -107,6 +107,7 @@ export default function App() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isGameDetailOpen, setIsGameDetailOpen] = useState(false);
+  const [isGameDetailLoading, setIsGameDetailLoading] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<number | string | null>(null);
   const [adminTab, setAdminTab] = useState<'dashboard' | 'games' | 'categories' | 'customers' | 'orders' | 'financials' | 'payments' | 'settings' | 'support' | 'pages' | 'promotions' | 'promo_codes' | 'subscriptions' | 'products' | 'transactions' | 'sales' | 'macros'>('dashboard');
   const [adminMenuState, setAdminMenuState] = useState({ catalog: false, marketing: false, sales: false, ledger: false, system: false });
@@ -133,10 +134,11 @@ export default function App() {
   }>({
     isOpen: false, mode: 'create', table: '', item: null, fields: []
   });
+  const [isLoadingStore, setIsLoadingStore] = useState(true);
 
   const handleCrudSubmit = async (formData: any) => {
     try {
-      const token = localStorage.getItem('ludex_token');
+      const token = localStorage.getItem('pixel_token');
       const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
       const endpoint = crudModal.mode === 'create' 
          ? `/api/admin/${crudModal.table}` 
@@ -183,7 +185,7 @@ export default function App() {
 
   const handleQuickUpdate = async (table: string, id: string | number, data: any) => {
     try {
-      const token = localStorage.getItem('ludex_token');
+      const token = localStorage.getItem('pixel_token');
       const res = await fetch(`/api/admin/${table}/${id}`, {
          method: 'PUT',
          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -225,7 +227,7 @@ export default function App() {
   const handleCrudDelete = async (table: string, id: string | number) => {
     // Custom logic to avoid blocking iframe. Using a toast for success, and skipping confirm due to iframe blocks.
     try {
-      const token = localStorage.getItem('ludex_token');
+      const token = localStorage.getItem('pixel_token');
       const res = await fetch(`/api/admin/${table}/${id}`, {
          method: 'DELETE',
          headers: { 'Authorization': `Bearer ${token}` }
@@ -284,7 +286,7 @@ const [promotions, setPromotions] = useState([
 
   // Promo Codes
   const [promoCodes, setPromoCodes] = useState([
-    { id: '1', code: 'LUDEX10', discountPercent: 10, expiryDate: '2026-12-31', usageLimit: 100, usedCount: 0, active: true },
+    { id: '1', code: 'PIXEL10', discountPercent: 10, expiryDate: '2026-12-31', usageLimit: 100, usedCount: 0, active: true },
   ]);
   const [activePromoCode, setActivePromoCode] = useState<any>(null);
   const [promoCodeInput, setPromoCodeInput] = useState('');
@@ -292,15 +294,15 @@ const [promotions, setPromotions] = useState([
   const [newPromoCode, setNewPromoCode] = useState({ id: '', code: '', discountPercent: '', expiryDate: '', usageLimit: '', usedCount: 0, active: true });
 
   const [language, setLanguage] = useState<'en' | 'ar'>('ar');
-  const [currency, setCurrency] = useState<'USD' | 'IQD'>((localStorage.getItem('ludex_currency') as 'USD' | 'IQD') || 'IQD');
+  const [currency, setCurrency] = useState<'USD' | 'IQD'>((localStorage.getItem('pixel_currency') as 'USD' | 'IQD') || 'IQD');
   useEffect(() => {
-    localStorage.setItem('ludex_currency', currency);
+    localStorage.setItem('pixel_currency', currency);
   }, [currency]);
 
   const [globalSettings, setGlobalSettings] = useState({
      currencyRate: 1500,
-     storeName: "Ludex Store",
-     contactEmail: "support@ludexstore.com",
+     storeName: "Pixel Store",
+     contactEmail: "support@pixelstore.com",
      contactPhone: "0770 123 4567",
      xpMultiplier: 10
   });
@@ -429,6 +431,8 @@ const [promotions, setPromotions] = useState([
         }
       } catch (e) {
         console.error("Failed to fetch public data", e);
+      } finally {
+        setTimeout(() => setIsLoadingStore(false), 800);
       }
     };
     fetchPublicData();
@@ -437,7 +441,7 @@ const [promotions, setPromotions] = useState([
   useEffect(() => {
     if (activeTab === 'admin') {
        const fetchAdminData = async () => {
-         const token = localStorage.getItem('ludex_token');
+         const token = localStorage.getItem('pixel_token');
          const headers = { 'Authorization': `Bearer ${token}` };
          try {
            if (['dashboard', 'subscriptions'].includes(adminTab)) {
@@ -480,7 +484,7 @@ const [promotions, setPromotions] = useState([
 
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
-    { id: '1', sender: 'admin', receiver: 'user', content: 'Welcome to Ludex Store! How can I help you today?', timestamp: new Date().toISOString() }
+    { id: '1', sender: 'admin', receiver: 'user', content: 'Welcome to Pixel Store! How can I help you today?', timestamp: new Date().toISOString() }
   ]);
   const [adminChatMessage, setAdminChatMessage] = useState('');
 
@@ -509,6 +513,8 @@ const [promotions, setPromotions] = useState([
   const handleOpenGameDetail = (id: number | string) => {
     setSelectedGameId(id);
     setIsGameDetailOpen(true);
+    setIsGameDetailLoading(true);
+    setTimeout(() => setIsGameDetailLoading(false), 800);
     setGamesList(prev => prev.map(g => g.id === id ? {...g, views_count: (typeof g.views_count === 'number' ? g.views_count : 0) + 1} : g));
   };
 
@@ -659,7 +665,7 @@ const [promotions, setPromotions] = useState([
       o.id === orderId ? { 
         ...o, 
         status: 'Approved', 
-        gameKey: 'LUDEX-' + Math.random().toString(36).substr(2, 4).toUpperCase() + '-' + Math.random().toString(36).substr(2, 4).toUpperCase(),
+        gameKey: 'PIXEL-' + Math.random().toString(36).substr(2, 4).toUpperCase() + '-' + Math.random().toString(36).substr(2, 4).toUpperCase(),
         invoiceNumber: 'INV-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000)
       } : o
     ));
@@ -718,9 +724,9 @@ const [promotions, setPromotions] = useState([
           <div className="w-64 bg-[#0a0a0a] border-e border-purple-900/40 p-4 flex flex-col gap-2 relative z-20 overflow-y-auto custom-scrollbar flex-shrink-0 h-full">
             <div className="px-4 py-6 border-b border-gray-800 mb-6 flex flex-col gap-2">
               <h3 className="font-black text-purple-500 text-xl flex items-center gap-2">
-                <Shield className="w-6 h-6" /> Ludex HQ
+                <Shield className="w-6 h-6" /> Pixel HQ
               </h3>
-              <p className="text-[10px] text-green-400 mt-1 uppercase font-mono bg-green-500/10 px-2 py-1 rounded inline-block w-fit">/ludex-hq-portal</p>
+              <p className="text-[10px] text-green-400 mt-1 uppercase font-mono bg-green-500/10 px-2 py-1 rounded inline-block w-fit">/pixel-hq-portal</p>
             </div>
             
             <button 
@@ -2002,7 +2008,7 @@ const [promotions, setPromotions] = useState([
                        <button onClick={async () => {
                           if (newPromotion.title && newPromotion.imageUrl) {
                              try {
-                               const token = localStorage.getItem('ludex_token');
+                               const token = localStorage.getItem('pixel_token');
                                const body = { title: newPromotion.title, description: newPromotion.description, image_url: newPromotion.imageUrl, link_to_category: newPromotion.linkToCategory, active: true };
                                let newId = Math.random().toString();
                                let success = false;
@@ -2036,7 +2042,7 @@ const [promotions, setPromotions] = useState([
                                <div className="flex gap-2">
                                  <button onClick={async () => {
                                       const newActive = !promo.active;
-                                      const token = localStorage.getItem('ludex_token');
+                                      const token = localStorage.getItem('pixel_token');
                                       try {
                                           const res = await fetch("/api/admin/promotions/" + promo.id, {
                                              method: 'PUT',
@@ -2047,7 +2053,7 @@ const [promotions, setPromotions] = useState([
                                       setPromotions(promotions.map(p => p.id === promo.id ? {...p, active: newActive} : p));
                                  }} className={`${promo.active ? 'text-green-500 hover:text-green-400' : 'text-gray-500 hover:text-gray-400'}`}><CheckCircle2 className="w-4 h-4" /></button>
                                  <button onClick={async () => {
-                                      const token = localStorage.getItem('ludex_token');
+                                      const token = localStorage.getItem('pixel_token');
                                       try {
                                           const res = await fetch("/api/admin/promotions/" + promo.id, {
                                              method: 'DELETE',
@@ -2077,7 +2083,7 @@ const [promotions, setPromotions] = useState([
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex flex-col gap-4 bg-black border border-gray-800 rounded-xl p-5 h-[500px] overflow-y-auto">
                        <h4 className="font-bold text-white text-sm">Create Promo Code</h4>
-                       <input type="text" placeholder="Code (e.g. LUDEX10)" value={newPromoCode.code} onChange={e => setNewPromoCode({...newPromoCode, code: e.target.value.toUpperCase()})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white uppercase" />
+                       <input type="text" placeholder="Code (e.g. PIXEL10)" value={newPromoCode.code} onChange={e => setNewPromoCode({...newPromoCode, code: e.target.value.toUpperCase()})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white uppercase" />
                        <input type="number" placeholder="Discount Percentage (%)" value={newPromoCode.discountPercent} onChange={e => setNewPromoCode({...newPromoCode, discountPercent: e.target.value})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" />
                        <input type="date" placeholder="Expiry Date" value={newPromoCode.expiryDate} onChange={e => setNewPromoCode({...newPromoCode, expiryDate: e.target.value})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" />
                        <input type="number" placeholder="Usage Limit" value={newPromoCode.usageLimit} onChange={e => setNewPromoCode({...newPromoCode, usageLimit: e.target.value})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" />
@@ -2135,12 +2141,12 @@ const [promotions, setPromotions] = useState([
         )}
         <div className="flex items-center justify-center flex-none md:justify-start gap-10">
           <div className="text-xl md:text-2xl font-black tracking-tighter text-white cursor-pointer text-center hidden md:block" onClick={() => { setActiveTab('store'); setActiveCategory(null); setIsMobileMenuOpen(false); }}>
-            LUDEX<span className="text-purple-500">STORE</span>
+            PIXEL<span className="text-purple-500">STORE</span>
           </div>
           {/* Mobile Logo Only */}
           <div className="text-xl font-black tracking-tighter text-white cursor-pointer md:hidden flex items-center gap-2" onClick={() => { setActiveTab('store'); setActiveCategory(null); }}>
             <span className="bg-purple-600 text-white w-8 h-8 flex items-center justify-center rounded-lg shadow-[0_0_15px_rgba(147,51,234,0.5)]">L</span>
-            <span>LUDEX<span className="text-purple-500">STORE</span></span>
+            <span>PIXEL<span className="text-purple-500">STORE</span></span>
           </div>
           
           <div className="hidden md:flex gap-8 text-sm font-bold text-gray-400 tracking-widest">
@@ -2198,7 +2204,7 @@ const [promotions, setPromotions] = useState([
                     <div className={`absolute ${language === 'ar' ? 'left-0' : 'right-0'} mt-2 w-48 bg-[#111] border border-purple-900/50 rounded-xl shadow-xl overflow-hidden z-20 flex flex-col`}>
                       {userProfile.role === 'ADMIN' && (
                         <button onClick={() => { setActiveTab('admin'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-purple-400 font-bold uppercase tracking-widest">
-                          <Shield className="w-4 h-4" /> Ludex HQ Portal
+                          <Shield className="w-4 h-4" /> Pixel HQ Portal
                         </button>
                       )}
                       <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('profile'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-white">
@@ -2259,7 +2265,7 @@ const [promotions, setPromotions] = useState([
           <div className="relative w-[300px] max-w-[80vw] h-full bg-[#0a0a0a]/95 backdrop-blur-xl border-r border-purple-500/30 shadow-[5px_0_30px_rgba(168,85,247,0.3)] flex flex-col p-6 overflow-y-auto animate-in slide-in-from-left duration-300 z-10">
              <div className="flex justify-between items-center mb-10">
                <div className="text-xl font-black tracking-tighter text-white">
-                 LUDEX<span className="text-purple-500">STORE</span>
+                 PIXEL<span className="text-purple-500">STORE</span>
                </div>
                <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-white/5 rounded-full">
                  <X className="w-5 h-5" />
@@ -2272,7 +2278,7 @@ const [promotions, setPromotions] = useState([
              
              {isLoggedIn && userProfile.role === 'ADMIN' && (
                <button onClick={() => { setActiveTab('admin'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 flex items-center gap-2 ${activeTab === 'admin' ? "text-purple-400" : "text-purple-500"}`}>
-                  <Shield className="w-5 h-5" /> Ludex HQ Portal
+                  <Shield className="w-5 h-5" /> Pixel HQ Portal
                </button>
              )}
 
@@ -2376,37 +2382,88 @@ const [promotions, setPromotions] = useState([
         <main className="flex-1 p-6 md:p-8 overflow-y-auto flex flex-col scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
           {activeTab === 'store' && (
             <>
-              {!activeCategory && !searchQuery && promotions.filter(p => p.active).length > 0 && (
-                <div className="mb-6 sm:mb-10 w-full overflow-hidden rounded-2xl border border-purple-500/30 relative group bg-black shadow-[0_0_30px_rgba(168,85,247,0.15)] flex flex-col md:flex-row h-auto md:h-80">
-                   {/* Promo Banner Info */}
-                   <div className="flex-1 p-8 md:p-12 flex flex-col justify-center relative z-10 bg-gradient-to-r from-black via-black/90 to-transparent">
-                      <span className="text-purple-400 font-black tracking-widest text-xs uppercase mb-3 px-3 py-1 bg-purple-900/30 rounded-full w-fit">Featured Promo</span>
-                      <h2 className="text-3xl md:text-5xl font-black text-white leading-tight mb-4">{promotions.filter(p => p.active)[0].title}</h2>
-                      <p className="text-gray-400 text-sm md:text-base max-w-md mb-6">{promotions.filter(p => p.active)[0].description}</p>
-                      {promotions.filter(p => p.active)[0].linkToCategory && (
-                        <button 
-                          onClick={() => setActiveCategory(promotions.filter(p => p.active)[0].linkToCategory as any)}
-                          className="w-fit bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-[0_0_15px_rgba(147,51,234,0.3)]"
-                        >
-                          Explore Now
-                        </button>
-                      )}
-                   </div>
-                   
-                   {/* Promo Banner Image */}
-                   <div className="w-full md:w-2/3 h-48 md:h-full absolute right-0 top-0 bottom-0 z-0">
-                     <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent z-10 md:hidden"></div>
-                     <img 
-                       src={promotions.filter(p => p.active)[0].imageUrl} 
-                       alt={promotions.filter(p => p.active)[0].title} 
-                       className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
-                     />
-                     <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10 md:hidden"></div>
-                     <div className="hidden md:block absolute inset-0 bg-gradient-to-l from-transparent via-black/20 to-black z-10"></div>
-                     <div className="absolute inset-0 border-[3px] border-purple-500/10 rounded-2xl z-20 pointer-events-none"></div>
+              {/* Dynamic Unified Banners */}
+              {!activeCategory && !searchQuery && (() => {
+                  if (isLoadingStore) {
+                    return (
+                      <div className="mb-6 sm:mb-10 w-full overflow-hidden rounded-2xl border border-gray-800 bg-[#151515] animate-skeleton h-64 md:h-80 relative flex items-center p-8 md:p-12">
+                         <div className="flex-1 max-w-lg space-y-4">
+                           <div className="w-24 h-6 bg-gray-800 rounded-full"></div>
+                           <div className="w-full h-10 md:h-12 bg-gray-800 rounded-lg"></div>
+                           <div className="w-3/4 h-10 md:h-12 bg-gray-800 rounded-lg"></div>
+                           <div className="w-full h-4 bg-gray-800 rounded mt-6"></div>
+                           <div className="w-2/3 h-4 bg-gray-800 rounded"></div>
+                           <div className="w-32 h-12 bg-gray-800 rounded-lg mt-8"></div>
+                         </div>
+                      </div>
+                    );
+                  }
+                  
+                  const activeBanners = promotions.filter((b: any) => b.active).map((b: any) => ({ type: 'banner', label: 'Featured Promo', banner: b, title: b.title, desc: b.description, imageUrl: b.imageUrl || b.image_url, link: b.linkToCategory }));
+                  const topVisited = [...publicProducts].sort((a: any, b: any) => (b.views_count || 0) - (a.views_count || 0))[0];
+                  const topSelling = [...publicProducts].sort((a: any, b: any) => (b.sales_count || 0) - (a.sales_count || 0))[0];
+                  
+                  const slides: any[] = [...activeBanners];
+                  if (topVisited) slides.push({ type: 'game', label: 'Trending 🔥', title: topVisited.name, desc: 'Join thousands of active players right now!', imageUrl: topVisited.coverImage, targetId: topVisited.id });
+                  if (topSelling) slides.push({ type: 'game', label: 'Best Seller 👑', title: topSelling.name, desc: '#1 Top Selling Game!', imageUrl: topSelling.coverImage, targetId: topSelling.id });
+
+                  if (slides.length === 0) return null;
+                  const currentSlide = slides[heroSlideIdx % slides.length];
+                  if (!currentSlide) return null;
+
+                  return (
+                    <div className="mb-6 sm:mb-10 w-full overflow-hidden rounded-2xl border border-purple-500/30 relative group bg-black shadow-[0_0_30px_rgba(168,85,247,0.15)] flex flex-col md:flex-row h-auto md:h-80">
+                       <div className="flex-1 p-8 md:p-12 flex flex-col justify-center relative z-10 bg-gradient-to-r from-black via-black/90 to-transparent">
+                          <span className="text-purple-400 font-black tracking-widest text-xs uppercase mb-3 px-3 py-1 bg-purple-900/30 rounded-full w-fit">
+                             {currentSlide.label}
+                          </span>
+                          <h2 className="text-3xl md:text-5xl font-black text-white leading-tight mb-4 line-clamp-2">{currentSlide.title}</h2>
+                          <p className="text-gray-400 text-sm md:text-base max-w-md mb-6 line-clamp-2">{currentSlide.desc}</p>
+                          {currentSlide.type === 'banner' && currentSlide.link && (
+                            <button 
+                              onClick={() => setActiveCategory(currentSlide.link)}
+                              className="w-fit bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-[0_0_15px_rgba(147,51,234,0.3)]"
+                            >
+                              Explore Now
+                            </button>
+                          )}
+                          {currentSlide.type === 'game' && currentSlide.targetId && (
+                            <button 
+                              onClick={() => handleOpenGameDetail(currentSlide.targetId)}
+                              className="w-fit bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-[0_0_15px_rgba(147,51,234,0.3)]"
+                            >
+                              View Deals
+                            </button>
+                          )}
+                          
+                          <div className="mt-8 flex gap-2 z-20">
+                              {slides.map((_, idx) => (
+                                 <div key={idx} onClick={() => setHeroSlideIdx(idx)} className={"w-2 h-2 rounded-full cursor-pointer transition-all " + (idx === (heroSlideIdx % slides.length) ? 'bg-purple-500 w-4' : 'bg-gray-500 hover:bg-white')}></div>
+                              ))}
+                          </div>
+                       </div>
+                       
+                       <div className="w-full md:w-2/3 h-48 md:h-full absolute right-0 top-0 bottom-0 z-0 cursor-pointer" onClick={() => {
+                          if (currentSlide.type === 'game' && currentSlide.targetId) {
+                              handleOpenGameDetail(currentSlide.targetId);
+                          } else if (currentSlide.type === 'banner' && currentSlide.link) {
+                              setActiveCategory(currentSlide.link);
+                          }
+                       }}>
+                         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent z-10 md:hidden"></div>
+                         <img 
+                           key={currentSlide.imageUrl}
+                           src={currentSlide.imageUrl} 
+                           alt={currentSlide.title} 
+                           className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700 animate-[fadeIn_0.5s_ease-out]"
+                         />
+                         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10 md:hidden"></div>
+                         <div className="hidden md:block absolute inset-0 bg-gradient-to-l from-transparent via-black/20 to-black z-10"></div>
+                         <div className="absolute inset-0 border-[3px] border-purple-500/10 rounded-2xl z-20 pointer-events-none"></div>
+                        </div>
                     </div>
-                 </div>
-              )}
+                  );
+              })()}
 
               {/* Exclusive Offers Section */}
               {!activeCategory && !searchQuery && publicProducts.filter(p => p.discountPrice || p.isFeatured).length > 0 && (
@@ -2549,7 +2606,23 @@ const [promotions, setPromotions] = useState([
               )}
 
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-6 w-full">
-                {filteredGames.length === 0 ? (
+                {isLoadingStore ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="bg-[#151515] border border-gray-800 rounded-2xl flex flex-col h-full animate-skeleton overflow-hidden">
+                      <div className="aspect-[3/4] sm:aspect-[4/5] bg-gray-800/20 relative"></div>
+                      <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between space-y-4">
+                        <div>
+                          <div className="h-4 bg-gray-800/50 rounded w-3/4 mb-2"></div>
+                          <div className="h-3 bg-gray-800/50 rounded w-1/2"></div>
+                        </div>
+                        <div className="flex justify-between items-end">
+                          <div className="h-6 bg-gray-800/50 rounded w-1/3"></div>
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-800/50 rounded-lg"></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : filteredGames.length === 0 ? (
                   <div className="col-span-full py-20 text-center text-gray-500">
                     <p>{t[language].noGamesFound}</p>
                   </div>
@@ -2772,7 +2845,7 @@ const [promotions, setPromotions] = useState([
                 <img src={userProfile.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile.name}&backgroundColor=4c1d95`} alt="Avatar" className="w-24 h-24 rounded-full border-2 border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.3)] relative z-10 object-cover" />
                 <div className="flex flex-col items-center sm:items-start text-center sm:text-start relative z-10">
                   <h3 className="text-2xl font-bold text-white mb-1 uppercase tracking-widest">{userProfile.name}</h3>
-                  <p className="text-gray-400 text-sm mb-4 font-mono">Player ID: <span className="text-purple-400 font-bold">#LUDEX-9034</span></p>
+                  <p className="text-gray-400 text-sm mb-4 font-mono">Player ID: <span className="text-purple-400 font-bold">#PIXEL-9034</span></p>
                   <div className="flex gap-4">
                     <div className="bg-black border border-gray-800 rounded-lg p-3 text-center min-w-[100px] shadow-inner">
                       <p className="text-2xl font-black text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]">{orders.length}</p>
@@ -2786,10 +2859,10 @@ const [promotions, setPromotions] = useState([
                 </div>
               </div>
 
-              {/* Ludex Elite Gamer Card */}
+              {/* Pixel Elite Gamer Card */}
               <h3 className="text-xl font-bold text-white mt-4 tracking-widest uppercase flex items-center gap-2">
                  <Zap className="w-5 h-5 text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
-                 Ludex Elite Loyalty
+                 Pixel Elite Loyalty
               </h3>
               <div className="bg-[#0a0a0a] border border-purple-500/30 rounded-2xl p-6 lg:p-8 relative overflow-hidden group shadow-[0_0_30px_rgba(147,51,234,0.1)]">
                  <div className="absolute inset-0 bg-gradient-to-r from-purple-900/10 to-transparent pointer-events-none"></div>
@@ -2797,7 +2870,7 @@ const [promotions, setPromotions] = useState([
                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
                     <div className="flex-1 w-full">
                        <div className="flex items-center gap-4 mb-3">
-                          <h4 className="text-lg font-black text-white uppercase tracking-wider">LUDEX Elite Card</h4>
+                          <h4 className="text-lg font-black text-white uppercase tracking-wider">PIXEL Elite Card</h4>
                           <span className={`px-3 py-1 bg-black border border-gray-800 rounded-full font-bold text-[10px] uppercase tracking-widest ${currentTier.color}`}>
                              {currentTier.name} Tier
                           </span>
@@ -3033,13 +3106,13 @@ const [promotions, setPromotions] = useState([
 
       <footer className="hidden md:flex w-full bg-black/60 backdrop-blur-md border-t border-purple-900/30 px-6 md:px-8 py-6 md:py-0 md:h-12 flex-col md:flex-row items-center justify-center md:justify-between text-[10px] text-gray-500 uppercase tracking-[0.2em] font-medium flex-shrink-0 z-10 relative gap-4 md:gap-0 mt-auto">
         <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
-          <span>&copy; 2026 Ludex Store - ALL RIGHTS RESERVED</span>
+          <span>&copy; 2026 Pixel Store - ALL RIGHTS RESERVED</span>
           {isLoggedIn && userProfile.role === 'ADMIN' && (
             <button 
               onClick={() => setActiveTab('admin')} 
               className="border border-purple-900 px-3 py-1 rounded text-purple-400 hover:bg-purple-900/30 transition-colors bg-black font-bold flex items-center gap-1.5"
             >
-              <Shield className="w-3 h-3" /> Ludex HQ Portal
+              <Shield className="w-3 h-3" /> Pixel HQ Portal
             </button>
           )}
         </div>
@@ -3073,9 +3146,9 @@ const [promotions, setPromotions] = useState([
              <div className="p-4 md:p-8 overflow-y-auto flex-1 font-mono">
                 <div className="flex justify-between items-start border-b border-gray-800 pb-6 md:pb-8 mb-6 md:mb-8">
                    <div>
-                      <h2 className="text-2xl font-black text-white tracking-tighter mb-1">LUDEX<span className="text-purple-500">STORE</span></h2>
+                      <h2 className="text-2xl font-black text-white tracking-tighter mb-1">PIXEL<span className="text-purple-500">STORE</span></h2>
                       <p className="text-xs text-gray-500">Baghdad, Iraq</p>
-                      <p className="text-xs text-gray-500 mt-4 max-w-[200px]">support@ludexstore.com<br/>0770 123 4567</p>
+                      <p className="text-xs text-gray-500 mt-4 max-w-[200px]">support@pixelstore.com<br/>0770 123 4567</p>
                    </div>
                    <div className="text-right">
                       <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Invoice Number</p>
@@ -3109,7 +3182,7 @@ const [promotions, setPromotions] = useState([
                 <div className="mt-8 flex justify-between items-end border-t border-gray-800 pt-6">
                    <div className="text-xs text-gray-500 max-w-[250px] leading-relaxed">
                       Payment Method: Zain Cash / FIB (Manual Transfer)<br />
-                      Thank you for shopping at Ludex Store.
+                      Thank you for shopping at Pixel Store.
                    </div>
                    <div className="text-right w-64">
                       <div className="flex justify-between items-center mb-2">
@@ -3181,7 +3254,7 @@ const [promotions, setPromotions] = useState([
                    method: 'POST',
                    headers: { 
                       'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${localStorage.getItem('ludex_token')}`
+                      'Authorization': `Bearer ${localStorage.getItem('pixel_token')}`
                    },
                    body: JSON.stringify({
                       name: newGame.title,
@@ -3341,7 +3414,7 @@ const [promotions, setPromotions] = useState([
                   onClick={async () => {
                     const dp = parseFloat(promoModal.discountPrice) || null;
                     try {
-                      const token = localStorage.getItem('ludex_token');
+                      const token = localStorage.getItem('pixel_token');
                       const res = await fetch(`/api/admin/products/${promoModal.product.id}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -3373,8 +3446,8 @@ const [promotions, setPromotions] = useState([
         const game = gamesList.find(g => g.id === selectedGameId);
         if (!game) return null;
         return (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div className="bg-[#0a0a0a] border border-purple-900/40 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative shadow-[0_0_50px_rgba(147,51,234,0.15)]">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-0 lg:p-4 animate-[fadeIn_0.2s_ease-out]">
+            <div className={`bg-[#151515] border border-purple-900/40 rounded-none lg:rounded-2xl w-full h-full lg:h-auto lg:max-h-[90vh] lg:max-w-4xl overflow-hidden flex flex-col md:flex-row relative shadow-[0_0_50px_rgba(147,51,234,0.15)] animate-[slideInUp_0.3s_ease-out] ${isGameDetailLoading ? 'animate-skeleton' : ''}`}>
               <button 
                 onClick={() => setIsGameDetailOpen(false)} 
                 className="absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-white/20 transition-colors"
@@ -3382,7 +3455,34 @@ const [promotions, setPromotions] = useState([
               >
                 <X className="w-5 h-5" />
               </button>
-              <div className="w-full md:w-1/2 h-64 md:h-auto relative bg-gradient-to-br from-purple-900/20 to-black border-r border-purple-900/30">
+              
+              {isGameDetailLoading ? (
+                 <>
+                    <div className="w-full md:w-1/2 h-64 md:h-full relative bg-gray-800/20 border-b md:border-r border-gray-800 flex flex-col justify-end p-8">
+                       <div className="w-20 h-6 bg-gray-700/50 rounded mb-3"></div>
+                       <div className="w-3/4 h-8 bg-gray-700/50 rounded"></div>
+                    </div>
+                    <div className="w-full md:w-1/2 p-6 md:p-8 overflow-y-auto flex flex-col gap-6 bg-[#151515]">
+                       <div>
+                         <div className="w-1/3 h-4 bg-gray-700/50 rounded mb-2"></div>
+                         <div className="w-1/4 h-8 bg-gray-700/50 rounded mb-4"></div>
+                         <div className="flex gap-1 mb-6">
+                            <div className="w-4 h-4 bg-gray-700/50 rounded"></div><div className="w-4 h-4 bg-gray-700/50 rounded"></div><div className="w-4 h-4 bg-gray-700/50 rounded"></div>
+                         </div>
+                         <div className="space-y-2">
+                           <div className="w-full h-3 bg-gray-700/50 rounded"></div>
+                           <div className="w-full h-3 bg-gray-700/50 rounded"></div>
+                           <div className="w-2/3 h-3 bg-gray-700/50 rounded"></div>
+                         </div>
+                       </div>
+                       <div className="mt-auto pt-6 border-t border-gray-800">
+                          <div className="w-full h-12 bg-gray-700/50 rounded-lg"></div>
+                       </div>
+                    </div>
+                 </>
+              ) : (
+                 <>
+                            <div className="w-full md:w-1/2 h-64 md:h-auto relative bg-gradient-to-br from-purple-900/20 to-black border-r border-purple-900/30">
                 <img src={game.image} className="w-full h-full object-cover mix-blend-overlay opacity-80" alt={game.title} />
                 <div className="absolute inset-0 p-8 flex flex-col justify-end">
                    <div className="bg-black/80 backdrop-blur px-3 py-1.5 w-fit rounded text-xs font-bold uppercase border border-purple-500/30 text-purple-400 mb-3">{game.type}</div>
@@ -3473,6 +3573,8 @@ const [promotions, setPromotions] = useState([
                    </button>
                  </div>
               </div>
+              </>
+              )}
             </div>
           </div>
         );
@@ -3517,7 +3619,7 @@ const [promotions, setPromotions] = useState([
                         
                         if (res.ok) {
                            const data = await res.json();
-                           localStorage.setItem('ludex_token', data.token);
+                           localStorage.setItem('pixel_token', data.token);
                            setUserProfile((prev: any) => ({ ...prev, name: data.user.username, email: authForm.email, role: data.user.role }));
                            setIsLoggedIn(true);
                            setShowAuthModal(null);
@@ -3532,7 +3634,7 @@ const [promotions, setPromotions] = useState([
                            // Fallback to local mock if server fails or credentials are for local mock
                            if (showAuthModal === 'login') {
                               if (authForm.email === 'AbuHassan_Admin' && authForm.password === 'Admin123!') {
-                                 setUserProfile((prev: any) => ({ ...prev, name: 'AbuHassan_Admin', email: 'admin@ludexstore.com', role: 'ADMIN' }));
+                                 setUserProfile((prev: any) => ({ ...prev, name: 'AbuHassan_Admin', email: 'admin@pixelstore.com', role: 'ADMIN' }));
                                  setIsLoggedIn(true);
                                  setShowAuthModal(null);
                                  setActiveTab('admin');
