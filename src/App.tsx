@@ -6,9 +6,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ShoppingBag, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, Send, CreditCard, Upload, User, Settings, Home, ListOrdered, AlertCircle, CheckCircle2, Shield, Key, Package, Layers, Clock, Gift, Download, Check, Menu, Filter, ChevronDown, LogOut, Star, Tag, TrendingUp } from 'lucide-react';
 import { supabase } from './supabase'; // Keep it for storage for now
-import { signUp, signIn, signOut, getCurrentUser, fetchUserAttributes, signInWithRedirect } from 'aws-amplify/auth';
-import { Hub } from 'aws-amplify/utils';
-import './aws-config'; // import aws config
+import { auth } from './firebase';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  updateProfile
+} from 'firebase/auth';
 import { t } from './translations';
 
 const GAMES_DATA = [
@@ -480,40 +485,23 @@ const [promotions, setPromotions] = useState([
   }, [language]);
 
   useEffect(() => {
-    // Check initial AWS Auth Session
-    const checkUser = async () => {
-      try {
-        const user = await getCurrentUser();
-        if (user) {
-          const attributes = await fetchUserAttributes();
-          setIsLoggedIn(true);
-          const isAdmin = attributes.email === 'admin@pixel.com';
-          setUserProfile((prev: any) => ({ 
-            ...prev, 
-            email: attributes.email, 
-            name: attributes.name || 'Pixel User',
-            role: isAdmin ? 'ADMIN' : 'CUSTOMER'
-          }));
-        }
-      } catch (err) {
+    // Check initial Firebase Auth Session
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setIsLoggedIn(true);
+        const isAdmin = user.email === 'admin@pixel.com';
+        setUserProfile((prev: any) => ({ 
+          ...prev, 
+          email: user.email, 
+          name: user.displayName || 'Pixel User',
+          role: isAdmin ? 'ADMIN' : 'CUSTOMER'
+        }));
+      } else {
         setIsLoggedIn(false);
-      }
-    };
-    checkUser();
-
-    // Listen for Auth changes in Hub
-    const unsubscribe = Hub.listen('auth', ({ payload }) => {
-      switch (payload.event) {
-        case 'signedIn':
-          checkUser();
-          break;
-        case 'signedOut':
-          setIsLoggedIn(false);
-          break;
       }
     });
 
-    return unsubscribe;
+    return () => unsubscribe();
   }, []);
 
   const [chatMessage, setChatMessage] = useState('');
@@ -888,7 +876,11 @@ const [promotions, setPromotions] = useState([
               </button>
               <button 
                 onClick={async () => { 
-                          await signOut(); 
+                          try {
+                             await signOut(auth);
+                          } catch (e) {
+                             console.error('Sign out error:', e);
+                          }
                           setIsLoggedIn(false); 
                   setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
                   setActiveTab('store'); 
@@ -2279,7 +2271,11 @@ const [promotions, setPromotions] = useState([
                         </div>
                       </div>
                       <button onClick={async () => { 
-                          await signOut(); 
+                          try {
+                             await signOut(auth);
+                          } catch (e) {
+                             console.error('Sign out error:', e);
+                          }
                           setIsLoggedIn(false); 
                           setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
                           setIsProfileOpen(false); 
@@ -2419,7 +2415,11 @@ const [promotions, setPromotions] = useState([
              </div>
              <div className="p-4 border-t border-gray-800">
                <button onClick={async () => { 
-                          await signOut(); 
+                          try {
+                             await signOut(auth);
+                          } catch (e) {
+                             console.error('Sign out error:', e);
+                          }
                           setIsLoggedIn(false); 
                    setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
                    setActiveTab('store');
@@ -3692,28 +3692,29 @@ const [promotions, setPromotions] = useState([
                               setTimeout(() => setToastMessage(null), 3000);
                               return;
                            }
-                           const { isSignedIn } = await signIn({
-                              username: authForm.email,
-                              password: authForm.password,
-                           });
+                           const userCredential = await signInWithEmailAndPassword(
+                              auth,
+                              authForm.email,
+                              authForm.password
+                           );
                            setIsLoggedIn(true);
                            setShowAuthModal(null);
                            setToastMessage('Successfully logged in.');
                            setTimeout(() => setToastMessage(null), 3000);
                         } else {
-                           const { isSignUpComplete } = await signUp({
-                              username: authForm.email,
-                              password: authForm.password,
-                              options: {
-                                userAttributes: {
-                                  email: authForm.email,
-                                  name: authForm.name || 'Pixel User',
-                                }
-                              }
-                           });
+                           const userCredential = await createUserWithEmailAndPassword(
+                              auth,
+                              authForm.email,
+                              authForm.password
+                           );
+                           if (userCredential.user) {
+                             await updateProfile(userCredential.user, {
+                               displayName: authForm.name || 'Pixel User'
+                             });
+                           }
                            setIsLoggedIn(true);
                            setShowAuthModal(null);
-                           setToastMessage('Account created successfully! Check email if verification is required.');
+                           setToastMessage('Account created successfully!');
                            setTimeout(() => setToastMessage(null), 3000);
                         }
                      } catch (error: any) {
