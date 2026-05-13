@@ -8,26 +8,18 @@ import { Search, ShoppingBag, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, S
 import { t } from './translations';
 
 const GAMES_DATA = [
-  { id: 1, title: "Elden Ring: Shadow of the Erdtree", category: "PC Game Keys", type: "Global Key", originalPrice: 39.99, price: 34.50, stock: 12, rating: 4.8, image: "https://images.unsplash.com/photo-1605901309584-818e25960b8f?auto=format&fit=crop&q=80&w=600", description: "Venture into the Land of Shadow with the newest expansion. Discover hidden secrets and battle fearsome new bosses." },
-  { id: 2, title: "Xbox Game Pass Ultimate - 1 Year", category: "Console Subs", type: "Subscription", originalPrice: 120.00, price: 89.99, stock: 2, rating: 4.9, image: "https://images.unsplash.com/photo-1628155930542-3c7a64e2c833?auto=format&fit=crop&q=80&w=600", description: "Unlimited access to over 100 high-quality console and PC games, plus Xbox Live Gold and EA Play." },
-  { id: 3, title: "Steam $50 Gift Card (US)", category: "In-game Currency", type: "Steam Wallet", originalPrice: null, price: 52.00, stock: 0, rating: 4.7, image: "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?auto=format&fit=crop&q=80&w=600", description: "Top up your Steam Wallet instantly to buy games, software, and more. Code is delivered instantly upon approval." },
-  { id: 4, title: "Cyberpunk 2077: Phantom Liberty", category: "PC Game Keys", type: "Global Key", originalPrice: 29.99, price: 25.50, stock: 50, rating: 4.5, image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=600", description: "A new spy-thriller adventure for Cyberpunk 2077. Return as cyber-enhanced mercenary V and embark on a high-stakes mission." },
-  { id: 5, title: "Grand Theft Auto V: Premium Edition", category: "PC Game Keys", type: "Global Key", originalPrice: 29.99, price: 12.99, stock: 150, rating: 4.8, image: "https://images.unsplash.com/photo-1538481199005-ca55685a73ee?auto=format&fit=crop&q=80&w=600", description: "Includes the complete GTAV story experience, Grand Theft Auto Online, and the Criminal Enterprise Starter Pack." },
-  { id: 6, title: "Red Dead Redemption 2", category: "PC Game Keys", type: "Global Key", originalPrice: 59.99, price: 19.99, stock: 15, rating: 4.9, image: "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?auto=format&fit=crop&q=80&w=600", description: "Winner of over 175 Game of the Year Awards. An epic tale of honor and loyalty at the dawn of the modern age." },
-  { id: 7, title: "EA SPORTS FC 24", category: "PC Game Keys", type: "Global Key", originalPrice: 69.99, price: 35.00, stock: 5, rating: 4.2, image: "https://images.unsplash.com/photo-1511882150382-421056c89033?auto=format&fit=crop&q=80&w=600", description: "A new era for The World's Game: 19,000+ fully licensed players, 700+ teams, and 30+ leagues playing together." },
-  { id: 8, title: "Baldur's Gate 3", category: "PC Game Keys", type: "Global Key", originalPrice: null, price: 59.99, stock: 22, rating: 5.0, image: "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&q=80&w=600", description: "Gather your party and return to the Forgotten Realms in a tale of fellowship and betrayal, sacrifice and survival." },
-  { id: 9, title: "Hogwarts Legacy", category: "PC Game Keys", type: "Global Key", originalPrice: 59.99, price: 42.50, stock: 8, rating: 4.6, image: "https://images.unsplash.com/photo-1613670353106-9fb80bd2fc0f?auto=format&fit=crop&q=80&w=600", description: "An immersive, open-world action RPG set in the world first introduced in the Harry Potter books." },
-  { id: 10, title: "PlayStation Plus Extra - 12 Months", category: "Console Subs", type: "Subscription", originalPrice: 134.99, price: 115.00, stock: 3, rating: 4.7, image: "https://images.unsplash.com/photo-1606318801954-d46d46d3360a?auto=format&fit=crop&q=80&w=600", description: "Enjoy all PlayStation Plus Essential benefits and discover a catalog of hundreds of games to download and play." },
-  { id: 11, title: "PlayStation Store $50 Card (US)", category: "In-game Currency", type: "PSN Wallet", originalPrice: null, price: 49.00, stock: 45, rating: 4.8, image: "https://images.unsplash.com/photo-1577741162489-08f9ac1216dd?auto=format&fit=crop&q=80&w=600", description: "Add funds to your PlayStation Network wallet without the need for a credit card." },
-  { id: 12, title: "Valorant Points (1000 VP) TR", category: "In-game Currency", type: "Riot PIN", originalPrice: null, price: 10.50, stock: 120, rating: 4.9, image: "https://images.unsplash.com/photo-1542751110-97427bbecf20?auto=format&fit=crop&q=80&w=600", description: "In-game currency to purchase skins, battle passes and Radianite points in Valorant." },
-  { id: 13, title: "Xbox Gift Card $20 (US)", category: "In-game Currency", type: "Xbox Wallet", originalPrice: null, price: 19.50, stock: 0, rating: 4.7, image: "https://images.unsplash.com/photo-1621259182978-fbf93132e53d?auto=format&fit=crop&q=80&w=600", description: "Get full game downloads, apps, movies, TV shows, and devices on the Microsoft Store." },
-  { id: 14, title: "Steam $20 Gift Card (US)", category: "In-game Currency", type: "Steam Wallet", originalPrice: null, price: 21.00, stock: 85, rating: 4.8, image: "https://images.unsplash.com/photo-1614680376408-81e91ffe3db7?auto=format&fit=crop&q=80&w=600", description: "Top up your Steam Wallet instantly to buy games, software, and more. Global activation." },
-  { id: 15, title: "Roblox 1000 Robux", category: "In-game Currency", type: "Robux", originalPrice: null, price: 9.99, stock: 55, rating: 4.6, image: "https://images.unsplash.com/photo-1598550880863-4e8aa3d0edb4?auto=format&fit=crop&q=80&w=600", description: "Get Robux to purchase upgrades for your avatar or buy special abilities in games." },
-  { id: 16, title: "Marvel's Spider-Man Remastered", category: "PC Game Keys", type: "Global Key", originalPrice: 59.99, price: 33.00, stock: 1, rating: 4.8, image: "https://images.unsplash.com/photo-1608889476561-6242cfdbf622?auto=format&fit=crop&q=80&w=600", description: "Play as an experienced Peter Parker, fighting big crime and iconic villains in Marvel's New York." },
-  { id: 17, title: "Call of Duty: Modern Warfare III", category: "PC Game Keys", type: "Global Key", originalPrice: 69.99, price: 55.00, stock: 18, rating: 4.0, image: "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?auto=format&fit=crop&q=80&w=600", description: "A direct sequel to the record-breaking Call of Duty: Modern Warfare II." },
-  { id: 18, title: "Nintendo Switch Online 12 Months", category: "Console Subs", type: "Subscription", originalPrice: 19.99, price: 17.50, stock: 30, rating: 4.5, image: "https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?auto=format&fit=crop&q=80&w=600", description: "Enjoy online multiplayer, classic NES and Super NES games, and exclusive offers." },
-  { id: 19, title: "Resident Evil 4 Remake", category: "PC Game Keys", type: "Global Key", originalPrice: 59.99, price: 38.50, stock: 6, rating: 4.9, image: "https://images.unsplash.com/photo-1605901309584-818e25960b8f?auto=format&fit=crop&q=80&w=600", description: "Survive is just the beginning. The classic reborn with modernized gameplay and reimagined storyline." },
-  { id: 20, title: "Fortnite 2800 V-Bucks", category: "In-game Currency", type: "V-Bucks", originalPrice: null, price: 22.99, stock: 21, rating: 4.7, image: "https://images.unsplash.com/photo-1589241062272-c0a1f436000c?auto=format&fit=crop&q=80&w=600", description: "Use V-Bucks to buy outfits, pickaxes, wraps, emotes and Battle Passes in Fortnite." }
+  { id: 1, title: "Elden Ring: Shadow of the Erdtree", category: "PC Game Keys", type: "Global Key", originalPrice: 39.99, price: 34.50, stock: 12, rating: 4.8, image: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1245620/library_600x900.jpg", description: "Venture into the Land of Shadow with the newest expansion. Discover hidden secrets and battle fearsome new bosses." },
+  { id: 2, title: "Grand Theft Auto V", category: "Console Subs", type: "PS5 Premium Edition", originalPrice: 39.99, price: 19.99, stock: 150, rating: 4.8, image: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/271590/library_600x900.jpg", description: "Includes the complete GTAV story experience, Grand Theft Auto Online, and the Criminal Enterprise Starter Pack for PS5." },
+  { id: 3, title: "EA SPORTS FC 24", category: "PC Game Keys", type: "Nintendo Switch", originalPrice: 69.99, price: 35.00, stock: 5, rating: 4.2, image: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/2195250/library_600x900.jpg", description: "A new era for The World's Game on Nintendo Switch: 19,000+ fully licensed players, 700+ teams, and 30+ leagues playing together." },
+  { id: 4, title: "Call of Duty: Modern Warfare III", category: "PC Game Keys", type: "Xbox Series X", originalPrice: 69.99, price: 55.00, stock: 18, rating: 4.0, image: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1938090/library_600x900.jpg", description: "A direct sequel to the record-breaking Call of Duty: Modern Warfare II." },
+  { id: 5, title: "PlayStation Plus Deluxe - 12 Months", category: "Console Subs", type: "Subscription", originalPrice: 159.99, price: 135.00, stock: 3, rating: 4.7, image: "https://images.unsplash.com/photo-1606318801954-d46d46d3360a?auto=format&fit=crop&q=80&w=600", description: "Enjoy all PlayStation Plus Essential benefits, access to hundreds of games, and exclusive classic titles." },
+  { id: 6, title: "Xbox Game Pass Ultimate - 3 Months", category: "Console Subs", type: "Subscription", originalPrice: 49.99, price: 39.99, stock: 25, rating: 4.9, image: "https://images.unsplash.com/photo-1628155930542-3c7a64e2c833?auto=format&fit=crop&q=80&w=600", description: "Unlimited access to over 100 high-quality console and PC games, plus Xbox Live Gold and EA Play." },
+  { id: 7, title: "Cyberpunk 2077: Phantom Liberty", category: "PC Game Keys", type: "Global Key", originalPrice: 29.99, price: 25.50, stock: 50, rating: 4.5, image: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1091500/library_600x900.jpg", description: "A new spy-thriller adventure for Cyberpunk 2077. Return as cyber-enhanced mercenary V and embark on a high-stakes mission." },
+  { id: 8, title: "Baldur's Gate 3", category: "PC Game Keys", type: "Global Key", originalPrice: null, price: 59.99, stock: 22, rating: 5.0, image: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1086940/library_600x900.jpg", description: "Gather your party and return to the Forgotten Realms in a tale of fellowship and betrayal, sacrifice and survival." },
+  { id: 9, title: "Hogwarts Legacy", category: "PC Game Keys", type: "Global Key", originalPrice: 59.99, price: 42.50, stock: 8, rating: 4.6, image: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/990080/library_600x900.jpg", description: "An immersive, open-world action RPG set in the world first introduced in the Harry Potter books." },
+  { id: 10, title: "Valorant Points (1000 VP) TR", category: "In-game Currency", type: "Riot PIN", originalPrice: null, price: 10.50, stock: 120, rating: 4.9, image: "https://images.unsplash.com/photo-1542751110-97427bbecf20?auto=format&fit=crop&q=80&w=600", description: "In-game currency to purchase skins, battle passes and Radianite points in Valorant." },
+  { id: 11, title: "Steam $50 Gift Card (US)", category: "In-game Currency", type: "Steam Wallet", originalPrice: null, price: 52.00, stock: 0, rating: 4.7, image: "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?auto=format&fit=crop&q=80&w=600", description: "Top up your Steam Wallet instantly to buy games, software, and more. Code is delivered instantly upon approval." },
+  { id: 12, title: "Roblox 1000 Robux", category: "In-game Currency", type: "Robux", originalPrice: null, price: 9.99, stock: 55, rating: 4.6, image: "https://images.unsplash.com/photo-1598550880863-4e8aa3d0edb4?auto=format&fit=crop&q=80&w=600", description: "Get Robux to purchase upgrades for your avatar or buy special abilities in games." }
 ];
 
 interface Order {
@@ -2608,8 +2600,8 @@ const [promotions, setPromotions] = useState([
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-6 w-full">
                 {isLoadingStore ? (
                   Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="bg-[#151515] border border-gray-800 rounded-2xl flex flex-col h-full animate-skeleton overflow-hidden">
-                      <div className="aspect-[3/4] sm:aspect-[4/5] bg-gray-800/20 relative"></div>
+                    <div key={i} className="bg-[#151515] border border-gray-800 rounded-xl flex flex-col h-full animate-skeleton overflow-hidden">
+                      <div className="aspect-[3/4] sm:aspect-[2/3] bg-gray-800/20 relative"></div>
                       <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between space-y-4">
                         <div>
                           <div className="h-4 bg-gray-800/50 rounded w-3/4 mb-2"></div>
@@ -2627,11 +2619,11 @@ const [promotions, setPromotions] = useState([
                     <p>{t[language].noGamesFound}</p>
                   </div>
                 ) : (
-                  filteredGames.slice(0, visibleGamesCount).map(game => (
-                    <div key={game.id} className="group bg-[#0d0d0d] border border-purple-900/20 rounded-2xl flex flex-col h-full hover:border-purple-500/50 transition-all duration-300 hover:shadow-[0_0_25px_rgba(147,51,234,0.3)] hover:-translate-y-1">
+                  filteredGames.slice(0, visibleGamesCount).map((game, index) => (
+                    <div key={game.id} style={{ animationDelay: `${(index % 12) * 50}ms` }} className="group bg-[#151515] border border-transparent rounded-xl flex flex-col h-full hover:border-[#bc13fe] transition-all duration-300 hover:shadow-[0_0_10px_rgba(188,19,254,0.4)] relative overflow-hidden transform hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-8 duration-500 fill-mode-both">
                       <div onClick={() => { handleOpenGameDetail(game.id); }} className="cursor-pointer">
-                        <div className={`aspect-[3/4] sm:aspect-[4/5] bg-gradient-to-br ${game.theme} relative rounded-t-2xl sm:rounded-t-2xl overflow-hidden`}>
-                          <img src={game.image} alt={game.title} className="w-full h-full object-cover mix-blend-overlay opacity-60 group-hover:opacity-80 transition-opacity" />
+                        <div className={`aspect-[3/4] sm:aspect-[2/3] bg-[#0a0a0a] relative rounded-t-xl overflow-hidden`}>
+                          <img src={game.image} alt={game.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                           <div className={`absolute bottom-2 left-2 sm:bottom-3 sm:left-3 bg-black/80 backdrop-blur-md px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[8px] sm:text-[10px] font-bold uppercase border ${game.badgeColor} max-w-[80%] truncate`}>
                             {game.type}
                           </div>
@@ -2644,12 +2636,15 @@ const [promotions, setPromotions] = useState([
                           </div>
                         </div>
                       </div>
-                      <div className="p-3 sm:p-5 flex-1 flex flex-col justify-between items-stretch">
+                      <div className="p-4 flex-1 flex flex-col justify-between items-stretch z-10 bg-[#151515]">
                         <div onClick={() => { handleOpenGameDetail(game.id); }} className="cursor-pointer">
                           <div className="flex justify-between items-start mb-1 gap-2">
                             <h4 className="font-bold text-xs sm:text-base leading-tight text-gray-100 group-hover:text-purple-400 transition-colors uppercase line-clamp-2">{game.title}</h4>
                           </div>
-                          <p className="text-[9px] sm:text-[11px] text-gray-500 mb-3 sm:mb-6 line-clamp-1">{game.tags}</p>
+                          <div className="flex items-center gap-2 mb-3 text-gray-400 mt-1">
+  {game.category.includes('Console') || game.type.includes('PS5') || game.type.includes('Xbox') || game.type.includes('Nintendo') ? <Gamepad2 className="w-3 h-3 text-gray-500" /> : <Monitor className="w-3 h-3 text-gray-500" />}
+  <p className="text-[10px] uppercase font-bold tracking-wider">{game.type}</p>
+</div>
                         </div>
                         <div className="flex items-end justify-between mt-auto">
                           <div onClick={() => { handleOpenGameDetail(game.id); }} className="cursor-pointer">
@@ -2663,7 +2658,7 @@ const [promotions, setPromotions] = useState([
                           <button 
                             disabled={!game.stock || game.stock === 0}
                             onClick={(e) => { e.stopPropagation(); addToCart(game.id); }}
-                            className="bg-white text-black text-[10px] sm:text-xs font-bold px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-lg hover:bg-gray-200 transition-all active:scale-95 shadow-[0_4px_10px_rgba(255,255,255,0.1)] hover:shadow-[0_4px_15px_rgba(255,255,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none whitespace-nowrap"
+                            className="bg-white text-black text-[10px] sm:text-xs font-bold px-3 sm:px-5 py-2.5 rounded-lg hover:bg-gray-200 transition-all active:scale-95 md:translate-y-4 md:opacity-0 group-hover:translate-y-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-[0_4px_10px_rgba(255,255,255,0.1)]"
                           >
                             {t[language].buy}
                           </button>
