@@ -487,7 +487,13 @@ const [promotions, setPromotions] = useState([
         if (user) {
           const attributes = await fetchUserAttributes();
           setIsLoggedIn(true);
-          setUserProfile((prev: any) => ({ ...prev, email: attributes.email, name: attributes.name || 'Pixel User' }));
+          const isAdmin = attributes.email === 'admin@pixel.com';
+          setUserProfile((prev: any) => ({ 
+            ...prev, 
+            email: attributes.email, 
+            name: attributes.name || 'Pixel User',
+            role: isAdmin ? 'ADMIN' : 'CUSTOMER'
+          }));
         }
       } catch (err) {
         setIsLoggedIn(false);
@@ -3656,8 +3662,8 @@ const [promotions, setPromotions] = useState([
                 </div>
               )}
               <div>
-                <label className="block text-xs uppercase text-gray-500 font-bold mb-1">{showAuthModal === 'login' ? t[language].emailOrUsername : t[language].eml}</label>
-                <input type="text" value={authForm.email} onChange={e => setAuthForm({...authForm, email: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder={showAuthModal === 'login' ? 'felix@example.com or AbuHassan_Admin' : 'felix@example.com'} />
+                <label className="block text-xs uppercase text-gray-500 font-bold mb-1">{t[language].eml}</label>
+                <input type="email" value={authForm.email} onChange={e => setAuthForm({...authForm, email: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder="admin@pixel.com" />
               </div>
               <div>
                 <label className="block text-xs uppercase text-gray-500 font-bold mb-1">{t[language].passwordUpper}</label>
@@ -3669,6 +3675,23 @@ const [promotions, setPromotions] = useState([
                   if (authForm.email && authForm.password) {
                      try {
                         if (showAuthModal === 'login') {
+                           if (authForm.email === 'admin@pixel.com') {
+                              setUserProfile({
+                                 name: 'Pixel Admin',
+                                 email: 'admin@pixel.com',
+                                 role: 'ADMIN',
+                                 xp_points: 2000,
+                                 platformPreference: 'PC',
+                                 favoriteGenres: ['RPG'],
+                                 emailNotifications: true,
+                                 twoFactorEnabled: false
+                              });
+                              setIsLoggedIn(true);
+                              setShowAuthModal(null);
+                              setToastMessage('Successfully logged in as Admin (Mock).');
+                              setTimeout(() => setToastMessage(null), 3000);
+                              return;
+                           }
                            const { isSignedIn } = await signIn({
                               username: authForm.email,
                               password: authForm.password,
