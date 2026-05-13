@@ -3748,7 +3748,9 @@ const [promotions, setPromotions] = useState([
                 <div className="flex-grow border-t border-gray-800"></div>
               </div>
               <button 
-                onClick={async () => { 
+                type="button"
+                onClick={async (e) => { 
+                   e.preventDefault();
                    try {
                      await signInWithRedirect({ provider: 'Google' }); 
                    } catch (error: any) {
