@@ -4007,7 +4007,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   onClick={() => setShowAuthModal(showAuthModal === 'login' ? 'register' : 'login')} 
                   className="text-xs text-gray-400 hover:text-purple-400 transition-colors"
                 >
-                  {showAuthModal === 'login' ? t[language].noAccount : t[language].hasAccount}
+                  {showAuthModal === 'login' ? (language === 'ar' ? 'ليس لديك حساب؟ إنشاء حساب' : "Don't have an account? Register") : (language === 'ar' ? 'لديك حساب بالفعل؟ تسجيل الدخول' : "Already have an account? Login")}
                 </button>
               </div>
             </div>
