@@ -105,7 +105,7 @@ export default function App() {
   const [isGameDetailOpen, setIsGameDetailOpen] = useState(false);
   const [isGameDetailLoading, setIsGameDetailLoading] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<number | string | null>(null);
-  const [adminTab, setAdminTab] = useState<'dashboard' | 'games' | 'categories' | 'customers' | 'orders' | 'financials' | 'payments' | 'settings' | 'support' | 'pages' | 'promotions' | 'promo_codes' | 'subscriptions' | 'products' | 'transactions' | 'sales' | 'macros'>('dashboard');
+  const [adminTab, setAdminTab] = useState<'dashboard' | 'games' | 'categories' | 'customers' | 'users' | 'orders' | 'financials' | 'payments' | 'settings' | 'support' | 'pages' | 'promotions' | 'promo_codes' | 'subscriptions' | 'products' | 'transactions' | 'sales' | 'macros'>('dashboard');
   const [adminMenuState, setAdminMenuState] = useState({ catalog: false, marketing: false, sales: false, ledger: false, system: false });
   const toggleAdminMenu = (menu: 'catalog' | 'marketing' | 'sales' | 'ledger' | 'system') => setAdminMenuState(prev => ({ ...prev, [menu]: !prev[menu] }));
   
@@ -278,6 +278,7 @@ export default function App() {
 const [promotions, setPromotions] = useState([
     { id: '1', title: 'Summer Gaming Festival', description: 'Up to 50% off on top titles!', imageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1200', linkToCategory: 'Special Offers', active: true }
   ]);
+const [usersList, setUsersList] = useState<any[]>([]);
   const [newPromotion, setNewPromotion] = useState({ id: '', title: '', description: '', imageUrl: '', linkToCategory: '', active: true });
 
   // Promo Codes
@@ -460,6 +461,10 @@ const [promotions, setPromotions] = useState([
               const res = await fetch('/api/admin/transactions', { headers });
               if (res.ok) setTransList(await res.json());
            }
+           if (['users'].includes(adminTab)) {
+              const res = await fetch('/api/admin/profiles', { headers });
+              if (res.ok) setUsersList(await res.json());
+           }
            if (['dashboard', 'macros'].includes(adminTab)) {
               const res = await fetch('/api/admin/settings', { headers });
               if (res.ok) setSettingsList(await res.json());
@@ -493,6 +498,11 @@ const [promotions, setPromotions] = useState([
             name: attributes.name || 'Pixel User',
             role: isAdmin ? 'ADMIN' : 'CUSTOMER'
           }));
+          fetch('/api/admin/profiles/sync', {
+             method: 'POST',
+             headers: {'Content-Type': 'application/json'},
+             body: JSON.stringify({ email: attributes.email, name: attributes.name || 'Pixel User' })
+          }).catch(console.error);
         }
       } catch (err) {
         setIsLoggedIn(false);
@@ -866,6 +876,7 @@ const [promotions, setPromotions] = useState([
                 <div className="pl-6 flex flex-col gap-1">
                   <button onClick={() => setAdminTab('macros')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'macros' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Settings className="w-4 h-4" />{t[language].adminMac}</button>
                   <button onClick={() => setAdminTab('settings')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'settings' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Settings className="w-4 h-4" />{t[language].adminSet}</button>
+                  <button onClick={() => setAdminTab('users')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'users' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Shield className="w-4 h-4" />{language === 'ar' ? 'المستخدمين والصلاحيات' : 'Users & Roles'}</button>
                   <button onClick={() => setAdminTab('pages')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'pages' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><Layers className="w-4 h-4" />{t[language].adminPages}</button>
                 </div>
               )}
@@ -1499,6 +1510,91 @@ const [promotions, setPromotions] = useState([
                              </tr>
                            )
                         })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {adminTab === 'users' && (
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
+                <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
+                  <div className="flex justify-between items-center border-b border-gray-800 pb-4">
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><Shield className="w-5 h-5 text-purple-500"/> {language === 'ar' ? 'إدارة المستخدمين والصلاحيات' : 'Manage Users & Roles'}</h3>
+                  </div>
+                  <div className="overflow-x-auto w-full border border-gray-800 rounded-xl">
+                    <table className="w-full text-left text-sm text-gray-400">
+                      <thead className="bg-[#1a1a1a] text-xs uppercase text-gray-500 font-bold border-b border-gray-800">
+                        <tr>
+                          <th className="px-4 py-3">{t[language].nameCol}</th>
+                          <th className="px-4 py-3">{t[language].eml}</th>
+                          <th className="px-4 py-3">{language === 'ar' ? 'الصلاحية' : 'Role'}</th>
+                          <th className="px-4 py-3">{language === 'ar' ? 'الحالة' : 'Status'}</th>
+                          <th className="px-4 py-3 text-right">{t[language].actionsCol}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800 bg-[#0a0a0a]">
+                        {usersList.length === 0 ? (
+                            <tr><td colSpan={5} className="py-8 text-center text-gray-600">{language === 'ar' ? 'لا يوجد مستخدمين مسجلين' : 'No users found'}</td></tr>
+                        ) : usersList.map((user, i) => (
+                          <tr key={i} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="px-4 py-4 font-bold text-white">{user.name || 'N/A'}</td>
+                            <td className="px-4 py-4">{user.email}</td>
+                            <td className="px-4 py-4">
+                              <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${user.role === 'ADMIN' ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
+                                {user.role || 'CUSTOMER'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${user.status === 'banned' ? 'bg-red-900/40 text-red-400 border border-red-500/30' : 'bg-green-900/40 text-green-400 border border-green-500/30'}`}>
+                                {user.status || 'ACTIVE'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 text-right flex flex-wrap items-center justify-end gap-2">
+                               <button 
+                                 onClick={async () => {
+                                    try {
+                                       const token = localStorage.getItem('pixel_token');
+                                       const res = await fetch(`/api/admin/profiles/${user.id}`, {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                          body: JSON.stringify({ role: user.role === 'ADMIN' ? 'CUSTOMER' : 'ADMIN' })
+                                       });
+                                       if(res.ok) {
+                                          setToastMessage('Role updated successfully.');
+                                          setTimeout(()=>setToastMessage(null), 3000);
+                                          const refreshed = await fetch('/api/admin/profiles', { headers: { 'Authorization': `Bearer ${token}` } });
+                                          if (refreshed.ok) setUsersList(await refreshed.json());
+                                       }
+                                    } catch(e) { console.error(e) }
+                                 }}
+                                 className="px-3 py-1 bg-purple-600/20 text-purple-400 hover:bg-purple-600/40 rounded text-[10px] font-bold transition-colors whitespace-nowrap">
+                                 {user.role === 'ADMIN' ? (language === 'ar' ? 'إزالة كأدمن' : 'Demote Admin') : (language === 'ar' ? 'ترقية لأدمن' : 'Promote to Admin')}
+                               </button>
+                               <button 
+                                 onClick={async () => {
+                                    try {
+                                       const token = localStorage.getItem('pixel_token');
+                                       const res = await fetch(`/api/admin/profiles/${user.id}`, {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                          body: JSON.stringify({ status: user.status === 'banned' ? 'active' : 'banned' })
+                                       });
+                                       if(res.ok) {
+                                          setToastMessage('User status updated.');
+                                          setTimeout(()=>setToastMessage(null), 3000);
+                                          const refreshed = await fetch('/api/admin/profiles', { headers: { 'Authorization': `Bearer ${token}` } });
+                                          if (refreshed.ok) setUsersList(await refreshed.json());
+                                       }
+                                    } catch(e) { console.error(e) }
+                                 }}
+                                 className={`px-3 py-1 rounded text-[10px] font-bold transition-colors whitespace-nowrap ${user.status === 'banned' ? 'bg-green-600/20 text-green-400 hover:bg-green-600/40' : 'bg-red-600/20 text-red-400 hover:bg-red-600/40'}`}>
+                                 {user.status === 'banned' ? (language === 'ar' ? 'إلغاء الحظر' : 'Unban') : (language === 'ar' ? 'حظر المستخدم' : 'Ban User')}
+                               </button>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -3735,7 +3831,10 @@ const [promotions, setPromotions] = useState([
                            setIsLoggedIn(true);
                            setShowAuthModal(null);
                            setToastMessage('Successfully logged in.');
-                           setTimeout(() => setToastMessage(null), 3000);
+                           setTimeout(() => {
+                              setToastMessage(null);
+                              window.location.reload();
+                           }, 1000);
                         } else {
                            const { isSignUpComplete } = await signUp({
                               username: authForm.email,
@@ -3747,10 +3846,21 @@ const [promotions, setPromotions] = useState([
                                 }
                               }
                            });
-                           setIsLoggedIn(true);
-                           setShowAuthModal(null);
-                           setToastMessage('Account created successfully! Check email if verification is required.');
-                           setTimeout(() => setToastMessage(null), 3000);
+                           
+                           if (isSignUpComplete) {
+                              await signIn({ username: authForm.email, password: authForm.password });
+                              setIsLoggedIn(true);
+                              setShowAuthModal(null);
+                              setToastMessage('تم إنشاء الحساب وتسجيل الدخول بنجاح!');
+                              setTimeout(() => {
+                                 setToastMessage(null);
+                                 window.location.reload();
+                              }, 1500);
+                           } else {
+                              setShowAuthModal('login');
+                              setToastMessage('تم إنشاء الحساب! يرجى تأكيد البريد الإلكتروني (إذا لزم الأمر) ثم تسجيل الدخول.');
+                           }
+                           setTimeout(() => setToastMessage(null), 5000);
                         }
                      } catch (error: any) {
                         console.error('Auth Error:', error);

@@ -208,7 +208,21 @@ app.post('/api/admin/subscriptions', requireAuth, async (req, res) => {
   }
 });
 
-const ALLOWED_TABLES = ['products', 'subscriptions', 'sales', 'customers', 'transactions', 'settings', 'promotions'];
+const ALLOWED_TABLES = ['products', 'subscriptions', 'sales', 'customers', 'transactions', 'settings', 'promotions', 'profiles'];
+
+app.post('/api/admin/profiles/sync', async (req, res) => {
+  // Public endpoint for now to sync Cognito users
+  try {
+    const { email, name } = req.body;
+    const { data: existing } = await supabase.from('profiles').select('*').eq('email', email).single();
+    if (!existing) {
+      await supabase.from('profiles').insert([{ email, name, role: email === 'admin@pixel.com' ? 'ADMIN' : 'CUSTOMER', status: 'active' }]);
+    }
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 app.get('/api/admin/:table', requireAuth, async (req, res) => {
   try {
