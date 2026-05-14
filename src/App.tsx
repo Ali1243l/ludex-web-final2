@@ -471,8 +471,16 @@ const [usersList, setUsersList] = useState<any[]>([]);
               if (res.ok) setTransList(await res.json());
            }
            if (['users'].includes(adminTab)) {
-              const res = await fetch('/api/admin/profiles', { headers });
-              if (res.ok) setUsersList(await res.json());
+              try {
+                const { data, error } = await supabase.from('profiles').select('*');
+                if (error) {
+                   console.error("Supabase select error (admin users):", error);
+                } else if (data) {
+                   setUsersList(data);
+                }
+              } catch(e) {
+                 console.error("Failed to fetch admin backend profiles", e);
+              }
            }
            if (['dashboard', 'macros'].includes(adminTab)) {
               const res = await fetch('/api/admin/settings', { headers });
@@ -493,40 +501,76 @@ const [usersList, setUsersList] = useState<any[]>([]);
   }, [language]);
 
   useEffect(() => {
-    // Check initial AWS Auth Session
+    let isMounted = true;
     const checkUser = async () => {
       try {
         const user = await getCurrentUser();
         if (user) {
           const attributes = await fetchUserAttributes();
-          setIsLoggedIn(true);
-          const isAdmin = attributes.email === 'admin@pixel.com';
-          setUserProfile((prev: any) => ({ 
-            ...prev, 
-            email: attributes.email, 
-            name: attributes.name || 'Pixel User',
-            role: isAdmin ? 'ADMIN' : 'CUSTOMER'
-          }));
+          if (isMounted) setIsLoggedIn(true);
+
+          const userId = user.userId || attributes.sub;
+          const userEmail = attributes.email;
+          const userDisplayName = attributes.name || '';
+
+          // Fetch from Supabase directly
           try {
-            const res = await fetch('/api/admin/profiles/sync', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ id: attributes.sub, email: attributes.email, name: attributes.name || 'Pixel User' })
-            });
-            if (res.ok) {
-              const { profile } = await res.json();
-              if (profile) {
-                setUserProfile(profile);
-                // Onboarding Check
-                if (!profile.display_name || !profile.platforms || profile.platforms.length === 0) {
-                   setActiveTab('onboarding');
-                }
+            const { data: existingProfile, error: selectError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', userId)
+              .maybeSingle();
+
+            if (selectError) {
+              console.error('Supabase select error:', selectError);
+            }
+
+            let profileData = existingProfile;
+
+            // If profile does not exist, immediately INSERT
+            if (!existingProfile && userId && userEmail) {
+              const isAdmin = userEmail === 'admin@pixel.com';
+              const { data: newProfile, error: insertError } = await supabase
+                .from('profiles')
+                .insert([{
+                  id: userId,
+                  email: userEmail,
+                  name: userDisplayName,
+                  role: isAdmin ? 'ADMIN' : 'CUSTOMER',
+                  status: 'active'
+                }])
+                .select()
+                .single();
+
+              if (insertError) {
+                console.error('Supabase insert error (new profile):', insertError);
+              } else {
+                profileData = newProfile;
+              }
+            } else if (existingProfile && existingProfile.email !== userEmail) {
+                // optional: update email if drifted
+                await supabase.from('profiles').update({ email: userEmail }).eq('id', userId);
+            }
+
+            if (isMounted && profileData) {
+              const profile = profileData;
+              const mergedObj = {
+                 ...userProfile,
+                 ...profile
+              };
+              setUserProfile(mergedObj);
+
+              // Strict Onboarding Guard
+              if (!profile.display_name || !profile.platforms || profile.platforms.length === 0) {
+                 setActiveTab('onboarding');
               }
             }
-          } catch(e) { console.error('Sync error:', e); }
+          } catch(e) { 
+            console.error('Supabase Sync execution error:', e); 
+          }
         }
       } catch (err) {
-        setIsLoggedIn(false);
+        if (isMounted) setIsLoggedIn(false);
       }
     };
     checkUser();
@@ -535,15 +579,20 @@ const [usersList, setUsersList] = useState<any[]>([]);
     const unsubscribe = Hub.listen('auth', ({ payload }) => {
       switch (payload.event) {
         case 'signedIn':
+        case 'signUp':
+        case 'autoSignIn':
           checkUser();
           break;
         case 'signedOut':
-          setIsLoggedIn(false);
+          if (isMounted) setIsLoggedIn(false);
           break;
       }
     });
 
-    return unsubscribe;
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -790,6 +839,86 @@ const [usersList, setUsersList] = useState<any[]>([]);
     setChatHistory(prev => [...prev, newMessage]);
     setAdminChatMessage('');
   };
+
+  if (isLoggedIn && userProfile && (!userProfile.display_name || !userProfile.platforms || userProfile.platforms.length === 0)) {
+     return (
+        <div className="bg-[#050505] min-h-screen font-sans text-white flex flex-col items-center justify-center p-4">
+            <div className="max-w-2xl mx-auto w-full flex flex-col items-center justify-center min-h-[60vh] gap-6 animate-in fade-in duration-300">
+               <div className="bg-[#111] border border-purple-900/40 rounded-2xl p-8 w-full shadow-[0_0_40px_rgba(147,51,234,0.15)] flex flex-col gap-6">
+                 <div className="text-center">
+                   <div className="w-16 h-16 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/30">
+                     <User className="w-8 h-8 text-purple-400" />
+                   </div>
+                   <h2 className="text-2xl font-bold text-white mb-2">{language === 'ar' ? 'إكمال الحساب' : 'Complete Your Profile'}</h2>
+                   <p className="text-gray-400 text-sm">{language === 'ar' ? 'الرجاء إكمال بيانات حسابك للمتابعة.' : 'Please complete your profile information to continue.'}</p>
+                 </div>
+                 <form className="flex flex-col gap-5 mt-4" onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!userProfile.display_name || !userProfile.platforms || userProfile.platforms.length === 0) {
+                        setToastMessage(language === 'ar' ? 'يرجى إكمال جميع الحقول المطلوبة' : 'Please fill all required fields');
+                        setTimeout(() => setToastMessage(null), 3000);
+                        return;
+                    }
+                    try {
+                        const { data, error } = await supabase.from('profiles').update({
+                           display_name: userProfile.display_name,
+                           platforms: userProfile.platforms,
+                           interests: userProfile.interests || []
+                        }).eq('id', userProfile.id).select().single();
+                        
+                        if (!error && data) {
+                           setToastMessage(language === 'ar' ? 'تم الحفظ بنجاح!' : 'Profile updated!');
+                           setUserProfile({ ...userProfile, ...data });
+                           setTimeout(() => setToastMessage(null), 2000);
+                           setActiveTab('store');
+                        } else {
+                           console.error('Supabase profile update error:', error);
+                           setToastMessage('Error updating profile');
+                           setTimeout(() => setToastMessage(null), 3000);
+                        }
+                    } catch(err) {
+                        console.error(err);
+                    }
+                 }}>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'اسم العرض' : 'Display Name'}</label>
+                      <input type="text" value={userProfile.display_name || ''} onChange={e => setUserProfile({...userProfile, display_name: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder="e.g. MasterChief99" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'المنصات (اختر واحدة على الأقل)' : 'Platforms (Select at least one)'}</label>
+                      <div className="flex flex-wrap gap-2">
+                        {['PC', 'PlayStation', 'Xbox', 'Nintendo', 'Mobile'].map(plat => (
+                           <button type="button" key={plat} onClick={() => {
+                              const curr = userProfile.platforms || [];
+                              setUserProfile({...userProfile, platforms: curr.includes(plat) ? curr.filter((p:string) => p !== plat) : [...curr, plat]});
+                           }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile.platforms?.includes(plat) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{plat}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'الاهتمامات (اختياري)' : 'Interests (Optional)'}</label>
+                      <div className="flex flex-wrap gap-2">
+                        {['Action', 'RPG', 'Strategy', 'Sports', 'Racing', 'FPS'].map(int => (
+                           <button type="button" key={int} onClick={() => {
+                              const curr = userProfile.interests || [];
+                              setUserProfile({...userProfile, interests: curr.includes(int) ? curr.filter((i:string) => i !== int) : [...curr, int]});
+                           }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile.interests?.includes(int) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{int}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <button type="submit" className="mt-4 bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition-colors">{language === 'ar' ? 'إكمال' : 'Complete Registration'}</button>
+                 </form>
+               </div>
+            </div>
+            {toastMessage && (
+               <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[300] bg-[#111] border border-purple-500 backdrop-blur w-[90%] md:w-auto md:min-w-[300px] text-white px-6 py-4 rounded-xl shadow-[0_0_25px_rgba(168,85,247,0.4)] font-bold flex items-center gap-3 animate-in fade-in duration-300 pointer-events-none">
+                 <CheckCircle2 className="w-5 h-5 text-purple-400" />
+                 {toastMessage}
+               </div>
+            )}
+        </div>
+     );
+  }
 
   return (
     <>
@@ -1515,8 +1644,9 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                        if(res.ok) {
                                           setToastMessage('Role updated successfully.');
                                           setTimeout(()=>setToastMessage(null), 3000);
-                                          const refreshed = await fetch('/api/admin/profiles', { headers: { 'Authorization': `Bearer ${token}` } });
-                                          if (refreshed.ok) setUsersList(await refreshed.json());
+                                          const { data: refreshed, error: refErr } = await supabase.from('profiles').select('*');
+                                          if (refErr) console.error("Supabase select error (refetching users 1):", refErr);
+                                          if (refreshed) setUsersList(refreshed);
                                        }
                                     } catch(e) { console.error(e) }
                                  }}
@@ -1535,8 +1665,9 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                        if(res.ok) {
                                           setToastMessage('User status updated.');
                                           setTimeout(()=>setToastMessage(null), 3000);
-                                          const refreshed = await fetch('/api/admin/profiles', { headers: { 'Authorization': `Bearer ${token}` } });
-                                          if (refreshed.ok) setUsersList(await refreshed.json());
+                                          const { data: refreshed, error: refErr } = await supabase.from('profiles').select('*');
+                                          if (refErr) console.error("Supabase select error (refetching users 2):", refErr);
+                                          if (refreshed) setUsersList(refreshed);
                                        }
                                     } catch(e) { console.error(e) }
                                  }}
@@ -1555,8 +1686,9 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                           if(res.ok) {
                                              setToastMessage('User deleted successfully.');
                                              setTimeout(()=>setToastMessage(null), 3000);
-                                             const refreshed = await fetch('/api/admin/profiles', { headers: { 'Authorization': `Bearer ${token}` } });
-                                             if (refreshed.ok) setUsersList(await refreshed.json());
+                                             const { data: refreshed, error: refErr } = await supabase.from('profiles').select('*');
+                                             if (refErr) console.error("Supabase select error (refetching users 3):", refErr);
+                                             if (refreshed) setUsersList(refreshed);
                                           } else {
                                              const err = await res.json();
                                              setToastMessage(`Error: ${err.error}`);
@@ -2522,74 +2654,6 @@ const [usersList, setUsersList] = useState<any[]>([]);
 
         {/* Main Interface Area conditionally rendered */}
         <main className="flex-1 p-6 md:p-8 overflow-y-auto flex flex-col scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
-          {activeTab === 'onboarding' && (
-            <div className="max-w-2xl mx-auto w-full flex flex-col items-center justify-center min-h-[60vh] gap-6">
-               <div className="bg-[#111] border border-purple-900/40 rounded-2xl p-8 w-full shadow-[0_0_40px_rgba(147,51,234,0.15)] flex flex-col gap-6">
-                 <div className="text-center">
-                   <div className="w-16 h-16 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/30">
-                     <User className="w-8 h-8 text-purple-400" />
-                   </div>
-                   <h2 className="text-2xl font-bold text-white mb-2">{language === 'ar' ? 'إكمال الحساب' : 'Complete Your Profile'}</h2>
-                   <p className="text-gray-400 text-sm">{language === 'ar' ? 'الرجاء إكمال بيانات حسابك للمتابعة.' : 'Please complete your profile information to continue.'}</p>
-                 </div>
-                 <form className="flex flex-col gap-5 mt-4" onSubmit={async (e) => {
-                    e.preventDefault();
-                    if (!userProfile.display_name || !userProfile.platforms || userProfile.platforms.length === 0) {
-                        setToastMessage(language === 'ar' ? 'يرجى إكمال جميع الحقول المطلوبة' : 'Please fill all required fields');
-                        setTimeout(() => setToastMessage(null), 3000);
-                        return;
-                    }
-                    try {
-                        const token = await getAuthToken();
-                        const res = await fetch(`/api/admin/profiles/${userProfile.id}`, {
-                           method: 'PUT',
-                           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                           body: JSON.stringify({ display_name: userProfile.display_name, platforms: userProfile.platforms, interests: userProfile.interests || [] })
-                        });
-                        if (res.ok) {
-                           setToastMessage(language === 'ar' ? 'تم الحفظ بنجاح!' : 'Profile updated!');
-                           setTimeout(() => setToastMessage(null), 2000);
-                           setActiveTab('store');
-                        } else {
-                           setToastMessage('Error updating profile');
-                           setTimeout(() => setToastMessage(null), 3000);
-                        }
-                    } catch(err) {
-                        console.error(err);
-                    }
-                 }}>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'اسم العرض' : 'Display Name'}</label>
-                      <input type="text" value={userProfile.display_name || ''} onChange={e => setUserProfile({...userProfile, display_name: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder="e.g. MasterChief99" required />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'المنصات (اختر واحدة على الأقل)' : 'Platforms (Select at least one)'}</label>
-                      <div className="flex flex-wrap gap-2">
-                        {['PC', 'PlayStation', 'Xbox', 'Nintendo'].map(plat => (
-                           <button type="button" key={plat} onClick={() => {
-                              const curr = userProfile.platforms || [];
-                              setUserProfile({...userProfile, platforms: curr.includes(plat) ? curr.filter((p:string) => p !== plat) : [...curr, plat]});
-                           }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile.platforms?.includes(plat) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{plat}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'الاهتمامات (اختياري)' : 'Interests (Optional)'}</label>
-                      <div className="flex flex-wrap gap-2">
-                        {['Action', 'RPG', 'Strategy', 'Sports', 'Racing', 'FPS'].map(int => (
-                           <button type="button" key={int} onClick={() => {
-                              const curr = userProfile.interests || [];
-                              setUserProfile({...userProfile, interests: curr.includes(int) ? curr.filter((i:string) => i !== int) : [...curr, int]});
-                           }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile.interests?.includes(int) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{int}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <button type="submit" className="mt-4 bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition-colors">{language === 'ar' ? 'إكمال' : 'Complete Registration'}</button>
-                 </form>
-               </div>
-            </div>
-          )}
-
           {activeTab === 'store' && (
             <>
               {/* Dynamic Unified Banners */}
