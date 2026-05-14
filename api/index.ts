@@ -56,15 +56,37 @@ app.use(cors());
 app.use(express.json());
 
 // === Authentication Middleware ===
-const requireAuth = (req: any, res: any, next: any) => {
+import { CognitoJwtVerifier } from "aws-jwt-verify";
+
+const verifier = CognitoJwtVerifier.create({
+  userPoolId: process.env.VITE_COGNITO_USER_POOL_ID || "eu-west-2_U4XqWb90M",
+  tokenUse: "id", // Use ID token
+  clientId: process.env.VITE_COGNITO_CLIENT_ID || null, 
+});
+
+const requireAuth = async (req: any, res: any, next: any) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'Missing Authorization header' });
   const token = authHeader.split(' ')[1];
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
-    req.user = user;
-    next();
-  });
+  
+  if (token.length < 500) {
+    // Custom JWT token
+    jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+      if (err) return res.status(403).json({ error: 'Invalid or expired custom token' });
+      req.user = user;
+      next();
+    });
+  } else {
+    // Cognito JWT token
+    try {
+      const payload = await verifier.verify(token);
+      req.user = { id: payload.sub, email: payload.email, ...payload };
+      next();
+    } catch (err2) {
+      console.error("Cognito JWT Verify failed", err2);
+      return res.status(403).json({ error: 'Invalid or expired Cognito token' });
+    }
+  }
 };
 
 // Login Endpoint generating JWT
@@ -230,20 +252,35 @@ app.post('/api/admin/profiles/sync', async (req, res) => {
       console.error(error);
       return res.status(500).json({ error: error.message });
     }
+    let profileData = existing;
     if (!existing) {
-      await supabase.from('profiles').insert([{ id, email, name, role: email === 'admin@pixel.com' ? 'ADMIN' : 'CUSTOMER', status: 'active' }]);
+      const { data } = await supabase.from('profiles').insert([{ id, email, name, role: email === 'admin@pixel.com' ? 'ADMIN' : 'CUSTOMER', status: 'active' }]).select().single();
+      profileData = data;
     } else if (id && existing.id !== id) {
-      await supabase.from('profiles').update({ id }).eq('email', email);
+      const { data } = await supabase.from('profiles').update({ id }).eq('email', email).select().single();
+      profileData = data;
     }
-    res.json({ success: true });
+    res.json({ success: true, profile: profileData });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.delete('/api/admin/profiles/cognito/:id', requireAuth, async (req, res) => {
+app.delete('/api/admin/profiles/cognito/:id', requireAuth, async (req: any, res: any) => {
   try {
     const { id } = req.params;
+    
+    // Authorization check
+    // req.user from Custom JWT has role: 'ADMIN', from Cognito has no role but we look it up in Supabase if needed
+    // However, if req.user.id is the same as the id, allow self-deletion
+    let isAdmin = req.user.role === 'ADMIN' || req.user.email === 'admin@pixel.com';
+    const reqUserId = req.user.id || req.user.sub || req.user.username; // depending on token type
+
+    if (reqUserId !== id && !isAdmin) {
+        // If not deleting self, and not clearly an admin, forbid.
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
     const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
     
     if (profile) {

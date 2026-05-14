@@ -17,6 +17,7 @@
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "aws-amplify": "^6.17.0",
+    "aws-jwt-verify": "^5.1.1",
     "better-sqlite3": "^12.10.0",
     "cors": "^2.8.6",
     "crypto": "^1.0.1",

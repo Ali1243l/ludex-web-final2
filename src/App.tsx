@@ -68,6 +68,16 @@ const INITIAL_PAGES: CMSPage[] = [
   { id: 3, title: 'About Us', slug: 'about', content: 'About Pixel Store.', lastUpdated: new Date().toISOString() }
 ];
 
+const getAuthToken = async (): Promise<string | null> => {
+   try {
+      const { fetchAuthSession } = await import('aws-amplify/auth');
+      const session = await fetchAuthSession();
+      return session.tokens?.idToken?.toString() || (await getAuthToken());
+   } catch {
+      return (await getAuthToken());
+   }
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'store' | 'orders' | 'admin' | 'profile' | 'settings' | 'cart' | 'page' | 'user_dashboard'>('store');
   const [currentSlug, setCurrentSlug] = useState<string | null>(null);
@@ -134,7 +144,7 @@ export default function App() {
 
   const handleCrudSubmit = async (formData: any) => {
     try {
-      const token = localStorage.getItem('pixel_token');
+      const token = (await getAuthToken());
       const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
       const endpoint = crudModal.mode === 'create' 
          ? `/api/admin/${crudModal.table}` 
@@ -181,7 +191,7 @@ export default function App() {
 
   const handleQuickUpdate = async (table: string, id: string | number, data: any) => {
     try {
-      const token = localStorage.getItem('pixel_token');
+      const token = (await getAuthToken());
       const res = await fetch(`/api/admin/${table}/${id}`, {
          method: 'PUT',
          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -223,7 +233,7 @@ export default function App() {
   const handleCrudDelete = async (table: string, id: string | number) => {
     // Custom logic to avoid blocking iframe. Using a toast for success, and skipping confirm due to iframe blocks.
     try {
-      const token = localStorage.getItem('pixel_token');
+      const token = (await getAuthToken());
       const res = await fetch(`/api/admin/${table}/${id}`, {
          method: 'DELETE',
          headers: { 'Authorization': `Bearer ${token}` }
@@ -315,7 +325,6 @@ const [usersList, setUsersList] = useState<any[]>([]);
     { id: 'cat_fps', name: 'FPS & Shooters', active: true },
     { id: 'cat_rpg', name: 'RPG & Open World', active: true }
   ]);
-  const [customersList, setCustomersList] = useState([{ id: 'c1', name: 'Felix user', email: 'felix@example.com', purchaseCount: 3, points: 1500, active: true }]);
   const [financialsList, setFinancialsList] = useState<{id: string, type: 'income' | 'expense', amount: number, description: string, date: string, active: boolean}[]>([]);
 
   // Notifications
@@ -438,7 +447,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
   useEffect(() => {
     if (activeTab === 'admin') {
        const fetchAdminData = async () => {
-         const token = localStorage.getItem('pixel_token');
+         const token = (await getAuthToken());
          const headers = { 'Authorization': `Bearer ${token}` };
          try {
            if (['dashboard', 'subscriptions'].includes(adminTab)) {
@@ -498,11 +507,23 @@ const [usersList, setUsersList] = useState<any[]>([]);
             name: attributes.name || 'Pixel User',
             role: isAdmin ? 'ADMIN' : 'CUSTOMER'
           }));
-          fetch('/api/admin/profiles/sync', {
-             method: 'POST',
-             headers: {'Content-Type': 'application/json'},
-             body: JSON.stringify({ id: attributes.sub, email: attributes.email, name: attributes.name || 'Pixel User' })
-          }).catch(console.error);
+          try {
+            const res = await fetch('/api/admin/profiles/sync', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ id: attributes.sub, email: attributes.email, name: attributes.name || 'Pixel User' })
+            });
+            if (res.ok) {
+              const { profile } = await res.json();
+              if (profile) {
+                setUserProfile(profile);
+                // Onboarding Check
+                if (!profile.display_name || !profile.platforms || profile.platforms.length === 0) {
+                   setActiveTab('onboarding');
+                }
+              }
+            }
+          } catch(e) { console.error('Sync error:', e); }
         }
       } catch (err) {
         setIsLoggedIn(false);
@@ -841,7 +862,6 @@ const [usersList, setUsersList] = useState<any[]>([]);
               {adminMenuState.sales && (
                 <div className="pl-6 flex flex-col gap-1">
                   <button onClick={() => setAdminTab('sales')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'sales' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><ShoppingBag className="w-4 h-4" />{t[language].adminSales}</button>
-                  <button onClick={() => setAdminTab('customers')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'customers' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><User className="w-4 h-4" />{t[language].adminCusts}</button>
                   <button onClick={() => setAdminTab('orders')} className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === 'orders' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}><ShoppingBag className="w-4 h-4" />{t[language].adminOrdLeg}</button>
                 </div>
               )}
@@ -947,8 +967,8 @@ const [usersList, setUsersList] = useState<any[]>([]);
                     <p className="text-4xl font-black text-red-500 mt-2">{gamesList.filter(g => (g.stock || 0) < 3).length}</p>
                   </div>
                   <div className="bg-[#111] border border-gray-800 rounded-xl p-6 shadow-xl">
-                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest flex items-center gap-2"><User className="w-3 h-3 text-blue-400" /> {t[language].activeCustomers}</p>
-                    <p className="text-4xl font-black text-blue-400 mt-2">{customersList.length}</p>
+                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest flex items-center gap-2"><User className="w-3 h-3 text-blue-400" /> {t[language].activeCustomers || 'Active Users'}</p>
+                    <p className="text-4xl font-black text-blue-400 mt-2">{usersList.length}</p>
                   </div>
                 </div>
 
@@ -1448,75 +1468,6 @@ const [usersList, setUsersList] = useState<any[]>([]);
               </div>
             )}
 
-            {adminTab === 'customers' && (
-              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
-                <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
-                  <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2"><User className="w-5 h-5 text-purple-500"/> {t[language].manageCusts}</h3>
-                  </div>
-                  <div className="overflow-x-auto w-full border border-gray-800 rounded-xl">
-                    <table className="w-full text-left text-sm text-gray-400">
-                      <thead className="bg-[#1a1a1a] text-xs uppercase text-gray-500 font-bold border-b border-gray-800">
-                        <tr>
-                          <th className="px-4 py-3">{t[language].nameCol}</th>
-                          <th className="px-4 py-3">{t[language].emailUpper}</th>
-                          <th className="px-4 py-3">{t[language].purchases}</th>
-                          <th className="px-4 py-3">{t[language].points}</th>
-                          <th className="px-4 py-3">{t[language].statusMsg}</th>
-                          <th className="px-4 py-3">{t[language].actions}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {customersList.map(customer => {
-                           const isEditing = editingCustomerId === customer.id;
-                           return (
-                             <tr key={customer.id} className="border-b border-gray-800/50 hover:bg-white/5">
-                               <td className="px-4 py-3">{isEditing ? <input type="text" value={newCustomerForm.name} onChange={e => setNewCustomerForm({...newCustomerForm, name: e.target.value})} className="bg-black border border-gray-700 rounded w-full p-1" /> : customer.name}</td>
-                               <td className="px-4 py-3">{isEditing ? <input type="text" value={newCustomerForm.email} onChange={e => setNewCustomerForm({...newCustomerForm, email: e.target.value})} className="bg-black border border-gray-700 rounded w-full p-1" /> : customer.email}</td>
-                               <td className="px-4 py-3">{isEditing ? <input type="number" value={newCustomerForm.purchaseCount} onChange={e => setNewCustomerForm({...newCustomerForm, purchaseCount: e.target.value})} className="bg-black border border-gray-700 rounded w-20 p-1" /> : customer.purchaseCount}</td>
-                               <td className="px-4 py-3">{isEditing ? <input type="number" value={newCustomerForm.points} onChange={e => setNewCustomerForm({...newCustomerForm, points: e.target.value})} className="bg-black border border-gray-700 rounded w-20 p-1" /> : customer.points}</td>
-                               <td className="px-4 py-3">
-                                 <span className={`px-2 py-1 text-[10px] uppercase rounded font-bold ${customer.active ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                   {customer.active ? 'Active' : 'Banned'}
-                                 </span>
-                               </td>
-                               <td className="px-4 py-3 flex gap-2">
-                                 {isEditing ? (
-                                    <>
-                                      <button onClick={() => {
-                                        setCustomersList(customersList.map(c => c.id === customer.id ? {
-                                          ...c,
-                                          name: newCustomerForm.name,
-                                          email: newCustomerForm.email,
-                                          purchaseCount: parseInt(newCustomerForm.purchaseCount) || 0,
-                                          points: parseInt(newCustomerForm.points) || 0
-                                        } : c));
-                                        setEditingCustomerId(null);
-                                      }} className="bg-green-600 hover:bg-green-500 text-white px-2 py-1 rounded text-xs">{t[language].save}</button>
-                                      <button onClick={() => setEditingCustomerId(null)} className="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-xs">{t[language].cancelText}</button>
-                                    </>
-                                 ) : (
-                                    <>
-                                      <button onClick={() => {
-                                        setEditingCustomerId(customer.id);
-                                        setNewCustomerForm({name: customer.name, email: customer.email, purchaseCount: customer.purchaseCount.toString(), points: customer.points.toString()});
-                                      }} className="text-blue-500 hover:text-blue-400 p-1">{t[language].editBtn}</button>
-                                      <button onClick={() => setCustomersList(customersList.map(c => c.id === customer.id ? {...c, active: !c.active} : c))} className={`${customer.active ? 'text-red-500 hover:text-red-400' : 'text-green-500 hover:text-green-400'} p-1`}>
-                                        {customer.active ? 'Ban' : 'Unban'}
-                                      </button>
-                                    </>
-                                 )}
-                               </td>
-                             </tr>
-                           )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {adminTab === 'users' && (
               <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto flex flex-col gap-6">
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6 flex flex-col gap-6">
@@ -1555,7 +1506,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                <button 
                                  onClick={async () => {
                                     try {
-                                       const token = localStorage.getItem('pixel_token');
+                                       const token = (await getAuthToken());
                                        const res = await fetch(`/api/admin/profiles/${user.id}`, {
                                           method: 'PUT',
                                           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -1575,7 +1526,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                <button 
                                  onClick={async () => {
                                     try {
-                                       const token = localStorage.getItem('pixel_token');
+                                       const token = (await getAuthToken());
                                        const res = await fetch(`/api/admin/profiles/${user.id}`, {
                                           method: 'PUT',
                                           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -1596,7 +1547,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                  onClick={async () => {
                                     if(window.confirm(language === 'ar' ? 'هل أنت متأكد من حذف هذا المستخدم نهائيا؟' : 'Are you sure you want to permanently delete this user?')) {
                                        try {
-                                          const token = localStorage.getItem('pixel_token');
+                                          const token = (await getAuthToken());
                                           const res = await fetch(`/api/admin/profiles/cognito/${user.id}`, {
                                              method: 'DELETE',
                                              headers: { 'Authorization': `Bearer ${token}` }
@@ -2195,7 +2146,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                        <button onClick={async () => {
                           if (newPromotion.title && newPromotion.imageUrl) {
                              try {
-                               const token = localStorage.getItem('pixel_token');
+                               const token = (await getAuthToken());
                                const body = { title: newPromotion.title, description: newPromotion.description, image_url: newPromotion.imageUrl, link_to_category: newPromotion.linkToCategory, active: true };
                                let newId = Math.random().toString();
                                let success = false;
@@ -2229,7 +2180,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                <div className="flex gap-2">
                                  <button onClick={async () => {
                                       const newActive = !promo.active;
-                                      const token = localStorage.getItem('pixel_token');
+                                      const token = (await getAuthToken());
                                       try {
                                           const res = await fetch("/api/admin/promotions/" + promo.id, {
                                              method: 'PUT',
@@ -2240,7 +2191,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                       setPromotions(promotions.map(p => p.id === promo.id ? {...p, active: newActive} : p));
                                  }} className={`${promo.active ? 'text-green-500 hover:text-green-400' : 'text-gray-500 hover:text-gray-400'}`}><CheckCircle2 className="w-4 h-4" /></button>
                                  <button onClick={async () => {
-                                      const token = localStorage.getItem('pixel_token');
+                                      const token = (await getAuthToken());
                                       try {
                                           const res = await fetch("/api/admin/promotions/" + promo.id, {
                                              method: 'DELETE',
@@ -2571,6 +2522,74 @@ const [usersList, setUsersList] = useState<any[]>([]);
 
         {/* Main Interface Area conditionally rendered */}
         <main className="flex-1 p-6 md:p-8 overflow-y-auto flex flex-col scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
+          {activeTab === 'onboarding' && (
+            <div className="max-w-2xl mx-auto w-full flex flex-col items-center justify-center min-h-[60vh] gap-6">
+               <div className="bg-[#111] border border-purple-900/40 rounded-2xl p-8 w-full shadow-[0_0_40px_rgba(147,51,234,0.15)] flex flex-col gap-6">
+                 <div className="text-center">
+                   <div className="w-16 h-16 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/30">
+                     <User className="w-8 h-8 text-purple-400" />
+                   </div>
+                   <h2 className="text-2xl font-bold text-white mb-2">{language === 'ar' ? 'إكمال الحساب' : 'Complete Your Profile'}</h2>
+                   <p className="text-gray-400 text-sm">{language === 'ar' ? 'الرجاء إكمال بيانات حسابك للمتابعة.' : 'Please complete your profile information to continue.'}</p>
+                 </div>
+                 <form className="flex flex-col gap-5 mt-4" onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!userProfile.display_name || !userProfile.platforms || userProfile.platforms.length === 0) {
+                        setToastMessage(language === 'ar' ? 'يرجى إكمال جميع الحقول المطلوبة' : 'Please fill all required fields');
+                        setTimeout(() => setToastMessage(null), 3000);
+                        return;
+                    }
+                    try {
+                        const token = await getAuthToken();
+                        const res = await fetch(`/api/admin/profiles/${userProfile.id}`, {
+                           method: 'PUT',
+                           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                           body: JSON.stringify({ display_name: userProfile.display_name, platforms: userProfile.platforms, interests: userProfile.interests || [] })
+                        });
+                        if (res.ok) {
+                           setToastMessage(language === 'ar' ? 'تم الحفظ بنجاح!' : 'Profile updated!');
+                           setTimeout(() => setToastMessage(null), 2000);
+                           setActiveTab('store');
+                        } else {
+                           setToastMessage('Error updating profile');
+                           setTimeout(() => setToastMessage(null), 3000);
+                        }
+                    } catch(err) {
+                        console.error(err);
+                    }
+                 }}>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'اسم العرض' : 'Display Name'}</label>
+                      <input type="text" value={userProfile.display_name || ''} onChange={e => setUserProfile({...userProfile, display_name: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder="e.g. MasterChief99" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'المنصات (اختر واحدة على الأقل)' : 'Platforms (Select at least one)'}</label>
+                      <div className="flex flex-wrap gap-2">
+                        {['PC', 'PlayStation', 'Xbox', 'Nintendo'].map(plat => (
+                           <button type="button" key={plat} onClick={() => {
+                              const curr = userProfile.platforms || [];
+                              setUserProfile({...userProfile, platforms: curr.includes(plat) ? curr.filter((p:string) => p !== plat) : [...curr, plat]});
+                           }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile.platforms?.includes(plat) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{plat}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'الاهتمامات (اختياري)' : 'Interests (Optional)'}</label>
+                      <div className="flex flex-wrap gap-2">
+                        {['Action', 'RPG', 'Strategy', 'Sports', 'Racing', 'FPS'].map(int => (
+                           <button type="button" key={int} onClick={() => {
+                              const curr = userProfile.interests || [];
+                              setUserProfile({...userProfile, interests: curr.includes(int) ? curr.filter((i:string) => i !== int) : [...curr, int]});
+                           }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile.interests?.includes(int) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{int}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <button type="submit" className="mt-4 bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition-colors">{language === 'ar' ? 'إكمال' : 'Complete Registration'}</button>
+                 </form>
+               </div>
+            </div>
+          )}
+
           {activeTab === 'store' && (
             <>
               {/* Dynamic Unified Banners */}
@@ -3256,15 +3275,30 @@ const [usersList, setUsersList] = useState<any[]>([]);
                              if (user?.userId) {
                                await fetch(`/api/public/profiles/${user.userId}`, { method: 'DELETE' });
                              }
-                             await deleteUser();
+                             try {
+                               await deleteUser();
+                             } catch(origErr) {
+                               // Fallback to our backend if federated user self-delete fails
+                               if (user?.userId) {
+                                   const token = await getAuthToken();
+                                   const fallbackRes = await fetch(`/api/admin/profiles/cognito/${user.userId}`, {
+                                       method: 'DELETE',
+                                       headers: { 'Authorization': `Bearer ${token}` }
+                                   });
+                                   if (!fallbackRes.ok) throw origErr;
+                               } else {
+                                   throw origErr;
+                               }
+                             }
                              setIsLoggedIn(false);
                              setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false});
                              setActiveTab('store');
                              setToastMessage('Account deleted successfully.');
                              setTimeout(() => { setToastMessage(null); window.location.reload(); }, 2000);
                          } catch (err: any) {
-                             setToastMessage('Error deleting account.');
-                             setTimeout(() => setToastMessage(null), 3000);
+                             const errMsg = err.message || err.toString() || 'Error deleting account.';
+                             setToastMessage(errMsg);
+                             setTimeout(() => setToastMessage(null), 5000);
                              console.error(err);
                          }
                       }
@@ -3475,7 +3509,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                    method: 'POST',
                    headers: { 
                       'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${localStorage.getItem('pixel_token')}`
+                      'Authorization': `Bearer ${(await getAuthToken())}`
                    },
                    body: JSON.stringify({
                       name: newGame.title,
@@ -3635,7 +3669,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   onClick={async () => {
                     const dp = parseFloat(promoModal.discountPrice) || null;
                     try {
-                      const token = localStorage.getItem('pixel_token');
+                      const token = (await getAuthToken());
                       const res = await fetch(`/api/admin/products/${promoModal.product.id}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
