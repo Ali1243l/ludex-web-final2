@@ -515,6 +515,12 @@ const [promotions, setPromotions] = useState([
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    if (showAuthModal && isLoggedIn) {
+      setShowAuthModal(null);
+    }
+  }, [showAuthModal, isLoggedIn]);
+
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
     { id: '1', sender: 'admin', receiver: 'user', content: 'Welcome to Pixel Store! How can I help you today?', timestamp: new Date().toISOString() }
@@ -3683,8 +3689,27 @@ const [promotions, setPromotions] = useState([
               
               <button 
                 onClick={async () => {
+                  if (showAuthModal === 'register' && (!authForm.name || authForm.name.trim() === '')) {
+                     setToastMessage('يرجى كتابة اسمك الكامل');
+                     setTimeout(() => setToastMessage(null), 3000);
+                     return;
+                  }
+
                   if (authForm.email && authForm.password) {
                      try {
+                        try {
+                           const currentUser = await getCurrentUser();
+                           if (currentUser) {
+                              setIsLoggedIn(true);
+                              setShowAuthModal(null);
+                              setToastMessage('أنت مسجل الدخول بالفعل');
+                              setTimeout(() => setToastMessage(null), 3000);
+                              return;
+                           }
+                        } catch (e) {
+                           // Not authenticated, proceed
+                        }
+
                         if (showAuthModal === 'login') {
                            if (authForm.email === 'admin@pixel.com') {
                               setUserProfile({
@@ -3718,7 +3743,7 @@ const [promotions, setPromotions] = useState([
                               options: {
                                 userAttributes: {
                                   email: authForm.email,
-                                  name: authForm.name || 'Pixel User',
+                                  name: authForm.name.trim(),
                                 }
                               }
                            });
@@ -3750,8 +3775,20 @@ const [promotions, setPromotions] = useState([
               <div 
                 role="button"
                 tabIndex={0}
-                onClick={(e) => { 
+                onClick={async (e) => { 
                    e.preventDefault();
+                   try {
+                     const currentUser = await getCurrentUser();
+                     if (currentUser) {
+                        setIsLoggedIn(true);
+                        setShowAuthModal(null);
+                        setToastMessage('أنت مسجل الدخول بالفعل');
+                        setTimeout(() => setToastMessage(null), 3000);
+                        return;
+                     }
+                   } catch (err) {
+                     // Not signed in
+                   }
                    signInWithRedirect({ provider: 'Google' }); 
                 }} 
                 className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 cursor-pointer"
