@@ -4,6 +4,7 @@ import multer from 'multer';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { CognitoIdentityProviderClient, AdminDeleteUserCommand } from "@aws-sdk/client-cognito-identity-provider";
 
 // Setup Supabase Client securely on the backend
 const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://aimuoopbzoyrllvnjnbd.supabase.co';
@@ -210,16 +211,66 @@ app.post('/api/admin/subscriptions', requireAuth, async (req, res) => {
 
 const ALLOWED_TABLES = ['products', 'subscriptions', 'sales', 'customers', 'transactions', 'settings', 'promotions', 'profiles'];
 
+app.delete('/api/public/profiles/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await supabase.from('profiles').delete().eq('id', id);
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/admin/profiles/sync', async (req, res) => {
   // Public endpoint for now to sync Cognito users
   try {
-    const { email, name } = req.body;
-    const { data: existing } = await supabase.from('profiles').select('*').eq('email', email).single();
+    const { email, name, id } = req.body;
+    const { data: existing, error } = await supabase.from('profiles').select('*').eq('email', email).maybeSingle();
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: error.message });
+    }
     if (!existing) {
-      await supabase.from('profiles').insert([{ email, name, role: email === 'admin@pixel.com' ? 'ADMIN' : 'CUSTOMER', status: 'active' }]);
+      await supabase.from('profiles').insert([{ id, email, name, role: email === 'admin@pixel.com' ? 'ADMIN' : 'CUSTOMER', status: 'active' }]);
+    } else if (id && existing.id !== id) {
+      await supabase.from('profiles').update({ id }).eq('email', email);
     }
     res.json({ success: true });
   } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/admin/profiles/cognito/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
+    
+    if (profile) {
+       await supabase.from('profiles').delete().eq('id', id);
+    }
+    
+    // Attempt Cognito Detetion
+    try {
+        const poolId = process.env.VITE_COGNITO_USER_POOL_ID || "eu-west-2_U4XqWb90M";
+        const region = poolId.split('_')[0] || "eu-west-2";
+        const client = new CognitoIdentityProviderClient({
+          region: region,
+        });
+        
+        // Find user by email instead if that is their username
+        const command = new AdminDeleteUserCommand({
+          UserPoolId: poolId, // Process env
+          Username: (profile?.email) || id
+        });
+        
+        await client.send(command);
+    } catch(err) {
+        console.error("Cognito deletion failed. It might not exist or ID is incorrect.", err);
+    }
+
+    res.json({ success: true });
+  } catch(e: any) {
     res.status(500).json({ error: e.message });
   }
 });

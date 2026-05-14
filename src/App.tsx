@@ -6,7 +6,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ShoppingBag, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, Send, CreditCard, Upload, User, Settings, Home, ListOrdered, AlertCircle, CheckCircle2, Shield, Key, Package, Layers, Clock, Gift, Download, Check, Menu, Filter, ChevronDown, LogOut, Star, Tag, TrendingUp } from 'lucide-react';
 import { supabase } from './supabase'; // Keep it for storage for now
-import { signUp, signIn, signOut, getCurrentUser, fetchUserAttributes, signInWithRedirect } from 'aws-amplify/auth';
+import { signUp, signIn, signOut, getCurrentUser, fetchUserAttributes, signInWithRedirect, deleteUser } from 'aws-amplify/auth';
 import { Hub } from 'aws-amplify/utils';
 import { t } from './translations';
 
@@ -501,7 +501,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
           fetch('/api/admin/profiles/sync', {
              method: 'POST',
              headers: {'Content-Type': 'application/json'},
-             body: JSON.stringify({ email: attributes.email, name: attributes.name || 'Pixel User' })
+             body: JSON.stringify({ id: attributes.sub, email: attributes.email, name: attributes.name || 'Pixel User' })
           }).catch(console.error);
         }
       } catch (err) {
@@ -1591,6 +1591,31 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                  }}
                                  className={`px-3 py-1 rounded text-[10px] font-bold transition-colors whitespace-nowrap ${user.status === 'banned' ? 'bg-green-600/20 text-green-400 hover:bg-green-600/40' : 'bg-red-600/20 text-red-400 hover:bg-red-600/40'}`}>
                                  {user.status === 'banned' ? (language === 'ar' ? 'إلغاء الحظر' : 'Unban') : (language === 'ar' ? 'حظر المستخدم' : 'Ban User')}
+                               </button>
+                               <button 
+                                 onClick={async () => {
+                                    if(window.confirm(language === 'ar' ? 'هل أنت متأكد من حذف هذا المستخدم نهائيا؟' : 'Are you sure you want to permanently delete this user?')) {
+                                       try {
+                                          const token = localStorage.getItem('pixel_token');
+                                          const res = await fetch(`/api/admin/profiles/cognito/${user.id}`, {
+                                             method: 'DELETE',
+                                             headers: { 'Authorization': `Bearer ${token}` }
+                                          });
+                                          if(res.ok) {
+                                             setToastMessage('User deleted successfully.');
+                                             setTimeout(()=>setToastMessage(null), 3000);
+                                             const refreshed = await fetch('/api/admin/profiles', { headers: { 'Authorization': `Bearer ${token}` } });
+                                             if (refreshed.ok) setUsersList(await refreshed.json());
+                                          } else {
+                                             const err = await res.json();
+                                             setToastMessage(`Error: ${err.error}`);
+                                             setTimeout(()=>setToastMessage(null), 3000);
+                                          }
+                                       } catch(e) { console.error(e) }
+                                    }
+                                 }}
+                                 className="px-3 py-1 bg-red-900/40 text-red-400 hover:bg-red-600 hover:text-white border border-red-500/30 rounded text-[10px] font-bold transition-colors whitespace-nowrap">
+                                 {language === 'ar' ? 'حذف المستخدم' : 'Delete User'}
                                </button>
                             </td>
                           </tr>
@@ -3218,9 +3243,36 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   </div>
                 </div>
 
-                <button type="submit" className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-6 rounded-lg transition-colors mt-4 self-start shadow-[0_0_15px_rgba(147,51,234,0.2)]">
-                  {t[language].save}
-                </button>
+                <div className="flex gap-4 items-center mt-4">
+                  <button type="submit" className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-[0_0_15px_rgba(147,51,234,0.2)]">
+                    {t[language].save}
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={async () => {
+                      if(window.confirm(language === 'ar' ? 'هل أنت متأكد من حذف الحساب؟' : 'Are you sure you want to delete your account? This action cannot be undone.')) {
+                         try {
+                             const user = await getCurrentUser();
+                             if (user?.userId) {
+                               await fetch(`/api/public/profiles/${user.userId}`, { method: 'DELETE' });
+                             }
+                             await deleteUser();
+                             setIsLoggedIn(false);
+                             setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false});
+                             setActiveTab('store');
+                             setToastMessage('Account deleted successfully.');
+                             setTimeout(() => { setToastMessage(null); window.location.reload(); }, 2000);
+                         } catch (err: any) {
+                             setToastMessage('Error deleting account.');
+                             setTimeout(() => setToastMessage(null), 3000);
+                             console.error(err);
+                         }
+                      }
+                    }}
+                    className="bg-red-600/10 text-red-500 hover:bg-red-500 hover:text-white font-bold py-3 px-6 rounded-lg transition-colors border border-red-500/30 hover:border-transparent">
+                    {language === 'ar' ? 'حذف حسابي' : 'Delete My Account'}
+                  </button>
+                </div>
               </form>
             </div>
           )}
@@ -3836,7 +3888,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                               window.location.reload();
                            }, 1000);
                         } else {
-                           const { isSignUpComplete } = await signUp({
+                           const { isSignUpComplete, userId } = await signUp({
                               username: authForm.email,
                               password: authForm.password,
                               options: {
@@ -3847,6 +3899,15 @@ const [usersList, setUsersList] = useState<any[]>([]);
                               }
                            });
                            
+                           // Sync to Supabase manually right after Auth creation 
+                           if (userId) {
+                              fetch('/api/admin/profiles/sync', {
+                                 method: 'POST',
+                                 headers: {'Content-Type': 'application/json'},
+                                 body: JSON.stringify({ id: userId, email: authForm.email, name: authForm.name.trim() })
+                              }).catch(console.error);
+                           }
+
                            if (isSignUpComplete) {
                               await signIn({ username: authForm.email, password: authForm.password });
                               setIsLoggedIn(true);
