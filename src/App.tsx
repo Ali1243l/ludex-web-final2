@@ -866,20 +866,37 @@ const [usersList, setUsersList] = useState<any[]>([]);
 
   if (isLoggedIn && userProfile && (!userProfile?.display_name || !userProfile?.platforms || userProfile?.platforms.length === 0)) {
      return (
-        <div className="bg-[#050505] min-h-screen font-sans text-white flex flex-col items-center justify-center p-4">
-            <div className="max-w-2xl mx-auto w-full flex flex-col items-center justify-center min-h-[60vh] gap-6 animate-in fade-in duration-300">
-               <div className="bg-[#111] border border-purple-900/40 rounded-2xl p-8 w-full shadow-[0_0_40px_rgba(147,51,234,0.15)] flex flex-col gap-6">
-                 <div className="text-center">
-                   <div className="w-16 h-16 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/30">
-                     <User className="w-8 h-8 text-purple-400" />
-                   </div>
-                   <h2 className="text-2xl font-bold text-white mb-2">{language === 'ar' ? 'إكمال الحساب' : 'Complete Your Profile'}</h2>
-                   <p className="text-gray-400 text-sm">{language === 'ar' ? 'الرجاء إكمال بيانات حسابك للمتابعة.' : 'Please complete your profile information to continue.'}</p>
+        <div className="bg-[#050505] min-h-screen font-sans text-white flex flex-col items-center justify-center p-4 relative overflow-hidden" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+            
+            {/* Background Effects */}
+            <div className="absolute top-0 left-0 w-full h-[500px] bg-purple-900/10 blur-[150px] pointer-events-none rounded-full" />
+            
+            <div className="max-w-2xl mx-auto w-full flex flex-col items-center justify-center min-h-[60vh] gap-6 animate-in zoom-in-95 duration-500 relative z-10">
+               
+               <div className="text-center mb-4 flex flex-col items-center gap-2">
+                 <div className="flex items-center gap-2 mb-2">
+                    <Gamepad2 className="w-8 h-8 text-purple-500" />
+                    <span className="text-2xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-fuchsia-600">LUDEX</span>
                  </div>
-                 <form className="flex flex-col gap-5 mt-4" onSubmit={async (e) => {
+               </div>
+
+               <div className="bg-[#0a0a0a] border border-purple-900/50 rounded-3xl p-8 md:p-12 w-full shadow-[0_0_80px_rgba(147,51,234,0.1)] flex flex-col gap-8">
+                 <div className="text-center space-y-3">
+                   <div className="w-20 h-20 bg-[#111] rounded-full flex items-center justify-center mx-auto mb-6 border border-purple-500/30 shadow-[0_0_30px_rgba(147,51,234,0.2)]">
+                     <User className="w-10 h-10 text-purple-400" />
+                   </div>
+                   <h2 className="text-3xl font-black text-white tracking-wide">
+                     {language === 'ar' ? 'أكمل ملفك الشخصي' : 'Complete Your Profile'}
+                   </h2>
+                   <p className="text-gray-400 text-sm max-w-md mx-auto">
+                     {language === 'ar' ? 'خطوة واحدة أخيرة قبل أن تتمكن من استكشاف المتجر وشراء الألعاب والوصول إلى العروض الحصرية.' : 'One last step before you can explore the store, purchase games, and access exclusive deals.'}
+                   </p>
+                 </div>
+
+                 <form className="flex flex-col gap-6" onSubmit={async (e) => {
                     e.preventDefault();
                     if (!userProfile?.display_name || !userProfile?.platforms || userProfile?.platforms.length === 0) {
-                        setToastMessage(language === 'ar' ? 'يرجى إكمال جميع الحقول المطلوبة' : 'Please fill all required fields');
+                        setToastMessage(language === 'ar' ? 'يرجى إكمال الحقول المطلوبة' : 'Please fill all required fields');
                         setTimeout(() => setToastMessage(null), 3000);
                         return;
                     }
@@ -899,6 +916,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                           return;
                         }
 
+                        console.log('[Onboarding] Saving onboarding data for user:', uId);
                         const { data, error } = await supabase.from('profiles').update({
                            display_name: userProfile?.display_name,
                            platforms: userProfile?.platforms,
@@ -906,51 +924,89 @@ const [usersList, setUsersList] = useState<any[]>([]);
                         }).eq('id', uId).select().single();
                         
                         if (!error && data) {
-                           setToastMessage(language === 'ar' ? 'تم الحفظ بنجاح!' : 'Profile updated!');
+                           console.log('[Onboarding] Profile updated successfully.');
+                           setToastMessage(language === 'ar' ? 'تم تجهيز حسابك بنجاح!' : 'Profile updated successfully!');
                            setUserProfile({ ...userProfile, ...data });
                            setTimeout(() => setToastMessage(null), 2000);
                            setActiveTab('store');
                         } else {
-                           console.error('Supabase profile update error:', error);
+                           console.error('[Onboarding] Supabase profile update error:', error);
                            setToastMessage('Error updating profile');
                            setTimeout(() => setToastMessage(null), 3000);
                         }
                     } catch(err) {
-                        console.error(err);
+                        console.error('[Onboarding Error]', err);
                     }
                  }}>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'اسم العرض' : 'Display Name'}</label>
-                      <input type="text" value={userProfile?.display_name || ''} onChange={e => setUserProfile({...userProfile, display_name: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder="e.g. MasterChief99" required />
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest">
+                        <User className="w-4 h-4 text-purple-500" />
+                        {language === 'ar' ? 'اسم العرض' : 'Display Name'}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <input 
+                        type="text" 
+                        value={userProfile?.display_name || ''} 
+                        onChange={e => setUserProfile({...userProfile, display_name: e.target.value})} 
+                        className="w-full bg-[#111] border border-gray-800 rounded-xl p-4 text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-white transition-all placeholder:text-gray-600 font-bold" 
+                        placeholder={language === 'ar' ? 'مثال: MasterChief99' : 'e.g. MasterChief99'} 
+                        required 
+                      />
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'المنصات (اختر واحدة على الأقل)' : 'Platforms (Select at least one)'}</label>
-                      <div className="flex flex-wrap gap-2">
+
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest">
+                        <Monitor className="w-4 h-4 text-purple-500" />
+                        {language === 'ar' ? 'منصات اللعب' : 'Platforms'}
+                        <span className="text-gray-600 text-[10px] ml-1">{language === 'ar' ? '(اختر واحدة على الأقل)' : '(Select at least one)'}</span>
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <div className="flex flex-wrap gap-3">
                         {['PC', 'PlayStation', 'Xbox', 'Nintendo', 'Mobile'].map(plat => (
                            <button type="button" key={plat} onClick={() => {
                               const curr = userProfile?.platforms || [];
                               setUserProfile({...userProfile, platforms: curr.includes(plat) ? curr.filter((p:string) => p !== plat) : [...curr, plat]});
-                           }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile?.platforms?.includes(plat) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{plat}</button>
+                           }} className={`px-5 py-2.5 rounded-xl text-sm font-bold border transition-all active:scale-95 flex items-center gap-2 ${userProfile?.platforms?.includes(plat) ? 'bg-purple-600/20 border-purple-500 text-purple-300 shadow-[0_0_15px_rgba(147,51,234,0.2)]' : 'bg-[#111] border-gray-800 text-gray-400 hover:border-gray-600'}`}>
+                             {plat === 'PC' && <Monitor className="w-4 h-4" />}
+                             {plat === 'PlayStation' && <Gamepad2 className="w-4 h-4" />}
+                             {plat === 'Xbox' && <Gamepad2 className="w-4 h-4" />}
+                             {plat === 'Nintendo' && <Gamepad2 className="w-4 h-4" />}
+                             {plat}
+                           </button>
                         ))}
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'الاهتمامات (اختياري)' : 'Interests (Optional)'}</label>
-                      <div className="flex flex-wrap gap-2">
+
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest">
+                        <Star className="w-4 h-4 text-purple-500" />
+                        {language === 'ar' ? 'الاهتمامات' : 'Interests'}
+                        <span className="text-gray-600 text-[10px] ml-1">{language === 'ar' ? '(اختياري)' : '(Optional)'}</span>
+                      </label>
+                      <div className="flex flex-wrap gap-3">
                         {['Action', 'RPG', 'Strategy', 'Sports', 'Racing', 'FPS'].map(int => (
                            <button type="button" key={int} onClick={() => {
                               const curr = userProfile?.interests || [];
                               setUserProfile({...userProfile, interests: curr.includes(int) ? curr.filter((i:string) => i !== int) : [...curr, int]});
-                           }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile?.interests?.includes(int) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{int}</button>
+                           }} className={`px-5 py-2.5 rounded-xl text-[13px] font-bold border transition-all active:scale-95 flex items-center ${userProfile?.interests?.includes(int) ? 'bg-purple-600/20 border-purple-500 text-purple-300 shadow-[0_0_15px_rgba(147,51,234,0.2)]' : 'bg-[#111] border-gray-800 text-gray-400 hover:border-gray-600'}`}>
+                             {int}
+                           </button>
                         ))}
                       </div>
                     </div>
-                    <button type="submit" className="mt-4 bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition-colors">{language === 'ar' ? 'إكمال' : 'Complete Registration'}</button>
+
+                    <div className="pt-4">
+                      <button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white font-black uppercase tracking-widest py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(147,51,234,0.3)] active:scale-[0.98] flex items-center justify-center gap-2 group">
+                        {language === 'ar' ? 'بدء اللعب' : 'Start Playing'}
+                        <ArrowRight className={`w-5 h-5 group-hover:translate-x-1 transition-transform ${language === 'ar' ? 'rotate-180 group-hover:-translate-x-1' : ''}`} />
+                      </button>
+                    </div>
                  </form>
                </div>
             </div>
+            
             {toastMessage && (
-               <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[300] bg-[#111] border border-purple-500 backdrop-blur w-[90%] md:w-auto md:min-w-[300px] text-white px-6 py-4 rounded-xl shadow-[0_0_25px_rgba(168,85,247,0.4)] font-bold flex items-center gap-3 animate-in fade-in duration-300 pointer-events-none">
+               <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[300] bg-[#111] border border-purple-500/50 backdrop-blur-md min-w-[300px] text-white px-6 py-4 rounded-full shadow-[0_0_30px_rgba(168,85,247,0.3)] font-bold flex items-center justify-center gap-3 animate-in slide-in-from-top-4 duration-300 pointer-events-none">
                  <CheckCircle2 className="w-5 h-5 text-purple-400" />
                  {toastMessage}
                </div>
