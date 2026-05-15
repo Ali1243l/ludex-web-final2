@@ -8,9 +8,26 @@ import crypto from 'crypto';
 import { CognitoIdentityProviderClient, AdminDeleteUserCommand } from "@aws-sdk/client-cognito-identity-provider";
 
 // Setup Supabase Client securely on the backend
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://aimuoopbzoyrllvnjnbd.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseUrlStore = process.env.VITE_SUPABASE_URL || 'https://aimuoopbzoyrllvnjnbd.supabase.co';
+const supabaseKeyStore = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpbXVvb3Biem95cmxsdm5qbmJkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjEzMTc4NiwiZXhwIjoyMDg3NzA3Nzg2fQ.mE-fW4cSwEj69To4pIL3oHY2fLy2tnvA5Y0E8XfR_qg'; // service role key
+
+if(!process.env.VITE_SUPABASE_URL) {
+  console.warn('[Backend Warning] VITE_SUPABASE_URL is not set in environment variables. Using fallback.');
+}
+
+const supabaseUrlAuth = 'https://xogrjpfcaydjkgzphaoq.supabase.co';
+const supabaseKeyAuth = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhvZ3JqcGZjYXlkamtnenBoYW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3Nzg1NjIsImV4cCI6MjA4OTM1NDU2Mn0._KjiI6bfFc1kM-i5rvWtPB-vDxLwqtpY2Gb3fMIP-_M'; // anon key provided 
+
+const supabaseStore = createClient(supabaseUrlStore, supabaseKeyStore);
+const supabaseAuth = createClient(supabaseUrlAuth, supabaseKeyAuth);
+
+const getSupabaseClient = (table: string | null) => {
+    // Return auth client for profiles and when explicitly passed null (for storage)
+    if (table === 'profiles' || table === null) {
+        return supabaseAuth;
+    }
+    return supabaseStore;
+}
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -104,10 +121,10 @@ app.post('/api/auth/login', (req, res) => {
 // === Public Routes ===
 app.get('/api/public/products', async (req, res) => {
   try {
-    const { data: products, error: pError } = await supabase.from('products').select('*');
+    const { data: products, error: pError } = await getSupabaseClient('products').from('products').select('*');
     if (pError) throw pError;
     
-    const { data: subs, error: sError } = await supabase.from('subscriptions').select('name, status, sell_count');
+    const { data: subs, error: sError } = await getSupabaseClient('subscriptions').from('subscriptions').select('name, status, sell_count');
     if (sError) throw sError;
 
     const mappedProducts = products.map((p: any) => {
@@ -125,7 +142,7 @@ app.get('/api/public/products', async (req, res) => {
 
 app.get('/api/public/showcase', async (req, res) => {
   try {
-    const { data, error } = await supabase.from('promotions').select('*');
+    const { data, error } = await getSupabaseClient('promotions').from('promotions').select('*');
     if (error) {
       if (error.message && error.message.includes('Could not find the table')) {
         return res.json([]);
@@ -147,13 +164,13 @@ app.post('/api/public/orders', upload.single('receipt'), async (req, res) => {
     if (req.file) {
       const fileExt = req.file.originalname.split('.').pop();
       const fileName = `receipt-${Date.now()}.${fileExt}`;
-      const { error } = await supabase.storage
+      const { error } = await getSupabaseClient(null).storage
         .from('receipts')
         .upload(fileName, req.file.buffer, { contentType: req.file.mimetype });
       if (error) {
          console.warn("Storage upload failed, creating simple order without receipt image.", error.message);
       } else {
-         const { data: publicUrlData } = supabase.storage.from('receipts').getPublicUrl(fileName);
+         const { data: publicUrlData } = getSupabaseClient(null).storage.from('receipts').getPublicUrl(fileName);
          receiptUrl = publicUrlData.publicUrl;
       }
     }
@@ -202,12 +219,12 @@ app.post('/api/admin/approve_sale', requireAuth, async (req, res) => {
       
     if (existingCustomers && existingCustomers.length > 0) {
       const customer = existingCustomers[0];
-      await supabase.from('customers').update({ 
+      await getSupabaseClient('customers').from('customers').update({ 
         total_spent: (Number(customer.total_spent) || 0) + Number(price) 
       }).eq('id', customer.id);
     }
 
-    await supabase.from('transactions').insert([{
+    await getSupabaseClient('transactions').from('transactions').insert([{
       type: 'income',
       amount: price,
       person: customerName || customerUsername,
@@ -226,7 +243,7 @@ app.post('/api/admin/subscriptions', requireAuth, async (req, res) => {
     const { name, account_username, account_password, category, status, sell_count } = req.body;
     const encryptedPassword = encryptData(account_password);
 
-    const { data, error } = await supabase.from('subscriptions').insert([{
+    const { data, error } = await getSupabaseClient('subscriptions').from('subscriptions').insert([{
       name, account_username, account_password: encryptedPassword, category, status, sell_count
     }]).select().single();
     
@@ -242,7 +259,7 @@ const ALLOWED_TABLES = ['products', 'subscriptions', 'sales', 'customers', 'tran
 app.delete('/api/public/profiles/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await supabase.from('profiles').delete().eq('id', id);
+    await getSupabaseClient('profiles').from('profiles').delete().eq('id', id);
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -256,7 +273,7 @@ app.post('/api/admin/profiles/sync', async (req, res) => {
     console.log('[API] Syncing profile for:', email, id);
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
-    const { data: existing, error: selectErr } = await supabase.from('profiles').select('*').eq('email', email).maybeSingle();
+    const { data: existing, error: selectErr } = await getSupabaseClient('profiles').from('profiles').select('*').eq('email', email).maybeSingle();
     if (selectErr) {
       console.error('[API] Sync select error:', selectErr);
       return res.status(500).json({ error: selectErr.message });
@@ -264,7 +281,7 @@ app.post('/api/admin/profiles/sync', async (req, res) => {
     
     let profileData = existing;
     if (!existing) {
-      const { data, error: insertErr } = await supabase.from('profiles').insert([{ 
+      const { data, error: insertErr } = await getSupabaseClient('profiles').from('profiles').insert([{ 
          id, 
          email, 
          display_name: name || '', 
@@ -280,7 +297,7 @@ app.post('/api/admin/profiles/sync', async (req, res) => {
       profileData = data;
       console.log('[API] New profile created for:', email);
     } else if (id && existing.id !== id) {
-      const { data, error: updateErr } = await supabase.from('profiles').update({ id }).eq('email', email).select().single();
+      const { data, error: updateErr } = await getSupabaseClient('profiles').from('profiles').update({ id }).eq('email', email).select().single();
       if (updateErr) {
          console.warn('[API] Sync update ID error:', updateErr);
       } else {
@@ -309,10 +326,10 @@ app.delete('/api/admin/profiles/cognito/:id', requireAuth, async (req: any, res:
         return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
+    const { data: profile, error } = await getSupabaseClient('profiles').from('profiles').select('*').eq('id', id).maybeSingle();
     
     if (profile) {
-       await supabase.from('profiles').delete().eq('id', id);
+       await getSupabaseClient('profiles').from('profiles').delete().eq('id', id);
     }
     
     // Attempt Cognito Detetion
@@ -345,7 +362,7 @@ app.get('/api/admin/:table', requireAuth, async (req, res) => {
     const { table } = req.params;
     if (!ALLOWED_TABLES.includes(table)) return res.status(400).json({ error: 'Invalid table' });
 
-    const { data, error } = await supabase.from(table).select('*');
+    const { data, error } = await getSupabaseClient(table).from(table).select('*');
     if (error) throw error;
     
     const sanitizedData = data.map((item: any) => {
@@ -367,7 +384,7 @@ app.post('/api/admin/:table', requireAuth, async (req, res) => {
     const { table } = req.params;
     if (!ALLOWED_TABLES.includes(table)) return res.status(400).json({ error: 'Invalid table' });
 
-    const { data, error } = await supabase.from(table).insert([req.body]).select().single();
+    const { data, error } = await getSupabaseClient(table).from(table).insert([req.body]).select().single();
     if (error) throw error;
     res.status(201).json(data);
   } catch (e: any) {
@@ -387,7 +404,7 @@ app.put('/api/admin/:table/:id', requireAuth, async (req, res) => {
       delete updateData.account_password;
     }
     
-    const { data, error } = await supabase.from(table).update(updateData).eq('id', id).select().single();
+    const { data, error } = await getSupabaseClient(table).from(table).update(updateData).eq('id', id).select().single();
     if (error) throw error;
     res.json(data);
   } catch (e: any) {
@@ -400,7 +417,7 @@ app.delete('/api/admin/:table/:id', requireAuth, async (req, res) => {
     const { table, id } = req.params;
     if (!ALLOWED_TABLES.includes(table)) return res.status(400).json({ error: 'Invalid table' });
 
-    const { error } = await supabase.from(table).delete().eq('id', id);
+    const { error } = await getSupabaseClient(table).from(table).delete().eq('id', id);
     if (error) throw error;
     res.status(204).send();
   } catch (e: any) {
