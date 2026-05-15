@@ -2322,7 +2322,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                            className={`p-4 border-b border-gray-800/50 cursor-pointer transition-colors flex gap-4 ${activeChatSessionId === session.id ? 'bg-purple-900/20 border-l-4 border-l-purple-500' : 'hover:bg-white/5 border-l-4 border-l-transparent'}`}
                          >
                             <img 
-                               src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${session.profiles?.display_name || session.profiles?.email}&backgroundColor=4c1d95`} 
+                               src={session.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.profiles?.display_name || session.profiles?.email}&backgroundColor=4c1d95`} 
                                onClick={(e) => { e.stopPropagation(); session.user_id && handleViewProfile(session.user_id); }}
                                className="w-12 h-12 rounded-full border border-purple-500/30 shadow-[0_0_10px_rgba(147,51,234,0.1)] object-cover bg-black cursor-pointer hover:border-purple-400 hover:scale-105 transition-all shrink-0"
                                title="View Profile"
@@ -2399,10 +2399,10 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                          setActiveTab('store');
                                       }}
                                     >
-                                      <img src={game.cover_url} className="w-12 h-12 object-cover rounded shadow" />
+                                      <img src={game.image} className="w-12 h-12 object-cover rounded shadow" />
                                       <div className="flex-1 min-w-0">
                                          <p className="font-bold text-white text-sm truncate">{game.title}</p>
-                                         <p className="text-purple-300 text-xs font-black">{displayPrice(game.price_usd)}</p>
+                                         <p className="text-purple-300 text-xs font-black">{displayPrice(game.price)}</p>
                                       </div>
                                     </div>
                                   </div>
@@ -2766,7 +2766,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
               {isLoggedIn ? (
                 <>
                   <div onClick={() => setIsProfileOpen(!isProfileOpen)} className="w-8 h-8 md:w-10 md:h-10 bg-purple-900 rounded-full border border-purple-500/50 cursor-pointer overflow-hidden hover:border-purple-400 transition-colors flex items-center justify-center font-bold text-white uppercase select-none">
-                     <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile?.display_name || userProfile?.email}&backgroundColor=4c1d95`} alt="Avatar" className="w-full h-full object-cover" />
+                     <img src={userProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile?.display_name || userProfile?.email}&backgroundColor=4c1d95`} alt="Avatar" className="w-full h-full object-cover" />
                   </div>
                   {isProfileOpen && (
                     <div className={`absolute ${language === 'ar' ? 'left-0' : 'right-0'} mt-2 w-48 bg-[#111] border border-purple-900/50 rounded-xl shadow-xl overflow-hidden z-20 flex flex-col`}>
@@ -3432,7 +3432,36 @@ const [usersList, setUsersList] = useState<any[]>([]);
               <h2 className="text-2xl font-bold text-white tracking-widest uppercase">{t[language].profOverview}</h2>
               <div className="bg-[#111] border border-purple-900/30 rounded-2xl p-6 flex flex-col sm:flex-row items-center sm:items-start gap-6 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[80px] pointer-events-none"></div>
-                <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile?.display_name || userProfile?.email}&backgroundColor=4c1d95`} alt="Avatar" className="w-24 h-24 rounded-full border-2 border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.3)] relative z-10 object-cover" />
+                <div className="relative group">
+                  <img src={userProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile?.display_name || userProfile?.email}&backgroundColor=4c1d95`} alt="Avatar" className="w-24 h-24 rounded-full border-2 border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.3)] relative z-10 object-cover" />
+                  <label className="absolute inset-0 bg-black/60 rounded-full cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity z-20 flex items-center justify-center">
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*"
+                      onChange={async (e) => {
+                         if (!e.target.files?.[0]) return;
+                         const fd = new FormData();
+                         fd.append('avatar', e.target.files[0]);
+                         try {
+                           const token = await getAuthToken();
+                           const res = await fetch('/api/profiles/avatar', {
+                              method: 'POST',
+                              headers: { 'Authorization': `Bearer ${token}` },
+                              body: fd
+                           });
+                           if (res.ok) {
+                              const data = await res.json();
+                              setUserProfile({...userProfile, avatar_url: data.avatar_url});
+                              setToastMessage(language === 'ar' ? 'تم تحديث الصورة الشخصية' : 'Profile picture updated');
+                              setTimeout(() => setToastMessage(null), 3000);
+                           }
+                         } catch (err) { console.error(err); }
+                      }} 
+                    />
+                    <Gamepad className="w-6 h-6 text-white" />
+                  </label>
+                </div>
                 <div className="flex flex-col items-center sm:items-start text-center sm:text-start relative z-10">
                   <h3 className="text-2xl font-bold text-white mb-1 uppercase tracking-widest">{userProfile?.display_name || userProfile?.email}</h3>
                   <p className="text-gray-400 text-sm mb-4 font-mono">Player ID: <span className="text-purple-400 font-bold">#PIXEL-9034</span></p>
@@ -4228,7 +4257,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
             <div className="flex flex-col items-center mt-4">
               <div className="relative">
                  <div className="absolute inset-0 bg-purple-600/20 blur-xl rounded-full"></div>
-                 <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${viewedProfile?.display_name || viewedProfile?.email}&backgroundColor=4c1d95`} alt="Avatar" className="w-24 h-24 rounded-full border-2 border-purple-500 relative z-10 shadow-[0_0_15px_rgba(147,51,234,0.3)] object-cover bg-[#111]" />
+                 <img src={viewedProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${viewedProfile?.display_name || viewedProfile?.email}&backgroundColor=4c1d95`} alt="Avatar" className="w-24 h-24 rounded-full border-2 border-purple-500 relative z-10 shadow-[0_0_15px_rgba(147,51,234,0.3)] object-cover bg-[#111]" />
               </div>
               <h3 className="text-xl font-black text-white mt-4 mb-1 uppercase tracking-widest">{viewedProfile?.display_name || 'Unknown User'}</h3>
               <p className="text-sm font-bold text-gray-500 mb-6">{viewedProfile?.role === 'ADMIN' ? 'Administrator' : 'Customer'}</p>
@@ -4440,10 +4469,10 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                    setIsChatOpen(false);
                                 }}
                               >
-                                 <img src={game.cover_url} className="w-10 h-10 object-cover rounded shadow" />
+                                 <img src={game.image} className="w-10 h-10 object-cover rounded shadow" />
                                  <div className="flex-1 min-w-0">
                                    <p className="font-bold text-white truncate text-xs">{game.title}</p>
-                                   <p className="text-purple-300 font-bold text-[10px]">{displayPrice(game.price_usd)}</p>
+                                   <p className="text-purple-300 font-bold text-[10px]">{displayPrice(game.price)}</p>
                                  </div>
                               </div>
                            </div>
