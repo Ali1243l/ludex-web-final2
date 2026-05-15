@@ -566,9 +566,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
 
                  // Strict Onboarding Guard
                  if (!profileData.display_name || !profileData.platforms || profileData.platforms.length === 0) {
-                    console.log('[Onboarding Guard] Missing platforms. Enforcing onboarding flow.');
-                    // The early return in render handles the redirect, but we can also set tab
-                    setActiveTab('onboarding' as any);
+                    console.log('[Onboarding Guard] Missing platforms. Can be completed in profile settings.');
                  } else {
                     console.log('[Auth Hub] User ready. Continuing to the application.');
                  }
@@ -858,7 +856,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
     setAdminChatMessage('');
   };
 
-  if (isLoggedIn && userProfile && (!userProfile?.display_name || !userProfile?.platforms || userProfile?.platforms.length === 0)) {
+  if (activeTab === ('onboarding' as any)) {
      return (
         <div className="bg-[#050505] min-h-screen font-sans text-white flex flex-col items-center justify-center p-4 relative overflow-hidden" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             
@@ -995,10 +993,18 @@ const [usersList, setUsersList] = useState<any[]>([]);
                       </div>
                     </div>
 
-                    <div className="pt-4">
+                    <div className="pt-4 flex flex-col gap-3">
                       <button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white font-black uppercase tracking-widest py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(147,51,234,0.3)] active:scale-[0.98] flex items-center justify-center gap-2 group">
                         {language === 'ar' ? 'بدء اللعب' : 'Start Playing'}
                         <ArrowRight className={`w-5 h-5 group-hover:translate-x-1 transition-transform ${language === 'ar' ? 'rotate-180 group-hover:-translate-x-1' : ''}`} />
+                      </button>
+                      
+                      <button 
+                         type="button"
+                         onClick={() => setActiveTab('store')}
+                         className="w-full bg-[#111] border border-gray-800 hover:border-gray-700 text-gray-400 hover:text-white font-bold tracking-widest py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+                      >
+                         {language === 'ar' ? 'تخطي الآن' : 'Skip for now'}
                       </button>
                     </div>
                  </form>
@@ -3174,7 +3180,15 @@ const [usersList, setUsersList] = useState<any[]>([]);
                       <span className="text-purple-400">{displayPrice(calculateFinalPrice(cart.reduce((sum, id) => sum + (gamesList.find(g => g.id === id)?.price || 0), 0)).finalPrice)}</span>
                     </div>
                     <button 
-                      onClick={() => setIsCheckoutModalOpen(true)}
+                      onClick={() => {
+                        if (!isLoggedIn) {
+                          setShowAuthModal('login');
+                        } else if (!userProfile?.display_name || !userProfile?.platforms || userProfile?.platforms.length === 0) {
+                          setActiveTab('onboarding' as any);
+                        } else {
+                          setIsCheckoutModalOpen(true);
+                        }
+                      }}
                       className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-4 rounded-lg transition-colors mt-4 shadow-[0_0_15px_rgba(147,51,234,0.3)]"
                     >
                       {t[language].checkoutBtn}
