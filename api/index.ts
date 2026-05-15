@@ -250,7 +250,7 @@ app.post('/api/admin/subscriptions', requireAuth, async (req, res) => {
   }
 });
 
-const ALLOWED_TABLES = ['products', 'subscriptions', 'sales', 'customers', 'transactions', 'settings', 'promotions', 'profiles'];
+const ALLOWED_TABLES = ['products', 'subscriptions', 'sales', 'customers', 'transactions', 'settings', 'promotions', 'profiles', 'chat_sessions', 'chat_messages'];
 
 app.delete('/api/public/profiles/:id', async (req, res) => {
   try {
@@ -469,6 +469,140 @@ app.delete('/api/admin/:table/:id', requireAuth, async (req, res) => {
     res.status(204).send();
   } catch (e: any) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// Chat Endpoints
+app.get('/api/chat/sessions', async (req, res) => {
+  try {
+    // Get all sessions with user profile
+    const { data: sessions, error } = await getSupabaseClient('chat_sessions')
+      .from('chat_sessions')
+      .select(`
+        *,
+        profiles:user_id ( display_name, email, platforms, role )
+      `)
+      .order('last_message_at', { ascending: false });
+
+    if (error) {
+       // Table might not exist yet, return empty list gracefully
+       if (error.code === '42P01') return res.json([]);
+       throw error;
+    }
+    res.json(sessions);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/chat/sessions', async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    let { data: session, error: selErr } = await getSupabaseClient('chat_sessions')
+       .from('chat_sessions')
+       .select('*')
+       .eq('user_id', user_id)
+       .maybeSingle();
+
+    if (selErr && selErr.code !== '42P01') throw selErr;
+
+    if (!session) {
+      const { data: newSession, error: insErr } = await getSupabaseClient('chat_sessions')
+         .from('chat_sessions')
+         .insert({ user_id })
+         .select()
+         .single();
+      
+      if (insErr) {
+         if (insErr.code === '42P01') return res.json({ id: 'dummy-session' }); // Dummy if tables don't exist
+         throw insErr;
+      }
+      session = newSession;
+    }
+    
+    res.json(session);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/chat/messages/:session_id', async (req, res) => {
+  try {
+    const { session_id } = req.params;
+    if (session_id === 'dummy-session') return res.json([]);
+    
+    const { data: messages, error } = await getSupabaseClient('chat_messages')
+      .from('chat_messages')
+      .select(`
+        *,
+        sender:sender_id ( display_name, role )
+      `)
+      .eq('session_id', session_id)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+       if (error.code === '42P01') return res.json([]);
+       throw error;
+    }
+    res.json(messages);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/chat/messages', async (req, res) => {
+  try {
+    const { session_id, sender_id, content } = req.body;
+    if (session_id === 'dummy-session') return res.json({ success: true });
+
+    const { data: message, error } = await getSupabaseClient('chat_messages')
+      .from('chat_messages')
+      .insert({ session_id, sender_id, content })
+      .select()
+      .single();
+
+    if (error) {
+       if (error.code === '42P01') return res.json({ success: true, message: 'Table not created yet' });
+       throw error;
+    }
+
+    // Update session last_message_at
+    await getSupabaseClient('chat_sessions').from('chat_sessions').update({ last_message_at: new Date().toISOString() }).eq('id', session_id);
+    
+    res.json(message);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/chat/read', async (req, res) => {
+  try {
+     const { session_id, user_id, is_admin } = req.body;
+     if (session_id === 'dummy-session') return res.json({ success: true });
+
+     // Fetch unread messages
+     const { data: messages, error } = await getSupabaseClient('chat_messages')
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', session_id);
+
+     if (error || !messages) return res.json({ success: true });
+
+     for (const msg of messages) {
+        let readBy = msg.read_by || [];
+        if (!readBy.includes(user_id)) {
+           // If admin, they read user messages. If user, they read admin messages.
+           // Actually, just add their ID to read_by array.
+           readBy.push(user_id);
+           await getSupabaseClient('chat_messages')
+             .from('chat_messages')
+             .update({ read_by: readBy })
+             .eq('id', msg.id);
+        }
+     }
+     res.json({ success: true });
+  } catch (e: any) {
+     res.status(500).json({ error: e.message });
   }
 });
 

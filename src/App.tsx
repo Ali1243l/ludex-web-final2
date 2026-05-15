@@ -286,6 +286,7 @@ export default function App() {
      return () => clearInterval(int);
   }, []);
 
+
 const [promotions, setPromotions] = useState([
     { id: '1', title: 'Summer Gaming Festival', description: 'Up to 50% off on top titles!', imageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1200', linkToCategory: 'Special Offers', active: true }
   ]);
@@ -633,10 +634,71 @@ const [usersList, setUsersList] = useState<any[]>([]);
   }, [showAuthModal, isLoggedIn]);
 
   const [chatMessage, setChatMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
-    { id: '1', sender: 'admin', receiver: 'user', content: 'Welcome to Pixel Store! How can I help you today?', timestamp: new Date().toISOString() }
-  ]);
+  const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [adminChatMessage, setAdminChatMessage] = useState('');
+  const [chatSessions, setChatSessions] = useState<any[]>([]);
+  const [activeChatSessionId, setActiveChatSessionId] = useState<string | null>(null);
+  const [userChatSessionId, setUserChatSessionId] = useState<string | null>(null);
+
+  // Chat Polling
+  useEffect(() => {
+     let pollInterval: NodeJS.Timeout;
+
+     const fetchChatData = async () => {
+        try {
+           if (adminTab === 'support' && userProfile?.role === 'ADMIN') {
+              const token = await getAuthToken();
+              let res = await fetch('/api/chat/sessions', { headers: { 'Authorization': `Bearer ${token}` } });
+              if (res.ok) setChatSessions(await res.json());
+
+              if (activeChatSessionId) {
+                 let msgRes = await fetch(`/api/chat/messages/${activeChatSessionId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                 if (msgRes.ok) setChatHistory(await msgRes.json());
+                 fetch('/api/chat/read', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ session_id: activeChatSessionId, user_id: userProfile.id, is_admin: true })
+                 }).catch(()=>{});
+              }
+           } else if (isChatOpen && userProfile?.id) {
+              const token = await getAuthToken();
+              if (!userChatSessionId) {
+                 let sRes = await fetch('/api/chat/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ user_id: userProfile.id })
+                 });
+                 if (sRes.ok) {
+                    const session = await sRes.json();
+                    setUserChatSessionId(session.id);
+                 }
+              }
+
+              if (userChatSessionId) {
+                 let msgRes = await fetch(`/api/chat/messages/${userChatSessionId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                 if (msgRes.ok) setChatHistory(await msgRes.json());
+                 fetch('/api/chat/read', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ session_id: userChatSessionId, user_id: userProfile.id, is_admin: false })
+                 }).catch(()=>{});
+              }
+           }
+        } catch (e) {
+           console.error("Chat polling error", e);
+        }
+     };
+
+     if ((adminTab === 'support' && userProfile?.role === 'ADMIN') || (isChatOpen && userProfile?.id)) {
+        fetchChatData();
+        pollInterval = setInterval(fetchChatData, 3000);
+     }
+
+     return () => {
+        if (pollInterval) clearInterval(pollInterval);
+     };
+  }, [adminTab, activeChatSessionId, isChatOpen, userChatSessionId, userProfile]);
+
 
   const [sortBy, setSortBy] = useState<'newest' | 'price_low' | 'price_high'>('newest');
 
@@ -843,32 +905,37 @@ const [usersList, setUsersList] = useState<any[]>([]);
     ));
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatMessage.trim()) return;
-    const newMessage: ChatMessage = {
-      id: Math.random().toString(),
-      sender: 'user',
-      receiver: 'admin',
-      content: chatMessage,
-      timestamp: new Date().toISOString()
-    };
-    setChatHistory(prev => [...prev, newMessage]);
-    setChatMessage('');
+    if (!chatMessage.trim() || !userProfile?.id || !userChatSessionId) return;
+    
+    try {
+      const token = await getAuthToken();
+      await fetch('/api/chat/messages', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+         body: JSON.stringify({ session_id: userChatSessionId, sender_id: userProfile.id, content: chatMessage })
+      });
+      // Optimistic update
+      setChatHistory(prev => [...prev, { id: Math.random().toString(), sender_id: userProfile.id, content: chatMessage, created_at: new Date().toISOString() }]);
+      setChatMessage('');
+    } catch(err) { console.error(err); }
   };
 
-  const handleAdminReply = (e: React.FormEvent) => {
+  const handleAdminReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminChatMessage.trim()) return;
-    const newMessage: ChatMessage = {
-      id: Math.random().toString(),
-      sender: 'admin',
-      receiver: 'user',
-      content: adminChatMessage,
-      timestamp: new Date().toISOString()
-    };
-    setChatHistory(prev => [...prev, newMessage]);
-    setAdminChatMessage('');
+    if (!adminChatMessage.trim() || !userProfile?.id || !activeChatSessionId) return;
+
+    try {
+      const token = await getAuthToken();
+      await fetch('/api/chat/messages', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+         body: JSON.stringify({ session_id: activeChatSessionId, sender_id: userProfile.id, content: adminChatMessage })
+      });
+      setChatHistory(prev => [...prev, { id: Math.random().toString(), sender_id: userProfile.id, content: adminChatMessage, created_at: new Date().toISOString() }]);
+      setAdminChatMessage('');
+    } catch(err) { console.error(err); }
   };
 
   if (activeTab === ('onboarding' as any)) {
@@ -2216,47 +2283,121 @@ const [usersList, setUsersList] = useState<any[]>([]);
             )}
 
             {adminTab === 'support' && (
-              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto h-[650px]">
-              <div className="bg-[#111] border border-gray-800 rounded-xl flex flex-col h-full overflow-hidden">
-                <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-[#1a1a1a]">
-                  <h3 className="text-white font-bold flex items-center gap-2 text-lg"><MessageSquare className="w-6 h-6 text-purple-500" /> Active Support Tickets</h3>
+              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto h-[650px] flex gap-4">
+                {/* Chat Sessions Sidebar */}
+                <div className="w-1/3 bg-[#111] border border-gray-800 rounded-xl overflow-hidden flex flex-col">
+                   <div className="p-4 border-b border-gray-800 bg-[#1a1a1a]">
+                      <h3 className="font-bold text-white text-sm">Active Conversations</h3>
+                   </div>
+                   <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800">
+                      {chatSessions?.map((session) => (
+                         <div 
+                           key={session.id} 
+                           onClick={() => setActiveChatSessionId(session.id)}
+                           className={`p-4 border-b border-gray-800/50 cursor-pointer transition-colors ${activeChatSessionId === session.id ? 'bg-purple-900/20 border-l-4 border-l-purple-500' : 'hover:bg-white/5 border-l-4 border-l-transparent'}`}
+                         >
+                            <div className="flex justify-between items-start">
+                               <div>
+                                  <p className="font-bold text-sm text-white">{session.profiles?.display_name || session.profiles?.email}</p>
+                                  <p className="text-xs text-gray-500 truncate mt-1">Last message: {new Date(session.last_message_at).toLocaleString()}</p>
+                               </div>
+                               {/* Add unread badge if needed in future */}
+                            </div>
+                         </div>
+                      ))}
+                      {chatSessions?.length === 0 && (
+                         <p className="p-6 text-center text-gray-500 text-sm">No active conversations.</p>
+                      )}
+                   </div>
                 </div>
-                
-                <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6 scrollbar-thin scrollbar-thumb-gray-800">
-                  {chatHistory.map((msg) => (
-                    <div key={msg.id} className={`flex flex-col max-w-[80%] ${msg.sender === 'admin' ? 'self-end items-end' : 'self-start items-start'}`}>
-                      <span className="text-[10px] text-gray-500 mb-2 flex items-center gap-2">
-                        {msg.sender === 'admin' ? 'You (Admin)' : 'User'}
-                        {msg.gameId && (
-                           <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded text-[9px] uppercase tracking-wider font-bold shadow-[0_0_10px_rgba(147,51,234,0.1)]">
-                             Product: {gamesList.find(g => g.id === msg.gameId)?.title || 'Unknown'}
+
+                {/* Main Chat Area */}
+                <div className="flex-1 bg-[#111] border border-gray-800 rounded-xl flex flex-col h-full overflow-hidden">
+                  <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-[#1a1a1a]">
+                    <h3 className="text-white font-bold flex items-center gap-2 text-lg">
+                       <MessageSquare className="w-6 h-6 text-purple-500" /> 
+                       {activeChatSessionId ? `Chat with ${chatSessions.find(s=>s.id === activeChatSessionId)?.profiles?.display_name || 'User'}` : 'Select a conversation'}
+                    </h3>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6 scrollbar-thin scrollbar-thumb-gray-800">
+                    {!activeChatSessionId ? (
+                       <div className="flex-1 flex items-center justify-center text-gray-500">Pick a user from the left to start chatting</div>
+                    ) : chatHistory?.map((msg) => {
+                       const isMyMsg = msg.sender_id === userProfile?.id;
+                       const isAdminType = msg.sender?.role === 'ADMIN' || isMyMsg;
+                       return (
+                         <div key={msg.id} className={`flex flex-col max-w-[80%] ${isAdminType ? 'self-end items-end' : 'self-start items-start'}`}>
+                           <span className="text-[10px] text-gray-500 mb-2 flex items-center gap-2">
+                             {isMyMsg ? 'You' : (msg.sender?.display_name || (isAdminType ? 'Admin' : 'User'))}
+                             {msg.gameId && (
+                                <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded text-[9px] uppercase tracking-wider font-bold shadow-[0_0_10px_rgba(147,51,234,0.1)]">
+                                  Product Inquiry
+                                </span>
+                             )}
                            </span>
-                        )}
-                      </span>
-                      <div className={`p-4 rounded-xl text-sm shadow-lg ${
-                        msg.sender === 'admin' 
-                          ? 'bg-purple-600 text-white rounded-tr-sm' 
-                          : 'bg-black border border-gray-800 text-gray-300 rounded-tl-sm'
-                      }`}>
-                        {msg.content}
-                      </div>
-                    </div>
-                  ))}
+                           <div className={`p-4 rounded-xl text-sm shadow-lg ${
+                             isAdmin 
+                               ? 'bg-purple-600 text-white rounded-tr-sm' 
+                               : 'bg-black border border-gray-800 text-gray-300 rounded-tl-sm'
+                           }`}>
+                             {msg.content}
+                           </div>
+                           <div className="text-[9px] text-gray-600 mt-1">
+                             {new Date(msg.created_at || new Date()).toLocaleTimeString()}
+                             {msg.read_by?.length > 0 && <span> • Seen</span>}
+                           </div>
+                         </div>
+                       );
+                    })}
+                  </div>
+                  
+                  <form onSubmit={handleAdminReply} className="p-6 border-t border-gray-800 bg-[#1a1a1a] flex gap-4">
+                    <input 
+                      type="text" 
+                      value={adminChatMessage}
+                      onChange={e => setAdminChatMessage(e.target.value)}
+                      placeholder={activeChatSessionId ? "Reply to user as Admin..." : "Select a conversation first"} 
+                      disabled={!activeChatSessionId}
+                      className="flex-1 bg-black border border-gray-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-purple-500 text-white disabled:opacity-50"
+                    />
+                    <button type="submit" disabled={!adminChatMessage.trim() || !activeChatSessionId} className="bg-purple-600 px-8 font-bold rounded-lg text-white hover:bg-purple-500 disabled:opacity-50 transition-colors">
+                      Reply
+                    </button>
+                  </form>
                 </div>
-                
-                <form onSubmit={handleAdminReply} className="p-6 border-t border-gray-800 bg-[#1a1a1a] flex gap-4">
-                  <input 
-                    type="text" 
-                    value={adminChatMessage}
-                    onChange={e => setAdminChatMessage(e.target.value)}
-                    placeholder="Reply to user as Admin..." 
-                    className="flex-1 bg-black border border-gray-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-purple-500 text-white"
-                  />
-                  <button type="submit" disabled={!adminChatMessage.trim()} className="bg-purple-600 px-8 font-bold rounded-lg text-white hover:bg-purple-500 disabled:opacity-50 transition-colors">
-                    Reply
-                  </button>
-                </form>
-              </div>
+
+                {/* User Profile View (Right Pane) */}
+                {activeChatSessionId && (
+                  <div className="w-1/4 bg-[#111] border border-gray-800 rounded-xl overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-800">
+                    <h3 className="font-bold text-white mb-6 border-b border-gray-800 pb-2">User Profile</h3>
+                    {(() => {
+                       const session = chatSessions.find(s=>s.id === activeChatSessionId);
+                       if (!session) return null;
+                       return (
+                          <div className="flex flex-col gap-4 text-sm">
+                            <div>
+                               <p className="text-gray-500 text-[10px] uppercase font-bold">Display Name</p>
+                               <p className="text-white font-bold">{session.profiles?.display_name || 'N/A'}</p>
+                            </div>
+                            <div>
+                               <p className="text-gray-500 text-[10px] uppercase font-bold">Email</p>
+                               <p className="text-gray-300">{session.profiles?.email}</p>
+                            </div>
+                            <div>
+                               <p className="text-gray-500 text-[10px] uppercase font-bold">Role</p>
+                               <span className="px-2 py-1 bg-gray-800 rounded text-xs font-mono">{session.profiles?.role}</span>
+                            </div>
+                            <div>
+                               <p className="text-gray-500 text-[10px] uppercase font-bold">Platforms</p>
+                               <p className="text-gray-300">{session.profiles?.platforms?.join(', ') || 'None'}</p>
+                            </div>
+                            {/* In the future, fetch orders count or total spent */}
+                          </div>
+                       );
+                    })()}
+                  </div>
+                )}
               </div>
             )}
 
@@ -4106,34 +4247,56 @@ const [usersList, setUsersList] = useState<any[]>([]);
               </button>
             </div>
             <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-3 scrollbar-thin scrollbar-thumb-gray-800">
-              {chatHistory.map((msg, i) => (
-                <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] rounded-xl p-2.5 text-xs ${
-                    msg.sender === 'user' 
-                      ? 'bg-purple-600 text-white rounded-br-sm' 
-                      : 'bg-gray-800 text-gray-200 rounded-bl-sm'
-                  }`}>
-                    {msg.content}
+              {!isLoggedIn ? (
+                 <div className="h-full flex items-center justify-center text-center px-4">
+                    <p className="text-sm text-gray-400">Please log in to chat with support.</p>
+                 </div>
+              ) : chatHistory.length === 0 ? (
+                 <div className="h-full flex items-center justify-center text-center px-4">
+                    <p className="text-sm text-gray-400">Start a conversation with our team.</p>
+                 </div>
+              ) : chatHistory.map((msg, i) => {
+                 const isMe = msg.sender_id === userProfile?.id;
+                 const isAdminReply = !isMe && msg.sender?.role === 'ADMIN';
+                 return (
+                  <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} flex-col gap-1`}>
+                    {!isMe && (
+                       <span className="text-[10px] text-gray-500 ml-1">{msg.sender?.display_name || 'Admin'}</span>
+                    )}
+                    <div className={`max-w-[85%] rounded-xl p-2.5 text-xs self-${isMe ? 'end' : 'start'} ${
+                      isMe 
+                        ? 'bg-purple-600 text-white rounded-br-sm' 
+                        : 'bg-gray-800 text-gray-200 rounded-bl-sm'
+                    }`}>
+                      {msg.content}
+                    </div>
+                    {isMe && msg.read_by?.length > 0 && (
+                       <span className="text-[9px] text-gray-500 self-end mr-1 flex items-center gap-1">
+                          Seen
+                       </span>
+                    )}
                   </div>
-                </div>
-              ))}
+                 );
+              })}
             </div>
-            <form onSubmit={handleSendMessage} className="p-3 border-t border-purple-900/30 bg-black/50 flex gap-2 flex-shrink-0">
-              <input 
-                type="text" 
-                value={chatMessage}
-                onChange={(e) => setChatMessage(e.target.value)}
-                placeholder={t[language].typeMsg} 
-                className="flex-1 bg-[#111] border border-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500 min-h-[44px]"
-              />
-              <button 
-                type="submit"
-                disabled={!chatMessage.trim()}
-                className="bg-purple-600 p-2 rounded-lg text-white hover:bg-purple-500 disabled:opacity-50 disabled:hover:bg-purple-600 transition-colors min-h-[44px] min-w-[44px] flex justify-center items-center"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
+            {isLoggedIn && (
+               <form onSubmit={handleSendMessage} className="p-3 border-t border-purple-900/30 bg-black/50 flex gap-2 flex-shrink-0">
+                 <input 
+                   type="text" 
+                   value={chatMessage}
+                   onChange={(e) => setChatMessage(e.target.value)}
+                   placeholder={t[language].typeMsg} 
+                   className="flex-1 bg-[#111] border border-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500 min-h-[44px]"
+                 />
+                 <button 
+                   type="submit"
+                   disabled={!chatMessage.trim()}
+                   className="bg-purple-600 p-2 rounded-lg text-white hover:bg-purple-500 disabled:opacity-50 disabled:hover:bg-purple-600 transition-colors min-h-[44px] min-w-[44px] flex justify-center items-center"
+                 >
+                   <Send className="w-4 h-4" />
+                 </button>
+               </form>
+            )}
           </div>
         )}
         
