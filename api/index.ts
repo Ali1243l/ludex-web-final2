@@ -473,16 +473,24 @@ app.delete('/api/admin/:table/:id', requireAuth, async (req, res) => {
 });
 
 // Chat Endpoints
+// In-memory fallback for chat if Supabase tables are not created
+const fallbackChatSessions: any[] = [];
+const fallbackChatMessages: any[] = [];
+let fallbackChatEnabled = false;
+
 app.get('/api/chat/sessions', async (req, res) => {
   try {
-    const { data: sessions, error } = await getSupabaseClient('chat_sessions')
+    const { data: sessions, error } = fallbackChatEnabled ? {data: fallbackChatSessions, error: null} : await getSupabaseClient('chat_sessions')
       .from('chat_sessions')
       .select('*')
       .order('last_message_at', { ascending: false });
 
     if (error) {
-       // Table might not exist yet, return empty list gracefully
-       if (error.code === '42P01') return res.json([]);
+       // Table might not exist yet, fallback to in-memory
+       if (error.code === '42P01') {
+          fallbackChatEnabled = true;
+          return res.json(fallbackChatSessions);
+       }
        throw error;
     }
 
@@ -491,10 +499,14 @@ app.get('/api/chat/sessions', async (req, res) => {
     }
 
     const userIds = sessions.map((s: any) => s.user_id).filter(Boolean);
-    const { data: profiles } = await getSupabaseClient('profiles')
-      .from('profiles')
-      .select('id, display_name, email, platforms, role')
-      .in('id', userIds);
+    let profiles: any[] = [];
+    if (userIds.length > 0) {
+      const { data } = await getSupabaseClient('profiles')
+        .from('profiles')
+        .select('id, display_name, email, platforms, role')
+        .in('id', userIds);
+      profiles = data || [];
+    }
 
     const enrichedSessions = sessions.map((s: any) => ({
        ...s,
@@ -511,6 +523,16 @@ app.get('/api/chat/sessions', async (req, res) => {
 app.post('/api/chat/sessions', async (req, res) => {
   try {
     const { user_id } = req.body;
+    
+    if (fallbackChatEnabled) {
+       let session = fallbackChatSessions.find(s => s.user_id === user_id);
+       if (!session) {
+          session = { id: 'fb-sess-' + Date.now(), user_id, last_message_at: new Date().toISOString() };
+          fallbackChatSessions.push(session);
+       }
+       return res.json(session);
+    }
+
     let { data: session, error: selErr } = await getSupabaseClient('chat_sessions')
        .from('chat_sessions')
        .select('*')
@@ -527,7 +549,12 @@ app.post('/api/chat/sessions', async (req, res) => {
          .single();
       
       if (insErr) {
-         if (insErr.code === '42P01') return res.json({ id: 'dummy-session' }); // Dummy if tables don't exist
+         if (insErr.code === '42P01') {
+             fallbackChatEnabled = true;
+             const fallbackSession = { id: 'fb-sess-' + Date.now(), user_id, last_message_at: new Date().toISOString() };
+             fallbackChatSessions.push(fallbackSession);
+             return res.json(fallbackSession);
+         }
          throw insErr;
       }
       session = newSession;
@@ -542,17 +569,22 @@ app.post('/api/chat/sessions', async (req, res) => {
 app.get('/api/chat/messages/:session_id', async (req, res) => {
   try {
     const { session_id } = req.params;
-    if (session_id === 'dummy-session') return res.json([]);
     
-    const { data: messages, error } = await getSupabaseClient('chat_messages')
-      .from('chat_messages')
-      .select('*')
-      .eq('session_id', session_id)
-      .order('created_at', { ascending: true });
-
-    if (error) {
-       if (error.code === '42P01') return res.json([]);
-       throw error;
+    let messages: any[] = [];
+    if (fallbackChatEnabled || session_id.startsWith('fb-sess-')) {
+       messages = fallbackChatMessages.filter(m => m.session_id === session_id);
+    } else {
+      let { data, error } = await getSupabaseClient('chat_messages')
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', session_id)
+        .order('created_at', { ascending: true });
+        
+      if (error) {
+         if (error.code === '42P01') return res.json([]);
+         throw error;
+      }
+      messages = data || [];
     }
 
     if (!messages || messages.length === 0) {
@@ -563,10 +595,14 @@ app.get('/api/chat/messages/:session_id', async (req, res) => {
     const readByIds = [...new Set(messages.flatMap((m: any) => m.read_by || []))];
     const allProfileIds = [...new Set([...senderIds, ...readByIds])];
 
-    const { data: profiles } = await getSupabaseClient('profiles')
-      .from('profiles')
-      .select('id, display_name, role')
-      .in('id', allProfileIds);
+    let profiles: any[] = [];
+    if (allProfileIds.length > 0) {
+      const { data } = await getSupabaseClient('profiles')
+        .from('profiles')
+        .select('id, display_name, role')
+        .in('id', allProfileIds as string[]);
+      profiles = data || [];
+    }
 
     const enrichedMessages = messages.map((m: any) => ({
        ...m,
@@ -583,18 +619,33 @@ app.get('/api/chat/messages/:session_id', async (req, res) => {
 app.post('/api/chat/messages', async (req, res) => {
   try {
     const { session_id, sender_id, content } = req.body;
-    if (session_id === 'dummy-session') return res.json({ success: true });
+    let message;
 
-    const { data: message, error } = await getSupabaseClient('chat_messages')
+    if (fallbackChatEnabled || session_id.startsWith('fb-sess-')) {
+       message = { id: 'fb-msg-' + Date.now(), session_id, sender_id, content, created_at: new Date().toISOString(), read_by: [] };
+       fallbackChatMessages.push(message);
+       const session = fallbackChatSessions.find(s => s.id === session_id);
+       if (session) session.last_message_at = new Date().toISOString();
+       return res.json(message);
+    }
+
+    const { data, error } = await getSupabaseClient('chat_messages')
       .from('chat_messages')
       .insert({ session_id, sender_id, content })
       .select()
       .single();
 
     if (error) {
-       if (error.code === '42P01') return res.json({ success: true, message: 'Table not created yet' });
+       if (error.code === '42P01') {
+          message = { id: 'fb-msg-' + Date.now(), session_id, sender_id, content, created_at: new Date().toISOString(), read_by: [] };
+          fallbackChatEnabled = true;
+          fallbackChatMessages.push(message);
+          return res.json(message);
+       }
        throw error;
     }
+    
+    message = data;
 
     // Update session last_message_at
     await getSupabaseClient('chat_sessions').from('chat_sessions').update({ last_message_at: new Date().toISOString() }).eq('id', session_id);
@@ -608,15 +659,25 @@ app.post('/api/chat/messages', async (req, res) => {
 app.post('/api/chat/read', async (req, res) => {
   try {
      const { session_id, user_id, is_admin } = req.body;
-     if (session_id === 'dummy-session') return res.json({ success: true });
+     
+     let messages: any[] = [];
+     if (fallbackChatEnabled || session_id.startsWith('fb-sess-')) {
+         messages = fallbackChatMessages.filter(m => m.session_id === session_id);
+         for (const msg of messages) {
+            if (msg.sender_id !== user_id && !msg.read_by.includes(user_id)) {
+               msg.read_by.push(user_id);
+            }
+         }
+         return res.json({ success: true });
+     }
 
-     // Fetch unread messages
-     const { data: messages, error } = await getSupabaseClient('chat_messages')
+     const { data, error } = await getSupabaseClient('chat_messages')
         .from('chat_messages')
         .select('*')
         .eq('session_id', session_id);
 
-     if (error || !messages) return res.json({ success: true });
+     if (error || !data) return res.json({ success: true });
+     messages = data;
 
      for (const msg of messages) {
         let readBy = msg.read_by || [];

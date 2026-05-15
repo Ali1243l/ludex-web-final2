@@ -2359,10 +2359,13 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   <form onSubmit={handleAdminReply} className="p-6 border-t border-gray-800 bg-[#1a1a1a] flex gap-4">
                     <input 
                       type="text" 
+                      id="adminChatMessage"
+                      name="adminChatMessage"
                       value={adminChatMessage}
                       onChange={e => setAdminChatMessage(e.target.value)}
                       placeholder={activeChatSessionId ? "Reply to user as Admin..." : "Select a conversation first"} 
                       disabled={!activeChatSessionId}
+                      dir="auto"
                       className="flex-1 bg-black border border-gray-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-purple-500 text-white disabled:opacity-50"
                     />
                     <button type="submit" disabled={!adminChatMessage.trim() || !activeChatSessionId} className="bg-purple-600 px-8 font-bold rounded-lg text-white hover:bg-purple-500 disabled:opacity-50 transition-colors">
@@ -4267,10 +4270,10 @@ const [usersList, setUsersList] = useState<any[]>([]);
                     {!isMe && (
                        <span className="text-[10px] text-gray-500 ml-1">{msg.sender?.display_name || 'Admin'}</span>
                     )}
-                    <div className={`max-w-[85%] rounded-xl p-2.5 text-xs self-${isMe ? 'end' : 'start'} ${
+                    <div dir="auto" className={`max-w-[85%] rounded-xl p-2.5 text-xs text-white self-${isMe ? 'end' : 'start'} ${
                       isMe 
-                        ? 'bg-purple-600 text-white rounded-br-sm' 
-                        : 'bg-gray-800 text-gray-200 rounded-bl-sm'
+                        ? 'bg-purple-600 rounded-br-sm' 
+                        : 'bg-gray-800 rounded-bl-sm'
                     }`}>
                       {msg.content}
                     </div>
@@ -4292,9 +4295,12 @@ const [usersList, setUsersList] = useState<any[]>([]);
                <form onSubmit={handleSendMessage} className="p-3 border-t border-purple-900/30 bg-black/50 flex gap-2 flex-shrink-0">
                  <input 
                    type="text" 
+                   id="chatMessage"
+                   name="chatMessage"
                    value={chatMessage}
                    onChange={(e) => setChatMessage(e.target.value)}
                    placeholder={t[language].typeMsg} 
+                   dir="auto"
                    className="flex-1 bg-[#111] border border-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500 min-h-[44px]"
                  />
                  <button 
