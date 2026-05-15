@@ -254,7 +254,7 @@ app.post('/api/admin/profiles/sync', async (req, res) => {
     }
     let profileData = existing;
     if (!existing) {
-      const { data } = await supabase.from('profiles').insert([{ id, email, name, role: email === 'admin@pixel.com' ? 'ADMIN' : 'CUSTOMER', status: 'active' }]).select().single();
+      const { data } = await supabase.from('profiles').insert([{ id, email, display_name: name || '', role: email === 'admin@pixel.com' ? 'ADMIN' : 'USER', platforms: [], interests: [] }]).select().single();
       profileData = data;
     } else if (id && existing.id !== id) {
       const { data } = await supabase.from('profiles').update({ id }).eq('email', email).select().single();

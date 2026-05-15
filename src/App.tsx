@@ -101,7 +101,7 @@ export default function App() {
   const [newPaymentForm, setNewPaymentForm] = useState({ name: '', accountDetails: '', surcharge_percentage: '0' });
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
 
-  const [userProfile, setUserProfile] = useState<{name: string, email: string, role: 'CUSTOMER' | 'MODERATOR' | 'ADMIN', xp_points: number, platformPreference: string, favoriteGenres: string[], emailNotifications: boolean, twoFactorEnabled: boolean, avatarUrl?: string}>({ name: 'Felix user', email: 'felix@example.com', role: 'ADMIN', xp_points: 1250, platformPreference: 'PC', favoriteGenres: ['Action', 'RPG'], emailNotifications: true, twoFactorEnabled: false, avatarUrl: '' });
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState<'login' | 'register' | null>(null);
   const [authForm, setAuthForm] = useState({email: '', password: '', name: ''});
@@ -343,7 +343,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
        if (isLoggedIn) {
           timeout = setTimeout(() => {
              setIsLoggedIn(false);
-             setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false});
+             setUserProfile(null);
              if (activeTab === 'admin' || activeTab === 'user_dashboard' || activeTab === 'profile' || activeTab === 'settings' || activeTab === 'orders' || activeTab === 'cart') {
                 setActiveTab('store');
              }
@@ -535,9 +535,10 @@ const [usersList, setUsersList] = useState<any[]>([]);
                 .insert([{
                   id: userId,
                   email: userEmail,
-                  name: userDisplayName,
-                  role: isAdmin ? 'ADMIN' : 'CUSTOMER',
-                  status: 'active'
+                  display_name: userDisplayName || '',
+                  role: isAdmin ? 'ADMIN' : 'USER',
+                  platforms: [],
+                  interests: []
                 }])
                 .select()
                 .single();
@@ -656,8 +657,8 @@ const [usersList, setUsersList] = useState<any[]>([]);
     if (xp < g) return { name: 'Gold', color: 'text-yellow-400', threshold: g };
     return { name: 'Diamond', color: 'text-cyan-400', threshold: xp };
   };
-  const currentTier = getTier(userProfile.xp_points || 0);
-  const xpPercentage = currentTier.name === 'Diamond' ? 100 : Math.min(((userProfile.xp_points || 0) / currentTier.threshold) * 100, 100);
+  const currentTier = getTier(userProfile?.xp_points || 0);
+  const xpPercentage = currentTier.name === 'Diamond' ? 100 : Math.min(((userProfile?.xp_points || 0) / currentTier.threshold) * 100, 100);
 
 
   const displayPrice = (priceInUsd: number) => {
@@ -784,7 +785,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
           const totalAmount = newOrders.reduce((sum, o) => sum + o.finalPrice, 0);
           const orderIds = newOrders.map(o => o.id).join(', ');
           
-          const message = `🔔 *New Order Received!*\n\n👤 *Customer:* ${userProfile.name}\n💰 *Total Price:* $${totalAmount.toFixed(2)}\n🆔 *Order IDs:* ${orderIds}\n🔗 [View in HQ Portal](${window.location.origin}/?tab=admin)`;
+          const message = `🔔 *New Order Received!*\n\n👤 *Customer:* ${userProfile?.display_name || userProfile?.email}\n💰 *Total Price:* $${totalAmount.toFixed(2)}\n🆔 *Order IDs:* ${orderIds}\n🔗 [View in HQ Portal](${window.location.origin}/?tab=admin)`;
                           
           await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
               method: 'POST',
@@ -840,7 +841,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
     setAdminChatMessage('');
   };
 
-  if (isLoggedIn && userProfile && (!userProfile.display_name || !userProfile.platforms || userProfile.platforms.length === 0)) {
+  if (isLoggedIn && userProfile && (!userProfile?.display_name || !userProfile?.platforms || userProfile?.platforms.length === 0)) {
      return (
         <div className="bg-[#050505] min-h-screen font-sans text-white flex flex-col items-center justify-center p-4">
             <div className="max-w-2xl mx-auto w-full flex flex-col items-center justify-center min-h-[60vh] gap-6 animate-in fade-in duration-300">
@@ -854,17 +855,17 @@ const [usersList, setUsersList] = useState<any[]>([]);
                  </div>
                  <form className="flex flex-col gap-5 mt-4" onSubmit={async (e) => {
                     e.preventDefault();
-                    if (!userProfile.display_name || !userProfile.platforms || userProfile.platforms.length === 0) {
+                    if (!userProfile?.display_name || !userProfile?.platforms || userProfile?.platforms.length === 0) {
                         setToastMessage(language === 'ar' ? 'يرجى إكمال جميع الحقول المطلوبة' : 'Please fill all required fields');
                         setTimeout(() => setToastMessage(null), 3000);
                         return;
                     }
                     try {
                         const { data, error } = await supabase.from('profiles').update({
-                           display_name: userProfile.display_name,
-                           platforms: userProfile.platforms,
-                           interests: userProfile.interests || []
-                        }).eq('id', userProfile.id).select().single();
+                           display_name: userProfile?.display_name,
+                           platforms: userProfile?.platforms,
+                           interests: userProfile?.interests || []
+                        }).eq('id', userProfile?.id).select().single();
                         
                         if (!error && data) {
                            setToastMessage(language === 'ar' ? 'تم الحفظ بنجاح!' : 'Profile updated!');
@@ -882,16 +883,16 @@ const [usersList, setUsersList] = useState<any[]>([]);
                  }}>
                     <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'اسم العرض' : 'Display Name'}</label>
-                      <input type="text" value={userProfile.display_name || ''} onChange={e => setUserProfile({...userProfile, display_name: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder="e.g. MasterChief99" required />
+                      <input type="text" value={userProfile?.display_name || ''} onChange={e => setUserProfile({...userProfile, display_name: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder="e.g. MasterChief99" required />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'المنصات (اختر واحدة على الأقل)' : 'Platforms (Select at least one)'}</label>
                       <div className="flex flex-wrap gap-2">
                         {['PC', 'PlayStation', 'Xbox', 'Nintendo', 'Mobile'].map(plat => (
                            <button type="button" key={plat} onClick={() => {
-                              const curr = userProfile.platforms || [];
+                              const curr = userProfile?.platforms || [];
                               setUserProfile({...userProfile, platforms: curr.includes(plat) ? curr.filter((p:string) => p !== plat) : [...curr, plat]});
-                           }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile.platforms?.includes(plat) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{plat}</button>
+                           }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile?.platforms?.includes(plat) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{plat}</button>
                         ))}
                       </div>
                     </div>
@@ -900,9 +901,9 @@ const [usersList, setUsersList] = useState<any[]>([]);
                       <div className="flex flex-wrap gap-2">
                         {['Action', 'RPG', 'Strategy', 'Sports', 'Racing', 'FPS'].map(int => (
                            <button type="button" key={int} onClick={() => {
-                              const curr = userProfile.interests || [];
+                              const curr = userProfile?.interests || [];
                               setUserProfile({...userProfile, interests: curr.includes(int) ? curr.filter((i:string) => i !== int) : [...curr, int]});
-                           }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile.interests?.includes(int) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{int}</button>
+                           }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile?.interests?.includes(int) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{int}</button>
                         ))}
                       </div>
                     </div>
@@ -928,7 +929,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
       <div className="absolute bottom-[-100px] right-[-100px] w-[400px] h-[400px] bg-purple-900/20 rounded-full blur-[100px] pointer-events-none"></div>
 
       {activeTab === 'admin' ? (
-        (!isLoggedIn || userProfile.role !== 'ADMIN') ? (
+        (!isLoggedIn || userProfile?.role !== 'ADMIN') ? (
            <div className="flex-1 flex flex-col items-center justify-center relative z-20 h-full w-full bg-[#050505]">
              <div className="text-center space-y-6">
                  <h1 className="text-9xl font-black text-purple-900/40">404</h1>
@@ -1059,7 +1060,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                              console.error('Sign out error:', e);
                           }
                           setIsLoggedIn(false); 
-                  setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
+                  setUserProfile(null); 
                   setActiveTab('store'); 
                   setActiveCategory(null); 
                 }} 
@@ -1607,10 +1608,10 @@ const [usersList, setUsersList] = useState<any[]>([]);
                     <table className="w-full text-left text-sm text-gray-400">
                       <thead className="bg-[#1a1a1a] text-xs uppercase text-gray-500 font-bold border-b border-gray-800">
                         <tr>
-                          <th className="px-4 py-3">{t[language].nameCol}</th>
+                          <th className="px-4 py-3">{language === 'ar' ? 'الاسم' : 'Name'}</th>
                           <th className="px-4 py-3">{t[language].eml}</th>
                           <th className="px-4 py-3">{language === 'ar' ? 'الصلاحية' : 'Role'}</th>
-                          <th className="px-4 py-3">{language === 'ar' ? 'الحالة' : 'Status'}</th>
+                          <th className="px-4 py-3">{language === 'ar' ? 'المنصات' : 'Platforms'}</th>
                           <th className="px-4 py-3 text-right">{t[language].actionsCol}</th>
                         </tr>
                       </thead>
@@ -1619,16 +1620,16 @@ const [usersList, setUsersList] = useState<any[]>([]);
                             <tr><td colSpan={5} className="py-8 text-center text-gray-600">{language === 'ar' ? 'لا يوجد مستخدمين مسجلين' : 'No users found'}</td></tr>
                         ) : usersList.map((user, i) => (
                           <tr key={i} className="hover:bg-white/[0.02] transition-colors">
-                            <td className="px-4 py-4 font-bold text-white">{user.name || 'N/A'}</td>
+                            <td className="px-4 py-4 font-bold text-white">{user.display_name || user.email || 'N/A'}</td>
                             <td className="px-4 py-4">{user.email}</td>
                             <td className="px-4 py-4">
                               <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${user.role === 'ADMIN' ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
-                                {user.role || 'CUSTOMER'}
+                                {user.role || 'USER'}
                               </span>
                             </td>
                             <td className="px-4 py-4">
-                              <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${user.status === 'banned' ? 'bg-red-900/40 text-red-400 border border-red-500/30' : 'bg-green-900/40 text-green-400 border border-green-500/30'}`}>
-                                {user.status || 'ACTIVE'}
+                              <span className="text-gray-400 text-[10px] font-bold">
+                                {user.platforms && user.platforms.length > 0 ? user.platforms.join(', ') : 'None'}
                               </span>
                             </td>
                             <td className="px-4 py-4 text-right flex flex-wrap items-center justify-end gap-2">
@@ -1639,7 +1640,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                        const res = await fetch(`/api/admin/profiles/${user.id}`, {
                                           method: 'PUT',
                                           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                          body: JSON.stringify({ role: user.role === 'ADMIN' ? 'CUSTOMER' : 'ADMIN' })
+                                          body: JSON.stringify({ role: user.role === 'ADMIN' ? 'USER' : 'ADMIN' })
                                        });
                                        if(res.ok) {
                                           setToastMessage('Role updated successfully.');
@@ -1652,27 +1653,6 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                  }}
                                  className="px-3 py-1 bg-purple-600/20 text-purple-400 hover:bg-purple-600/40 rounded text-[10px] font-bold transition-colors whitespace-nowrap">
                                  {user.role === 'ADMIN' ? (language === 'ar' ? 'إزالة كأدمن' : 'Demote Admin') : (language === 'ar' ? 'ترقية لأدمن' : 'Promote to Admin')}
-                               </button>
-                               <button 
-                                 onClick={async () => {
-                                    try {
-                                       const token = (await getAuthToken());
-                                       const res = await fetch(`/api/admin/profiles/${user.id}`, {
-                                          method: 'PUT',
-                                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                          body: JSON.stringify({ status: user.status === 'banned' ? 'active' : 'banned' })
-                                       });
-                                       if(res.ok) {
-                                          setToastMessage('User status updated.');
-                                          setTimeout(()=>setToastMessage(null), 3000);
-                                          const { data: refreshed, error: refErr } = await supabase.from('profiles').select('*');
-                                          if (refErr) console.error("Supabase select error (refetching users 2):", refErr);
-                                          if (refreshed) setUsersList(refreshed);
-                                       }
-                                    } catch(e) { console.error(e) }
-                                 }}
-                                 className={`px-3 py-1 rounded text-[10px] font-bold transition-colors whitespace-nowrap ${user.status === 'banned' ? 'bg-green-600/20 text-green-400 hover:bg-green-600/40' : 'bg-red-600/20 text-red-400 hover:bg-red-600/40'}`}>
-                                 {user.status === 'banned' ? (language === 'ar' ? 'إلغاء الحظر' : 'Unban') : (language === 'ar' ? 'حظر المستخدم' : 'Ban User')}
                                </button>
                                <button 
                                  onClick={async () => {
@@ -2440,7 +2420,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
           </div>
 
           <div className="flex items-center gap-4">
-            {isLoggedIn && userProfile.role === 'ADMIN' && (
+            {isLoggedIn && userProfile?.role === 'ADMIN' && (
               <div 
                 className="relative cursor-pointer text-purple-400 hover:text-purple-300 transition-colors flex items-center justify-center min-h-[44px] min-w-[44px] hidden md:flex"
                 onClick={() => { setActiveTab('admin'); setAdminTab('support'); }}
@@ -2462,11 +2442,11 @@ const [usersList, setUsersList] = useState<any[]>([]);
               {isLoggedIn ? (
                 <>
                   <div onClick={() => setIsProfileOpen(!isProfileOpen)} className="w-8 h-8 md:w-10 md:h-10 bg-purple-900 rounded-full border border-purple-500/50 cursor-pointer overflow-hidden hover:border-purple-400 transition-colors flex items-center justify-center font-bold text-white uppercase select-none">
-                     <img src={userProfile.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile.name}&backgroundColor=4c1d95`} alt="Avatar" className="w-full h-full object-cover" />
+                     <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile?.display_name || userProfile?.email}&backgroundColor=4c1d95`} alt="Avatar" className="w-full h-full object-cover" />
                   </div>
                   {isProfileOpen && (
                     <div className={`absolute ${language === 'ar' ? 'left-0' : 'right-0'} mt-2 w-48 bg-[#111] border border-purple-900/50 rounded-xl shadow-xl overflow-hidden z-20 flex flex-col`}>
-                      {userProfile.role === 'ADMIN' && (
+                      {userProfile?.role === 'ADMIN' && (
                         <button onClick={() => { setActiveTab('admin'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-purple-400 font-bold uppercase tracking-widest">
                           <Shield className="w-4 h-4" /> Pixel HQ Portal
                         </button>
@@ -2498,7 +2478,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                              console.error('Sign out error:', e);
                           }
                           setIsLoggedIn(false); 
-                          setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
+                          setUserProfile(null); 
                           setIsProfileOpen(false); 
                           if(activeTab === 'admin' || activeTab === 'profile') { setActiveTab('store'); setActiveCategory(null); }
                       }} className="px-4 py-3 text-sm text-start text-red-500 hover:bg-red-500/10 transition-colors">{t[language].logout}</button>
@@ -2545,7 +2525,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
              <button onClick={() => { setActiveTab('store'); setActiveCategory('Subscriptions'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 ${activeTab === 'store' && activeCategory === 'Subscriptions' ? "text-purple-400" : "text-white"}`}>{t[language].subs || 'Subscriptions'}</button>
              <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('orders'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 ${activeTab === 'user_dashboard' && userDashboardTab === 'orders' ? "text-purple-400" : "text-white"}`}>{t[language].orders}</button>
              
-             {isLoggedIn && userProfile.role === 'ADMIN' && (
+             {isLoggedIn && userProfile?.role === 'ADMIN' && (
                <button onClick={() => { setActiveTab('admin'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 flex items-center gap-2 ${activeTab === 'admin' ? "text-purple-400" : "text-purple-500"}`}>
                   <Shield className="w-5 h-5" /> Pixel HQ Portal
                </button>
@@ -2612,7 +2592,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
           <aside className="w-64 border-e border-purple-900/20 bg-[#0a0a0a] flex flex-col hidden lg:flex shadow-[5px_0_15px_rgba(0,0,0,0.5)] z-10 relative overflow-y-auto custom-scrollbar flex-shrink-0 h-full">
              <div className="p-6 border-b border-gray-800 bg-[#111]">
                <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">{t[language].userDashboard}</h2>
-               <p className="text-xl font-black text-white truncate">{userProfile.name}</p>
+               <p className="text-xl font-black text-white truncate">{userProfile?.display_name || userProfile?.email}</p>
              </div>
              <div className="p-4 flex-1 flex flex-col gap-2">
                 <button 
@@ -2642,7 +2622,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                              console.error('Sign out error:', e);
                           }
                           setIsLoggedIn(false); 
-                   setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false}); 
+                   setUserProfile(null); 
                    setActiveTab('store');
                    setActiveCategory(null);
                }} className="flex items-center gap-3 text-sm p-3 rounded-lg transition-colors font-bold text-red-500 hover:bg-red-500/10 w-full">
@@ -3115,13 +3095,14 @@ const [usersList, setUsersList] = useState<any[]>([]);
           )}
 
           {(activeTab === 'profile' || (activeTab === 'user_dashboard' && userDashboardTab === 'profile')) && (
+            userProfile ? (
             <div className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto w-full flex flex-col gap-6">
               <h2 className="text-2xl font-bold text-white tracking-widest uppercase">{t[language].profOverview}</h2>
               <div className="bg-[#111] border border-purple-900/30 rounded-2xl p-6 flex flex-col sm:flex-row items-center sm:items-start gap-6 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[80px] pointer-events-none"></div>
-                <img src={userProfile.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile.name}&backgroundColor=4c1d95`} alt="Avatar" className="w-24 h-24 rounded-full border-2 border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.3)] relative z-10 object-cover" />
+                <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile?.display_name || userProfile?.email}&backgroundColor=4c1d95`} alt="Avatar" className="w-24 h-24 rounded-full border-2 border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.3)] relative z-10 object-cover" />
                 <div className="flex flex-col items-center sm:items-start text-center sm:text-start relative z-10">
-                  <h3 className="text-2xl font-bold text-white mb-1 uppercase tracking-widest">{userProfile.name}</h3>
+                  <h3 className="text-2xl font-bold text-white mb-1 uppercase tracking-widest">{userProfile?.display_name || userProfile?.email}</h3>
                   <p className="text-gray-400 text-sm mb-4 font-mono">Player ID: <span className="text-purple-400 font-bold">#PIXEL-9034</span></p>
                   <div className="flex gap-4">
                     <div className="bg-black border border-gray-800 rounded-lg p-3 text-center min-w-[100px] shadow-inner">
@@ -3156,7 +3137,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                        
                        <div className="mb-2 flex justify-between items-end">
                          <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">XP Progress</span>
-                         <span className="text-xs font-bold text-purple-400">{userProfile.xp_points || 0} / {currentTier.name === 'Diamond' ? 'MAX' : currentTier.threshold} XP</span>
+                         <span className="text-xs font-bold text-purple-400">{userProfile?.xp_points || 0} / {currentTier.name === 'Diamond' ? 'MAX' : currentTier.threshold} XP</span>
                        </div>
                        {/* Progress Bar Line */}
                        <div className="h-2 bg-gray-800 rounded-full w-full max-w-2xl relative overflow-hidden">
@@ -3231,98 +3212,61 @@ const [usersList, setUsersList] = useState<any[]>([]);
                 </table>
               </div>
             </div>
+            ) : null
           )}
 
           {(activeTab === 'settings' || (activeTab === 'user_dashboard' && userDashboardTab === 'settings')) && (
             <div className="max-w-2xl mx-auto w-full flex flex-col gap-6">
               <h2 className="text-2xl font-bold text-white">{t[language].accSet}</h2>
               <form 
-                onSubmit={(e) => { e.preventDefault(); setToastMessage('Settings saved successfully!'); }}
+                onSubmit={async (e) => { 
+                  e.preventDefault(); 
+                  try {
+                    const token = await getAuthToken();
+                    const res = await fetch(`/api/admin/profiles/${userProfile?.id}`, {
+                       method: 'PUT',
+                       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                       body: JSON.stringify({ display_name: userProfile?.display_name, platforms: userProfile?.platforms, interests: userProfile?.interests })
+                    });
+                    if (res.ok) {
+                       setToastMessage('Settings saved successfully!');
+                    } else {
+                       setToastMessage('Failed to save settings.');
+                    }
+                  } catch(err) { console.error(err); setToastMessage('Error saving settings.'); }
+                  setTimeout(() => setToastMessage(null), 3000);
+                }}
                 className="bg-[#111] border border-purple-900/30 rounded-2xl p-6 flex flex-col gap-5"
               >
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">{t[language].usr}</label>
                   <input 
                     type="text" 
-                    value={userProfile.name}
-                    onChange={e => setUserProfile({...userProfile, name: e.target.value})}
+                    value={userProfile?.display_name || ''}
+                    onChange={e => setUserProfile({...userProfile, display_name: e.target.value})}
                     className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white transition-colors" 
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">{t[language].avatarImg}</label>
-                  <input 
-                    type="text" 
-                    value={userProfile.avatarUrl || ''}
-                    onChange={e => setUserProfile({...userProfile, avatarUrl: e.target.value})}
-                    className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white transition-colors mb-4" 
-                    placeholder="https://..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">{t[language].eml}</label>
-                  <input 
-                    type="email" 
-                    value={userProfile.email}
-                    onChange={e => setUserProfile({...userProfile, email: e.target.value})}
-                    className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white transition-colors" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">{t[language].pwd}</label>
-                  <input type="password" placeholder="••••••••" className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white transition-colors" />
-                </div>
-                
-                <div className="pt-4 border-t border-gray-800 mt-2">
-                  <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Preferences</h3>
-                  
-                  <div className="flex flex-col gap-4">
-                     <div>
-                       <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Platform Preference</label>
-                       <select value={userProfile.platformPreference || "PC"} onChange={e => setUserProfile({...userProfile, platformPreference: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white cursor-pointer">
-                          <option value="PC">PC</option>
-                          <option value="PlayStation">PlayStation</option>
-                          <option value="Xbox">Xbox</option>
-                          <option value="Nintendo">Nintendo</option>
-                       </select>
-                     </div>
-                     
-                     <div>
-                       <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Favorite Genres (Comma separated)</label>
-                       <input 
-                         type="text" 
-                         value={(userProfile.favoriteGenres || []).join(', ')}
-                         onChange={e => setUserProfile({...userProfile, favoriteGenres: e.target.value.split(',').map(s => s.trim())})}
-                         placeholder="Action, RPG, FPS..."
-                         className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white transition-colors" 
-                       />
-                     </div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'المنصات' : 'Platforms'}</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['PC', 'PlayStation', 'Xbox', 'Nintendo', 'Mobile'].map(plat => (
+                       <button type="button" key={plat} onClick={() => {
+                          const curr = userProfile?.platforms || [];
+                          setUserProfile({...userProfile, platforms: curr.includes(plat) ? curr.filter((p:string) => p !== plat) : [...curr, plat]});
+                       }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile?.platforms?.includes(plat) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{plat}</button>
+                    ))}
                   </div>
                 </div>
-
-                <div className="pt-4 border-t border-gray-800 mt-2">
-                  <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Security & Notifications</h3>
-                  
-                  <div className="flex items-center justify-between mb-4 bg-black p-4 rounded-lg border border-gray-800">
-                     <div>
-                        <p className="text-sm font-bold text-white">Email Notifications</p>
-                        <p className="text-xs text-gray-500">Receive order updates and promos.</p>
-                     </div>
-                     <label className="relative inline-flex items-center cursor-pointer">
-                       <input type="checkbox" checked={userProfile.emailNotifications || false} onChange={e => setUserProfile({...userProfile, emailNotifications: e.target.checked})} className="sr-only peer" />
-                       <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                     </label>
-                  </div>
-                  
-                  <div className="flex items-center justify-between bg-black p-4 rounded-lg border border-gray-800">
-                     <div>
-                        <p className="text-sm font-bold text-white">Two-Factor Auth (2FA)</p>
-                        <p className="text-xs text-gray-500">Protect your account with extra security.</p>
-                     </div>
-                     <label className="relative inline-flex items-center cursor-pointer">
-                       <input type="checkbox" checked={userProfile.twoFactorEnabled || false} onChange={e => setUserProfile({...userProfile, twoFactorEnabled: e.target.checked})} className="sr-only peer" />
-                       <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                     </label>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{language === 'ar' ? 'الاهتمامات' : 'Interests'}</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['Action', 'RPG', 'Strategy', 'Sports', 'Racing', 'FPS'].map(int => (
+                       <button type="button" key={int} onClick={() => {
+                          const curr = userProfile?.interests || [];
+                          setUserProfile({...userProfile, interests: curr.includes(int) ? curr.filter((i:string) => i !== int) : [...curr, int]});
+                       }} className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${userProfile?.interests?.includes(int) ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}>{int}</button>
+                    ))}
                   </div>
                 </div>
 
@@ -3355,7 +3299,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                }
                              }
                              setIsLoggedIn(false);
-                             setUserProfile({name: '', email: '', role: 'CUSTOMER', xp_points: 0, platformPreference: 'PC', favoriteGenres: [], emailNotifications: false, twoFactorEnabled: false});
+                             setUserProfile(null);
                              setActiveTab('store');
                              setToastMessage('Account deleted successfully.');
                              setTimeout(() => { setToastMessage(null); window.location.reload(); }, 2000);
@@ -3426,7 +3370,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
       <footer className="hidden md:flex w-full bg-black/60 backdrop-blur-md border-t border-purple-900/30 px-6 md:px-8 py-6 md:py-0 md:h-12 flex-col md:flex-row items-center justify-center md:justify-between text-[10px] text-gray-500 uppercase tracking-[0.2em] font-medium flex-shrink-0 z-10 relative gap-4 md:gap-0 mt-auto">
         <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
           <span>&copy; 2026 Pixel Store - ALL RIGHTS RESERVED</span>
-          {isLoggedIn && userProfile.role === 'ADMIN' && (
+          {isLoggedIn && userProfile?.role === 'ADMIN' && (
             <button 
               onClick={() => setActiveTab('admin')} 
               className="border border-purple-900 px-3 py-1 rounded text-purple-400 hover:bg-purple-900/30 transition-colors bg-black font-bold flex items-center gap-1.5"
@@ -3479,8 +3423,8 @@ const [usersList, setUsersList] = useState<any[]>([]);
                 
                 <div className="mb-8 border border-gray-800 rounded-lg p-6 bg-[#111]">
                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-2 font-bold">Billed To</p>
-                   <p className="text-sm text-white font-bold mb-1">{userProfile.name}</p>
-                   <p className="text-xs text-gray-400">{userProfile.email}</p>
+                   <p className="text-sm text-white font-bold mb-1">{userProfile?.display_name || userProfile?.email}</p>
+                   <p className="text-xs text-gray-400">{userProfile?.email}</p>
                 </div>
 
                 <table className="w-full text-left text-sm text-gray-300">
@@ -3958,21 +3902,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
 
                         if (showAuthModal === 'login') {
                            if (authForm.email === 'admin@pixel.com') {
-                              setUserProfile({
-                                 name: 'Pixel Admin',
-                                 email: 'admin@pixel.com',
-                                 role: 'ADMIN',
-                                 xp_points: 2000,
-                                 platformPreference: 'PC',
-                                 favoriteGenres: ['RPG'],
-                                 emailNotifications: true,
-                                 twoFactorEnabled: false
-                              });
-                              setIsLoggedIn(true);
-                              setShowAuthModal(null);
-                              setToastMessage('Successfully logged in as Admin (Mock).');
-                              setTimeout(() => setToastMessage(null), 3000);
-                              return;
+                              // REMOVED MOCK DATA
                            }
                            const { isSignedIn } = await signIn({
                               username: authForm.email,
