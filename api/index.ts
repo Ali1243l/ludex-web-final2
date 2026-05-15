@@ -8,12 +8,8 @@ import crypto from 'crypto';
 import { CognitoIdentityProviderClient, AdminDeleteUserCommand } from "@aws-sdk/client-cognito-identity-provider";
 
 // Setup Supabase Client securely on the backend
-const supabaseUrlStore = process.env.VITE_SUPABASE_URL || 'https://aimuoopbzoyrllvnjnbd.supabase.co';
-const supabaseKeyStore = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpbXVvb3Biem95cmxsdm5qbmJkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjEzMTc4NiwiZXhwIjoyMDg3NzA3Nzg2fQ.mE-fW4cSwEj69To4pIL3oHY2fLy2tnvA5Y0E8XfR_qg'; // service role key
-
-if(!process.env.VITE_SUPABASE_URL) {
-  console.warn('[Backend Warning] VITE_SUPABASE_URL is not set in environment variables. Using fallback.');
-}
+const supabaseUrlStore = 'https://aimuoopbzoyrllvnjnbd.supabase.co';
+const supabaseKeyStore = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpbXVvb3Biem95cmxsdm5qbmJkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjEzMTc4NiwiZXhwIjoyMDg3NzA3Nzg2fQ.mE-fW4cSwEj69To4pIL3oHY2fLy2tnvA5Y0E8XfR_qg'; // service role key
 
 const supabaseUrlAuth = 'https://xogrjpfcaydjkgzphaoq.supabase.co';
 const supabaseKeyAuth = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhvZ3JqcGZjYXlkamtnenBoYW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3Nzg1NjIsImV4cCI6MjA4OTM1NDU2Mn0._KjiI6bfFc1kM-i5rvWtPB-vDxLwqtpY2Gb3fMIP-_M'; // anon key provided 
