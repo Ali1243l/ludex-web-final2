@@ -103,6 +103,7 @@ export default function App() {
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
 
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [viewedProfile, setViewedProfile] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState<'login' | 'register' | null>(null);
   const [authForm, setAuthForm] = useState({email: '', password: '', name: ''});
@@ -903,6 +904,16 @@ const [usersList, setUsersList] = useState<any[]>([]);
         invoiceNumber: 'INV-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000)
       } : o
     ));
+  };
+
+  const handleViewProfile = async (userId: string) => {
+     try {
+        const token = await getAuthToken();
+        const res = await fetch(`/api/profiles/${userId}`, { headers: { 'Authorization': `Bearer ${token}` }});
+        if (res.ok) {
+           setViewedProfile(await res.json());
+        }
+     } catch (e) {}
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -2329,7 +2340,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                        return (
                          <div key={msg.id} className={`flex flex-col max-w-[80%] ${isAdminType ? 'self-end items-end' : 'self-start items-start'}`}>
                            <span className="text-[10px] text-gray-500 mb-2 flex items-center gap-2">
-                             {isMyMsg ? 'You' : (msg.sender?.display_name || (isAdminType ? 'Admin' : 'User'))}
+                             {isMyMsg ? 'You' : <button type="button" onClick={() => msg.sender_id && handleViewProfile(msg.sender_id)} className="hover:text-purple-400 hover:underline transition-all font-bold">{msg.sender?.display_name || (isAdminType ? 'Admin' : 'User')}</button>}
                              {msg.gameId && (
                                 <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded text-[9px] uppercase tracking-wider font-bold shadow-[0_0_10px_rgba(147,51,234,0.1)]">
                                   Product Inquiry
@@ -4132,6 +4143,59 @@ const [usersList, setUsersList] = useState<any[]>([]);
       )}
 
       {/* Checkout Modal */}
+      {/* View Profile Modal */}
+      {viewedProfile && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 shadow-2xl overflow-y-auto" onClick={() => setViewedProfile(null)}>
+          <div className="bg-[#050505] border border-purple-900/40 rounded-2xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(147,51,234,0.15)] mt-4 mb-4" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setViewedProfile(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white bg-black hover:bg-purple-900/40 p-2 rounded-full transition-all">
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex flex-col items-center mt-4">
+              <div className="relative">
+                 <div className="absolute inset-0 bg-purple-600/20 blur-xl rounded-full"></div>
+                 <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${viewedProfile?.display_name || viewedProfile?.email}&backgroundColor=4c1d95`} alt="Avatar" className="w-24 h-24 rounded-full border-2 border-purple-500 relative z-10 shadow-[0_0_15px_rgba(147,51,234,0.3)] object-cover bg-[#111]" />
+              </div>
+              <h3 className="text-xl font-black text-white mt-4 mb-1 uppercase tracking-widest">{viewedProfile?.display_name || 'Unknown User'}</h3>
+              <p className="text-sm font-bold text-gray-500 mb-6">{viewedProfile?.role === 'ADMIN' ? 'Administrator' : 'Customer'}</p>
+              
+              <div className="w-full flex gap-3 mb-6">
+                <div className="flex-1 bg-[#111] border border-gray-800 rounded-xl p-3 text-center">
+                   <p className="text-lg font-black text-white">{viewedProfile?.stats?.totalOrders || 0}</p>
+                   <p className="text-[10px] uppercase text-gray-500 tracking-wider">Total Orders</p>
+                </div>
+                <div className="flex-1 bg-[#111] border border-green-900/30 rounded-xl p-3 text-center">
+                   <p className="text-lg font-black text-green-400">{viewedProfile?.stats?.approvedOrders || 0}</p>
+                   <p className="text-[10px] uppercase text-green-700 font-bold tracking-wider">Verified</p>
+                </div>
+              </div>
+              
+              <div className="w-full space-y-4 text-left">
+                 {viewedProfile?.platforms && viewedProfile.platforms.length > 0 && (
+                   <div>
+                     <p className="text-[10px] uppercase text-gray-500 tracking-widest mb-2 font-bold text-center">Gaming Platforms</p>
+                     <div className="flex flex-wrap justify-center gap-2">
+                       {viewedProfile.platforms.map((p: string) => (
+                         <span key={p} className="px-3 py-1 bg-[#111] border border-gray-800 rounded text-xs font-bold text-gray-300">{p}</span>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+                 {viewedProfile?.interests && viewedProfile.interests.length > 0 && (
+                   <div className="pt-2">
+                     <p className="text-[10px] uppercase text-gray-500 tracking-widest mb-2 font-bold text-center">Favorite Genres</p>
+                     <div className="flex flex-wrap justify-center gap-2">
+                       {viewedProfile.interests.map((p: string) => (
+                         <span key={p} className="px-3 py-1 bg-purple-900/10 border border-purple-900/30 text-purple-400 rounded text-xs font-bold">{p}</span>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {isCheckoutModalOpen && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-end md:justify-center bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-[#1e1e24] border-t md:border border-purple-900/40 rounded-t-3xl md:rounded-2xl w-full md:max-w-lg shadow-[0_-10px_50px_rgba(147,51,234,0.3)] md:shadow-[0_0_50px_rgba(147,51,234,0.3)] flex flex-col overflow-hidden max-h-[95vh] md:max-h-[90vh] animate-in slide-in-from-bottom-5 duration-300">
@@ -4268,7 +4332,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                  return (
                   <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} flex-col gap-1`}>
                     {!isMe && (
-                       <span className="text-[10px] text-gray-500 ml-1">{msg.sender?.display_name || 'Admin'}</span>
+                       <span className="text-[10px] text-gray-500 ml-1 hover:text-purple-400 hover:underline cursor-pointer" onClick={() => msg.sender_id && handleViewProfile(msg.sender_id)}>{msg.sender?.display_name || 'Admin'}</span>
                     )}
                     <div dir="auto" className={`max-w-[85%] rounded-xl p-2.5 text-xs text-white self-${isMe ? 'end' : 'start'} ${
                       isMe 

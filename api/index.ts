@@ -19,7 +19,7 @@ const supabaseAuth = createClient(supabaseUrlAuth, supabaseKeyAuth);
 
 const getSupabaseClient = (table: string | null) => {
     // Return auth client for profiles and when explicitly passed null (for storage)
-    if (table === 'profiles' || table === null) {
+    if (table === 'profiles' || table === 'chat_sessions' || table === 'chat_messages' || table === null) {
         return supabaseAuth;
     }
     return supabaseStore;
@@ -486,6 +486,36 @@ app.delete('/api/admin/:table/:id', requireAuth, async (req, res) => {
 const fallbackChatSessions: any[] = [];
 const fallbackChatMessages: any[] = [];
 let fallbackChatEnabled = false;
+
+app.get('/api/profiles/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: profile, error } = await getSupabaseClient('profiles')
+      .from('profiles')
+      .select('id, display_name, email, role, platforms, interests, xp_points')
+      .eq('id', id)
+      .single();
+      
+    if (error) throw error;
+    
+    // Fetch orders count for the user
+    let totalOrders = 0;
+    let approvedOrders = 0;
+    const { data: orders, error: oError } = await getSupabaseClient('orders')
+      .from('orders')
+      .select('status')
+      .eq('user_id', id);
+      
+    if (!oError && orders) {
+      totalOrders = orders.length;
+      approvedOrders = orders.filter(o => o.status === 'Approved').length;
+    }
+    
+    res.json({ ...profile, stats: { totalOrders, approvedOrders } });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 app.get('/api/chat/sessions', async (req, res) => {
   try {
