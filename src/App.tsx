@@ -515,14 +515,30 @@ const [usersList, setUsersList] = useState<any[]>([]);
           console.log('[Auth Hub] Cognito session found. User:', user.userId);
           
           let attributes: any = {};
+          let idTokenPayload: any = {};
+          
           try {
-             attributes = await fetchUserAttributes();
+            const { fetchAuthSession } = await import('aws-amplify/auth');
+            const session = await fetchAuthSession();
+            idTokenPayload = session.tokens?.idToken?.payload || {};
+            // Prefer fetching up-to-date attributes if allowed
+            attributes = await fetchUserAttributes();
           } catch (attrErr: any) {
-             console.error('[Auth Hub] Error fetching attributes:', attrErr);
-             // If we can't get attributes (e.g. scope missing), the session is invalid for our app.
-             // We MUST sign out to clear the zombie session!
-             await signOut();
-             throw new Error('Zombie session cleaned. User must re-authenticate properly.');
+             console.warn('[Auth Hub] Error fetching attributes (likely missing scopes). Falling back to ID token.', attrErr);
+             // Use ID token payload as fallback
+             attributes = {
+               sub: idTokenPayload.sub,
+               email: idTokenPayload.email,
+               name: idTokenPayload.name
+             };
+             
+             if (!attributes.email) {
+                 // Even ID token is missing basic info. We must sign out.
+                 console.error('[Auth Hub] ID token missing email. Zombie session cleaned.');
+                 await signOut();
+                 if (isMounted) setIsLoggedIn(false);
+                 return;
+             }
           }
 
           if (isMounted) setIsLoggedIn(true);
@@ -546,16 +562,13 @@ const [usersList, setUsersList] = useState<any[]>([]);
                const profileData = syncData.profile;
                
                if (isMounted) {
-                 setUserProfile((prev: any) => ({
-                    ...prev,
-                    ...profileData
-                 }));
+                 setUserProfile(profileData);
 
                  // Strict Onboarding Guard
                  if (!profileData.display_name || !profileData.platforms || profileData.platforms.length === 0) {
                     console.log('[Onboarding Guard] Missing platforms. Enforcing onboarding flow.');
                     // The early return in render handles the redirect, but we can also set tab
-                    setActiveTab('onboarding');
+                    setActiveTab('onboarding' as any);
                  } else {
                     console.log('[Auth Hub] User ready. Continuing to the application.');
                  }

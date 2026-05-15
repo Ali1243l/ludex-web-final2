@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import multer from 'multer';
@@ -252,21 +253,43 @@ app.post('/api/admin/profiles/sync', async (req, res) => {
   // Public endpoint for now to sync Cognito users
   try {
     const { email, name, id } = req.body;
-    const { data: existing, error } = await supabase.from('profiles').select('*').eq('email', email).maybeSingle();
-    if (error) {
-      console.error(error);
-      return res.status(500).json({ error: error.message });
+    console.log('[API] Syncing profile for:', email, id);
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    const { data: existing, error: selectErr } = await supabase.from('profiles').select('*').eq('email', email).maybeSingle();
+    if (selectErr) {
+      console.error('[API] Sync select error:', selectErr);
+      return res.status(500).json({ error: selectErr.message });
     }
+    
     let profileData = existing;
     if (!existing) {
-      const { data } = await supabase.from('profiles').insert([{ id, email, display_name: name || '', role: email === 'admin@pixel.com' ? 'ADMIN' : 'USER', platforms: [], interests: [] }]).select().single();
+      const { data, error: insertErr } = await supabase.from('profiles').insert([{ 
+         id, 
+         email, 
+         display_name: name || '', 
+         role: email === 'admin@pixel.com' ? 'ADMIN' : 'USER', 
+         platforms: [], 
+         interests: [] 
+      }]).select().single();
+      
+      if (insertErr) {
+         console.error('[API] Sync insert error:', insertErr);
+         return res.status(500).json({ error: insertErr.message });
+      }
       profileData = data;
+      console.log('[API] New profile created for:', email);
     } else if (id && existing.id !== id) {
-      const { data } = await supabase.from('profiles').update({ id }).eq('email', email).select().single();
-      profileData = data;
+      const { data, error: updateErr } = await supabase.from('profiles').update({ id }).eq('email', email).select().single();
+      if (updateErr) {
+         console.warn('[API] Sync update ID error:', updateErr);
+      } else {
+         profileData = data;
+      }
     }
     res.json({ success: true, profile: profileData });
   } catch (e: any) {
+    console.error('[API] Sync exception:', e);
     res.status(500).json({ error: e.message });
   }
 });
