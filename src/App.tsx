@@ -117,6 +117,10 @@ export default function App() {
   const [isGameDetailOpen, setIsGameDetailOpen] = useState(false);
   const [isGameDetailLoading, setIsGameDetailLoading] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<number | string | null>(null);
+  const [gameReviews, setGameReviews] = useState<any[]>([]);
+  const [newReviewRating, setNewReviewRating] = useState(5);
+  const [newReviewComment, setNewReviewComment] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [adminTab, setAdminTab] = useState<'dashboard' | 'games' | 'categories' | 'customers' | 'users' | 'orders' | 'financials' | 'payments' | 'settings' | 'support' | 'pages' | 'promotions' | 'promo_codes' | 'subscriptions' | 'products' | 'transactions' | 'sales' | 'macros'>('dashboard');
   const [adminMenuState, setAdminMenuState] = useState({ catalog: false, marketing: false, sales: false, ledger: false, system: false });
   const toggleAdminMenu = (menu: 'catalog' | 'marketing' | 'sales' | 'ledger' | 'system') => setAdminMenuState(prev => ({ ...prev, [menu]: !prev[menu] }));
@@ -776,6 +780,56 @@ const [usersList, setUsersList] = useState<any[]>([]);
   }, [searchQuery, activeCategory, sortBy, gamesList]);
 
   
+  
+  useEffect(() => {
+    if (isGameDetailOpen && selectedGameId !== null) {
+       // Fetch reviews for game
+       fetch(`/api/public/reviews/${selectedGameId}`)
+          .then(res => res.json())
+          .then(data => setGameReviews(Array.isArray(data) ? data : []))
+          .catch(console.error);
+    }
+  }, [isGameDetailOpen, selectedGameId]);
+
+  const submitReview = async () => {
+    // Client side check if bought
+    const hasBought = orders.some(o => o.gameId === selectedGameId && o.status === "Approved");
+    if (!hasBought) {
+       setToastMessage(language === "ar" ? "فشل - يجب عليك شراء المنتج أولاً لتقييمه" : "Failed - You must buy this product first to review it.");
+       return;
+    }
+     if (!newReviewComment.trim()) return;
+     setIsSubmittingReview(true);
+     try {
+        const token = await getAuthToken();
+        const res = await fetch("/api/reviews", {
+           method: "POST",
+           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+           body: JSON.stringify({ game_id: selectedGameId, rating: newReviewRating, comment: newReviewComment })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+           setToastMessage(language === "ar" ? "فشل - يجب عليك شراء المنتج أولاً لتقييمه" : "Failed - You must buy this product first to review it.");
+        } else {
+           setGameReviews(prev => [data, ...prev]);
+           setNewReviewComment("");
+           setNewReviewRating(5);
+           setToastMessage(language === "ar" ? "تم إضافة التقييم بنجاح!" : "Review added successfully!");
+           
+           // Mock reload reviews after a slight delay to get profile joined names
+           setTimeout(() => {
+              fetch(`/api/public/reviews/${selectedGameId}`)
+                 .then(r => r.json())
+                 .then(d => setGameReviews(Array.isArray(d) ? d : []));
+           }, 500);
+        }
+     } catch (e: any) {
+        setToastMessage("Error submitting review");
+     } finally {
+        setIsSubmittingReview(false);
+     }
+  };
+
   const handleOpenGameDetail = (id: number | string) => {
     setSelectedGameId(id);
     setIsGameDetailOpen(true);
@@ -2441,7 +2495,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                     <div 
                                       className="bg-black/40 border border-purple-500/20 rounded-lg p-2 flex gap-3 items-center cursor-pointer hover:bg-black/60 transition-colors"
                                       onClick={() => {
-                                         setSelectedGame(game);
+                                         setSelectedGameId(game.id);
                                          setIsGameDetailOpen(true);
                                          setActiveTab('store');
                                       }}
@@ -4184,40 +4238,86 @@ const [usersList, setUsersList] = useState<any[]>([]);
                  </div>
 
                  <div className="mt-6 border-t border-purple-900/30 pt-6">
-                    <h3 className="text-lg font-bold text-white mb-4 uppercase tracking-widest">{language === 'ar' ? 'التقييمات والتعليقات' : 'Reviews & Comments'}</h3>
-                    <div className="flex items-center gap-2 mb-6">
-                       <div className="flex text-yellow-400">
-                         {[1, 2, 3, 4, 5].map(star => (
-                           <svg key={star} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={star <= (game.rating || 4.5) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                         ))}
-                       </div>
-                       <span className="text-gray-400 text-sm font-bold">{game.rating || 4.5} / 5</span>
-                    </div>
-                    <div className="flex flex-col gap-4">
-                       <div className="bg-[#111] border border-gray-800 rounded-xl p-4">
-                          <div className="flex items-center gap-3 mb-2">
-                             <div className="w-8 h-8 rounded-full bg-purple-900/50 flex items-center justify-center text-xs font-bold text-purple-400">A</div>
-                             <div>
-                                <p className="text-sm font-bold text-gray-300">Ahmed M.</p>
-                                <p className="text-[10px] text-gray-500">2 days ago</p>
-                             </div>
-                          </div>
-                          <p className="text-sm text-gray-400 leading-relaxed">Instant delivery and code worked perfectly. Will definitively buy again.</p>
-                       </div>
-                       <div className="bg-[#111] border border-gray-800 rounded-xl p-4">
-                          <div className="flex items-center gap-3 mb-2">
-                             <div className="w-8 h-8 rounded-full bg-blue-900/50 flex items-center justify-center text-xs font-bold text-blue-400">Z</div>
-                             <div>
-                                <p className="text-sm font-bold text-gray-300">Zahra K.</p>
-                                <p className="text-[10px] text-gray-500">1 week ago</p>
-                             </div>
-                          </div>
-                          <p className="text-sm text-gray-400 leading-relaxed">Great customer support. Fast and reliable store!</p>
-                       </div>
-                    </div>
-                 </div>
+                    
+    <h3 className="text-lg font-bold text-white mb-4 uppercase tracking-widest">{language === "ar" ? "التقييمات والتعليقات" : "Reviews & Comments"}</h3>
+    
+    {isLoggedIn && (
+      <div className="bg-[#151515] border border-purple-500/30 rounded-xl p-4 mb-6 shadow-inner">
+         <h4 className="text-sm font-bold text-gray-300 mb-3">{language === "ar" ? "أضف تقييمك" : "Add Your Review"}</h4>
+         <div className="flex text-yellow-400 mb-3 cursor-pointer">
+            {[1, 2, 3, 4, 5].map(star => (
+               <svg key={star} onClick={() => setNewReviewRating(star)} className="hover:scale-110 transition-transform" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill={star <= newReviewRating ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            ))}
+         </div>
+         <textarea 
+            value={newReviewComment}
+            onChange={e => setNewReviewComment(e.target.value)}
+            placeholder={language === "ar" ? "شاركنا رأيك حول هذا المنتج..." : "Share your thoughts on this product..."}
+            className="w-full bg-[#0a0a0a] border border-gray-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500 min-h-[80px]"
+            dir="auto"
+         />
+         <button 
+            onClick={submitReview}
+            disabled={isSubmittingReview || !newReviewComment.trim()}
+            className="mt-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors w-full uppercase tracking-widest"
+         >
+            {isSubmittingReview ? "..." : (language === "ar" ? "نشر التقييم" : "Post Review")}
+         </button>
+      </div>
+    )}
 
-                 <div className="mt-auto pt-6 flex flex-col gap-3">
+    <div className="flex items-center gap-2 mb-6">
+       <div className="flex text-yellow-400">
+         {[1, 2, 3, 4, 5].map(star => {
+           let r = gameReviews.length > 0 ? (gameReviews.reduce((acc, curr) => acc + curr.rating, 0) / gameReviews.length) : (game.rating || 4.5);
+           return (
+             <svg key={star} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={star <= r ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+           );
+         })}
+       </div>
+       <span className="text-gray-400 text-sm font-bold">
+         {gameReviews.length > 0 ? (gameReviews.reduce((acc, curr) => acc + curr.rating, 0) / gameReviews.length).toFixed(1) : (game.rating || 4.5)} / 5
+         <span className="text-[10px] ml-2 text-gray-500">({gameReviews.length} {language === "ar" ? "مراجعات" : "Reviews"})</span>
+       </span>
+    </div>
+    
+    <div className="flex flex-col gap-4 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-purple-900/50 pr-2">
+       {gameReviews.length === 0 ? (
+          <p className="text-gray-500 text-sm italic">{language === "ar" ? "لا توجد تقييمات لهذا المنتج حتى الآن." : "No reviews for this product yet. Be the first to review!"}</p>
+       ) : (
+          gameReviews.map((review, idx) => (
+             <div key={review.id || idx} className="bg-[#111] border border-gray-800 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                   <div className="flex items-center gap-3">
+                      {review.profiles?.avatar_url ? (
+                         <img src={review.profiles.avatar_url} className="w-8 h-8 rounded-full border border-purple-500/30 object-cover" />
+                      ) : (
+                         <div className="w-8 h-8 rounded-full bg-purple-900/50 flex items-center justify-center text-xs font-bold text-purple-400">
+                            {(review.profiles?.display_name || "U")[0].toUpperCase()}
+                         </div>
+                      )}
+                      <div>
+                         <p className="text-sm font-bold text-gray-300">{review.profiles?.display_name || "Verified User"}</p>
+                         <p className="text-[10px] text-gray-500 flex items-center gap-1">
+                            {new Date(review.created_at).toLocaleDateString()}
+                            <svg className="w-3 h-3 text-green-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                         </p>
+                      </div>
+                   </div>
+                   <div className="flex text-yellow-400">
+                     {[1, 2, 3, 4, 5].map(star => (
+                       <svg key={star} xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill={star <= review.rating ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                     ))}
+                   </div>
+                </div>
+                <p className="text-sm text-gray-400 leading-relaxed mt-2" dir="auto">{review.comment}</p>
+             </div>
+          ))
+       )}
+    </div>
+  </div>
+
+  <div className="mt-auto pt-6 flex flex-col gap-3">
                    <button 
                       disabled={!game.stock || game.stock === 0}
                       onClick={() => { addToCart(game.id); setIsGameDetailOpen(false); }}
@@ -4521,7 +4621,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                               <div 
                                 className="bg-black/30 border border-white/20 rounded-lg p-2 flex gap-2 items-center cursor-pointer hover:bg-black/50 transition-colors"
                                 onClick={() => {
-                                   setSelectedGame(game);
+                                   setSelectedGameId(game.id);
                                    setIsGameDetailOpen(true);
                                    setIsChatOpen(false);
                                 }}
