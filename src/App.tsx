@@ -2337,7 +2337,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                              )}
                            </span>
                            <div className={`p-4 rounded-xl text-sm shadow-lg ${
-                             isAdmin 
+                             isAdminType 
                                ? 'bg-purple-600 text-white rounded-tr-sm' 
                                : 'bg-black border border-gray-800 text-gray-300 rounded-tl-sm'
                            }`}>

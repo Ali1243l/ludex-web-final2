@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
     sender_id UUID,
     content TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    read_by UUID[] DEFAULT '{}' -- Or you can use JSONB by replacing UUID[] DEFAULT '{}' with JSONB DEFAULT '[]'
+    read_by UUID[] DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS public.promotions (
@@ -31,3 +31,6 @@ CREATE TABLE IF NOT EXISTS public.settings (
     value TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Refresh the PostgREST schema cache to immediately recognize the new tables!
+NOTIFY pgrst, 'reload schema';
