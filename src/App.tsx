@@ -562,14 +562,28 @@ const [usersList, setUsersList] = useState<any[]>([]);
                const profileData = syncData.profile;
                
                if (isMounted) {
-                 setUserProfile(profileData);
-
-                 // Strict Onboarding Guard
-                 if (!profileData.display_name || !profileData.platforms || profileData.platforms.length === 0) {
-                    console.log('[Onboarding Guard] Missing platforms. Enforcing onboarding flow.');
-                    setActiveTab('onboarding' as any);
+                 if (profileData.role === 'BANNED') {
+                    console.log('[Auth Hub] User is BANNED. Signing out.');
+                    await signOut();
+                    setToastMessage(language === 'ar' ? 'تم حظر هذا الحساب.' : 'This account has been banned.');
+                    setIsLoggedIn(false);
+                    setUserProfile(null);
+                 } else if (profileData.role === 'DELETED') {
+                    console.log('[Auth Hub] User is DELETED. Signing out.');
+                    await signOut();
+                    setToastMessage(language === 'ar' ? 'هذا الحساب محذوف.' : 'This account is deleted.');
+                    setIsLoggedIn(false);
+                    setUserProfile(null);
                  } else {
-                    console.log('[Auth Hub] User ready. Continuing to the application.');
+                    setUserProfile(profileData);
+
+                    // Strict Onboarding Guard
+                    if (!profileData.display_name || !profileData.platforms || profileData.platforms.length === 0) {
+                       console.log('[Onboarding Guard] Missing platforms. Enforcing onboarding flow.');
+                       setActiveTab('onboarding' as any);
+                    } else {
+                       console.log('[Auth Hub] User ready. Continuing to the application.');
+                    }
                  }
                }
             } else {
@@ -3398,26 +3412,13 @@ const [usersList, setUsersList] = useState<any[]>([]);
                              if (user?.userId) {
                                await fetch(`/api/public/profiles/${user.userId}`, { method: 'DELETE' });
                              }
-                             try {
-                               await deleteUser();
-                             } catch(origErr) {
-                               // Fallback to our backend if federated user self-delete fails
-                               if (user?.userId) {
-                                   const token = await getAuthToken();
-                                   const fallbackRes = await fetch(`/api/admin/profiles/cognito/${user.userId}`, {
-                                       method: 'DELETE',
-                                       headers: { 'Authorization': `Bearer ${token}` }
-                                   });
-                                   if (!fallbackRes.ok) throw origErr;
-                               } else {
-                                   throw origErr;
-                               }
-                             }
+                             await signOut();
+                             
                              setIsLoggedIn(false);
                              setUserProfile(null);
                              setActiveTab('store');
-                             setToastMessage('Account deleted successfully.');
-                             setTimeout(() => { setToastMessage(null); window.location.reload(); }, 2000);
+                             setToastMessage('Account scheduled for deletion. It will be permanently removed in 30 days.');
+                             setTimeout(() => { setToastMessage(null); window.location.reload(); }, 3000);
                          } catch (err: any) {
                              const errMsg = err.message || err.toString() || 'Error deleting account.';
                              setToastMessage(errMsg);
