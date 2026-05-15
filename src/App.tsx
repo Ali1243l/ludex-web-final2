@@ -680,8 +680,16 @@ const [usersList, setUsersList] = useState<any[]>([]);
                  if (msgRes.ok) {
                     const newHistory = await msgRes.json();
                     setChatHistory(prev => {
-                       const serverHistoryContents = newHistory.map((m: any) => m.content);
-                       const optimistic = prev.filter(m => m.isOptimistic && !serverHistoryContents.includes(m.content));
+                       const serverHistoryContents = [...newHistory.map((m: any) => m.content)];
+                       const optimistic = prev.filter(m => {
+                          if (!m.isOptimistic) return false;
+                          const idx = serverHistoryContents.indexOf(m.content);
+                          if (idx !== -1) {
+                             serverHistoryContents.splice(idx, 1);
+                             return false;
+                          }
+                          return true;
+                       });
                        return [...newHistory, ...optimistic];
                     });
                  }
@@ -710,8 +718,16 @@ const [usersList, setUsersList] = useState<any[]>([]);
                  if (msgRes.ok) {
                     const newHistory = await msgRes.json();
                     setChatHistory(prev => {
-                       const serverHistoryContents = newHistory.map((m: any) => m.content);
-                       const optimistic = prev.filter(m => m.isOptimistic && !serverHistoryContents.includes(m.content));
+                       const serverHistoryContents = [...newHistory.map((m: any) => m.content)];
+                       const optimistic = prev.filter(m => {
+                          if (!m.isOptimistic) return false;
+                          const idx = serverHistoryContents.indexOf(m.content);
+                          if (idx !== -1) {
+                             serverHistoryContents.splice(idx, 1);
+                             return false;
+                          }
+                          return true;
+                       });
                        return [...newHistory, ...optimistic];
                     });
                  }
@@ -2406,8 +2422,19 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                    if (found) gameId = found.id;
                                 }
                                 
-                                const game = gamesList.find(g => g.id === gameId);
-                                if (!game) return "Product Inquiry" + (gameName ? `: ${gameName}` : "");
+                                const game = gamesList.find(g => String(g.id) === String(gameId));
+                                if (!game) return (
+  <div className="flex flex-col gap-3 min-w-[200px]">
+    <p className="text-xs font-bold opacity-80 text-purple-300">Product Inquiry</p>
+    <div className="bg-black/40 border border-red-500/20 rounded-lg p-2 flex gap-3 items-center">
+      <div className="w-12 h-12 flex items-center justify-center bg-red-900/20 rounded border border-red-500/30 text-red-400">?</div>
+      <div className="flex-1 min-w-0">
+         <p className="font-bold text-gray-400 text-[13px] truncate">Product Not Found</p>
+         <p className="text-red-400 text-[10px] font-black">ID: {gameId}</p>
+      </div>
+    </div>
+  </div>
+);
                                 return (
                                   <div className="flex flex-col gap-3 min-w-[200px]">
                                     <p className="text-xs font-bold opacity-80 text-purple-300">Product Inquiry</p>
@@ -4476,8 +4503,18 @@ const [usersList, setUsersList] = useState<any[]>([]);
                             if (found) gameId = found.id;
                          }
                          
-                         const game = gamesList.find(g => g.id === gameId);
-                         if (!game) return (language === 'ar' ? "استفسار عن منتح" : "Product Inquiry") + (gameName ? `: ${gameName}` : "");
+                         const game = gamesList.find(g => String(g.id) === String(gameId));
+                         if (!game) return (
+  <div className="flex flex-col gap-2 min-w-[180px]">
+     <p className="opacity-80 text-[10px] font-bold text-white/70 uppercase tracking-widest">{language === "ar" ? "استفسار عن منتج" : "Product Inquiry"}</p>
+     <div className="bg-black/30 border border-red-500/20 rounded-lg p-2 flex gap-2 items-center">
+        <div className="w-10 h-10 flex items-center justify-center bg-red-900/20 rounded border border-red-500/30 text-red-500 text-xs">?</div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-gray-500 truncate text-xs">Product Unavailable</p>
+        </div>
+     </div>
+  </div>
+);
                          return (
                            <div className="flex flex-col gap-2 min-w-[180px]">
                               <p className="opacity-80 text-[10px] font-bold text-white/70 uppercase tracking-widest">{language === 'ar' ? 'استفسار عن منتج' : 'Product Inquiry'}</p>
