@@ -487,9 +487,9 @@ const fallbackChatSessions: any[] = [];
 const fallbackChatMessages: any[] = [];
 let fallbackChatEnabled = false;
 
-app.post('/api/profiles/avatar', authMiddleware, upload.single('avatar'), async (req, res) => {
+app.post('/api/profiles/avatar', requireAuth, upload.single('avatar'), async (req: any, res: any) => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.id || req.user?.sub || req.user?.username || req.user?.userId;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     let avatarUrl = null;
