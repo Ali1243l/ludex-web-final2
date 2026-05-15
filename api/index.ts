@@ -539,20 +539,8 @@ app.get('/api/profiles/:id', async (req, res) => {
     
     if (!profile) return res.status(404).json({ error: 'Profile not found' });
     
-    // Fetch orders count for the user
-    let totalOrders = 0;
-    let approvedOrders = 0;
-    const { data: orders, error: oError } = await getSupabaseClient('orders')
-      .from('orders')
-      .select('status')
-      .eq('user_id', id);
-      
-    if (!oError && orders) {
-      totalOrders = orders.length;
-      approvedOrders = orders.filter(o => o.status === 'Approved').length;
-    }
-    
-    res.json({ ...profile, stats: { totalOrders, approvedOrders } });
+    // Stats are mocked for now to prevent slow queries on non-existent tables
+    res.json({ ...profile, stats: { totalOrders: 0, approvedOrders: 0 } });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -588,10 +576,22 @@ app.get('/api/chat/sessions', async (req, res) => {
       profiles = data || [];
     }
 
-    const enrichedSessions = sessions.map((s: any) => ({
-       ...s,
-       profiles: profiles?.find((p: any) => p.id === s.user_id) || null
-    }));
+    // Fetch unread messages
+    let messages = fallbackChatEnabled ? fallbackChatMessages : [];
+    if (!fallbackChatEnabled) {
+       const { data } = await getSupabaseClient('chat_messages').from('chat_messages').select('session_id, sender_id, read_by');
+       if (data) messages = data;
+    }
+    
+    const enrichedSessions = sessions.map((s: any) => {
+       const sessionMsgs = messages.filter((m: any) => m.session_id === s.id);
+       const admin_unread = sessionMsgs.filter((m: any) => m.sender_id === s.user_id && (!m.read_by || m.read_by.length === 0)).length;
+       return {
+         ...s,
+         admin_unread,
+         profiles: profiles?.find((p: any) => p.id === s.user_id) || null
+       };
+    });
 
     res.json(enrichedSessions);
   } catch (e: any) {
@@ -759,16 +759,18 @@ app.post('/api/chat/read', async (req, res) => {
      if (error || !data) return res.json({ success: true });
      messages = data;
 
-     for (const msg of messages) {
-        let readBy = msg.read_by || [];
-        if (msg.sender_id !== user_id && !readBy.includes(user_id)) {
-           readBy.push(user_id);
-           await getSupabaseClient('chat_messages')
+     const updatePromises = messages.filter(msg => msg.sender_id !== user_id && !(msg.read_by || []).includes(user_id)).map(msg => {
+         let readBy = msg.read_by || [];
+         readBy.push(user_id);
+         return getSupabaseClient('chat_messages')
              .from('chat_messages')
              .update({ read_by: readBy })
              .eq('id', msg.id);
-        }
-     }
+     });
+     
+     // Don't await the updates, just execute them in the background
+     Promise.all(updatePromises).catch(console.error);
+
      res.json({ success: true });
   } catch (e: any) {
      res.status(500).json({ error: e.message });

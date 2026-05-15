@@ -28,6 +28,7 @@ const GAMES_DATA = [
 
 interface Order {
   id: string;
+  userId?: string;
   gameId: number;
   status: 'Pending' | 'Approved';
   receiptUploaded: boolean;
@@ -394,6 +395,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
   const [loyaltyThreshold, setLoyaltyThreshold] = useState(3);
   const [loyaltyDiscountPercent, setLoyaltyDiscountPercent] = useState(10);
   const [invoiceToView, setInvoiceToView] = useState<Order | null>(null);
+  const [xpToast, setXpToast] = useState<{ amount: number, show: boolean }>({ amount: 0, show: false });
 
   // New Game Form State
   const [newGameForm, setNewGameForm] = useState({
@@ -689,8 +691,11 @@ const [usersList, setUsersList] = useState<any[]>([]);
   // Chat Polling
   useEffect(() => {
      let pollInterval: NodeJS.Timeout;
+     let isFetching = false;
 
      const fetchChatData = async () => {
+        if (isFetching) return;
+        isFetching = true;
         try {
            if (adminTab === 'support' && userProfile?.role === 'ADMIN') {
               const token = await getAuthToken();
@@ -762,12 +767,14 @@ const [usersList, setUsersList] = useState<any[]>([]);
            }
         } catch (e) {
            console.error("Chat polling error", e);
+        } finally {
+           isFetching = false;
         }
      };
 
      if ((adminTab === 'support' && userProfile?.role === 'ADMIN') || (isChatOpen && userProfile?.id)) {
         fetchChatData();
-        pollInterval = setInterval(fetchChatData, 3000);
+        pollInterval = setInterval(fetchChatData, 5000);
      }
 
      return () => {
@@ -980,6 +987,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
       const { finalPrice, discountApplied } = calculateFinalPrice(gamePrice);
       return {
         id: Math.random().toString(36).substr(2, 9).toUpperCase(),
+        userId: userProfile?.id,
         gameId,
         status: 'Pending' as const,
         receiptUploaded: receiptFile !== null,
@@ -999,6 +1007,8 @@ const [usersList, setUsersList] = useState<any[]>([]);
     setReceiptFile(null);
     setIsCheckoutModalOpen(false);
     setActiveTab('orders');
+    setToastMessage(language === 'ar' ? 'تم تقديم الطلب بنجاح! يرجى الانتظار للموافقة' : 'Order submitted successfully! Awaiting admin approval.');
+    setTimeout(() => setToastMessage(null), 5000);
 
     // Telegram Notification API logic
     try {
@@ -1026,7 +1036,9 @@ const [usersList, setUsersList] = useState<any[]>([]);
     }
   };
 
-  const approveOrder = (orderId: string) => {
+  const approveOrder = async (orderId: string) => {
+    const orderToApprove = orders.find(o => o.id === orderId);
+    
     setOrders(prev => prev.map(o => 
       o.id === orderId ? { 
         ...o, 
@@ -1035,6 +1047,33 @@ const [usersList, setUsersList] = useState<any[]>([]);
         invoiceNumber: 'INV-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000)
       } : o
     ));
+
+    if (orderToApprove && orderToApprove.userId) {
+       try {
+          const token = await getAuthToken();
+          const res = await fetch(`/api/profiles/${orderToApprove.userId}`);
+          if (res.ok) {
+             const profile = await res.json();
+             const earnedXP = Math.floor(orderToApprove.amount * globalSettings.xpMultiplier);
+             const newXP = (profile.xp_points || 0) + earnedXP;
+             
+             await fetch(`/api/admin/profiles/${orderToApprove.userId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ xp_points: newXP })
+             });
+             
+             setXpToast({ amount: earnedXP, show: true });
+             setTimeout(() => setXpToast({ amount: 0, show: false }), 5000);
+             
+             if (userProfile && userProfile.id === orderToApprove.userId) {
+                setUserProfile(prev => ({ ...prev, xp_points: newXP }));
+             }
+          }
+       } catch (e) {
+          console.error("XP assignment error", e);
+       }
+    }
   };
 
   const handleViewProfile = async (userId: string) => {
@@ -2447,7 +2486,10 @@ const [usersList, setUsersList] = useState<any[]>([]);
                             <div className="flex-1 min-w-0">
                                <div className="flex justify-between items-start">
                                   <p className="font-bold text-sm text-white truncate group-hover:text-purple-400">{session.profiles?.display_name || session.profiles?.email}</p>
-                                  {session.profiles?.role === 'ADMIN' && <span className="text-[9px] px-1.5 py-0.5 bg-red-900/40 text-red-400 rounded outline outline-1 outline-red-900 overflow-hidden shrink-0">ADMIN</span>}
+                                  <div className="flex items-center gap-2">
+                                     {session.admin_unread > 0 && <span className="bg-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">{session.admin_unread} new</span>}
+                                     {session.profiles?.role === 'ADMIN' && <span className="text-[9px] px-1.5 py-0.5 bg-red-900/40 text-red-400 rounded outline outline-1 outline-red-900 overflow-hidden shrink-0">ADMIN</span>}
+                                  </div>
                                </div>
                                <p className="text-xs text-gray-500 truncate mt-1">ID: {session.user_id?.substring(0,8)}...</p>
                                <p className="text-[10px] text-gray-600 mt-1">{new Date(session.last_message_at).toLocaleString()}</p>
@@ -4429,6 +4471,16 @@ const [usersList, setUsersList] = useState<any[]>([]);
         <div className="fixed top-24 left-1/2 -translate-x-1/2 md:translate-x-0 md:top-auto md:left-auto md:bottom-10 md:right-10 z-[300] bg-[#111] border border-purple-500 backdrop-blur w-[90%] md:w-auto md:min-w-[300px] text-white px-6 py-4 rounded-xl shadow-[0_0_25px_rgba(168,85,247,0.4)] font-bold flex items-center gap-3 animate-in fade-in duration-300 pointer-events-none">
           <CheckCircle2 className="w-5 h-5 text-purple-400" />
           {toastMessage}
+        </div>
+      )}
+
+      {xpToast.show && (
+        <div className="fixed top-36 left-1/2 -translate-x-1/2 md:translate-x-0 md:top-auto md:left-auto md:bottom-28 md:right-10 z-[300] bg-gradient-to-r from-purple-900 to-indigo-900 border border-purple-400 backdrop-blur md:min-w-[280px] text-white px-8 py-5 rounded-xl shadow-[0_0_35px_rgba(168,85,247,0.6)] font-black flex items-center gap-4 animate-in slide-in-from-bottom-8 zoom-in-95 duration-500 pointer-events-none uppercase tracking-widest">
+          <Zap className="w-6 h-6 text-yellow-400 fill-yellow-400 animate-pulse" />
+          <div className="flex flex-col">
+            <span className="text-[10px] text-purple-300">Level Up Your Loyalty</span>
+            <span className="text-xl">+{xpToast.amount} XP Earned!</span>
+          </div>
         </div>
       )}
 
