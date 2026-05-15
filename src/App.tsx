@@ -2319,14 +2319,21 @@ const [usersList, setUsersList] = useState<any[]>([]);
                          <div 
                            key={session.id} 
                            onClick={() => setActiveChatSessionId(session.id)}
-                           className={`p-4 border-b border-gray-800/50 cursor-pointer transition-colors ${activeChatSessionId === session.id ? 'bg-purple-900/20 border-l-4 border-l-purple-500' : 'hover:bg-white/5 border-l-4 border-l-transparent'}`}
+                           className={`p-4 border-b border-gray-800/50 cursor-pointer transition-colors flex gap-4 ${activeChatSessionId === session.id ? 'bg-purple-900/20 border-l-4 border-l-purple-500' : 'hover:bg-white/5 border-l-4 border-l-transparent'}`}
                          >
-                            <div className="flex justify-between items-start">
-                               <div>
-                                  <p className="font-bold text-sm text-white">{session.profiles?.display_name || session.profiles?.email}</p>
-                                  <p className="text-xs text-gray-500 truncate mt-1">Last message: {new Date(session.last_message_at).toLocaleString()}</p>
+                            <img 
+                               src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${session.profiles?.display_name || session.profiles?.email}&backgroundColor=4c1d95`} 
+                               onClick={(e) => { e.stopPropagation(); session.user_id && handleViewProfile(session.user_id); }}
+                               className="w-12 h-12 rounded-full border border-purple-500/30 shadow-[0_0_10px_rgba(147,51,234,0.1)] object-cover bg-black cursor-pointer hover:border-purple-400 hover:scale-105 transition-all shrink-0"
+                               title="View Profile"
+                            />
+                            <div className="flex-1 min-w-0">
+                               <div className="flex justify-between items-start">
+                                  <p className="font-bold text-sm text-white truncate group-hover:text-purple-400">{session.profiles?.display_name || session.profiles?.email}</p>
+                                  {session.profiles?.role === 'ADMIN' && <span className="text-[9px] px-1.5 py-0.5 bg-red-900/40 text-red-400 rounded outline outline-1 outline-red-900 overflow-hidden shrink-0">ADMIN</span>}
                                </div>
-                               {/* Add unread badge if needed in future */}
+                               <p className="text-xs text-gray-500 truncate mt-1">ID: {session.user_id?.substring(0,8)}...</p>
+                               <p className="text-[10px] text-gray-600 mt-1">{new Date(session.last_message_at).toLocaleString()}</p>
                             </div>
                          </div>
                       ))}
@@ -2355,7 +2362,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                          <div key={msg.id} className={`flex flex-col max-w-[80%] ${isAdminType ? 'self-end items-end' : 'self-start items-start'}`}>
                            <span className="text-[10px] text-gray-500 mb-2 flex items-center gap-2">
                              {isMyMsg ? 'You' : <button type="button" onClick={() => msg.sender_id && handleViewProfile(msg.sender_id)} className="hover:text-purple-400 hover:underline transition-all font-bold">{msg.sender?.display_name || (isAdminType ? 'Admin' : 'User')}</button>}
-                             {msg.content?.startsWith('[Product Inquiry:') && (
+                             {msg.content?.startsWith('[Product Inquiry') && (
                                 <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded text-[9px] uppercase tracking-wider font-bold shadow-[0_0_10px_rgba(147,51,234,0.1)]">
                                   Product Inquiry
                                 </span>
@@ -2366,7 +2373,41 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                ? 'bg-purple-600 text-white rounded-tr-sm' 
                                : 'bg-black border border-gray-800 text-gray-300 rounded-tl-sm'
                            }`}>
-                             {msg.content?.startsWith('[Product Inquiry:') ? msg.content.replace(/\[Product Inquiry: (.*?)\]/, 'I would like to inquire about: $1') : msg.content}
+                             {(msg.content?.startsWith('[Product Inquiry ID:') || msg.content?.startsWith('[Product Inquiry:')) ? (() => {
+                                let gameId = null;
+                                let gameName = "";
+                                if (msg.content.startsWith('[Product Inquiry ID:')) {
+                                   const gameIdMatch = msg.content.match(/\[Product Inquiry ID: (.*?)\]/);
+                                   gameId = gameIdMatch ? gameIdMatch[1] : null;
+                                } else {
+                                   const nameMatch = msg.content.match(/\[Product Inquiry: (.*?)\]/);
+                                   gameName = nameMatch ? nameMatch[1] : "";
+                                   const found = gamesList.find(g => g.title === gameName);
+                                   if (found) gameId = found.id;
+                                }
+                                
+                                const game = gamesList.find(g => g.id === gameId);
+                                if (!game) return "Product Inquiry" + (gameName ? `: ${gameName}` : "");
+                                return (
+                                  <div className="flex flex-col gap-3">
+                                    <p className="text-xs font-bold opacity-80">I would like to inquire about:</p>
+                                    <div 
+                                      className="bg-black/50 border border-purple-500/30 rounded-lg p-2 flex gap-3 items-center cursor-pointer hover:bg-black transition-colors"
+                                      onClick={() => {
+                                         setSelectedGame(game);
+                                         setIsGameDetailOpen(true);
+                                         setActiveTab('store');
+                                      }}
+                                    >
+                                      <img src={game.cover_url} className="w-12 h-12 object-cover rounded shadow" />
+                                      <div className="flex-1 min-w-0">
+                                         <p className="font-bold text-white text-sm truncate">{game.title}</p>
+                                         <p className="text-purple-300 text-xs font-black">{displayPrice(game.price_usd)}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                             })() : msg.content}
                            </div>
                            <div className="text-[9px] text-gray-600 mt-1">
                              {new Date(msg.created_at || new Date()).toLocaleTimeString()}
@@ -4132,7 +4173,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                             }
                          }
                          if (!currentSessionId) return;
-                         const content = `[Product Inquiry: ${game.title}]`;
+                         const content = `[Product Inquiry ID: ${game.id}]`;
                          const optId = 'opt-' + Math.random().toString();
                          setChatHistory(prev => [...prev, { id: optId, sender_id: userProfile.id, content, created_at: new Date().toISOString(), isOptimistic: true, gameId: game.id }]);
                          
@@ -4373,7 +4414,41 @@ const [usersList, setUsersList] = useState<any[]>([]);
                         ? 'bg-purple-600 rounded-br-sm' 
                         : 'bg-gray-800 rounded-bl-sm'
                     }`}>
-                      {msg.content?.startsWith('[Product Inquiry:') ? msg.content.replace(/\[Product Inquiry: (.*?)\]/, language === 'ar' ? 'استفسار عن المنتج: $1' : 'I would like to inquire about: $1') : msg.content}
+                      {(msg.content?.startsWith('[Product Inquiry ID:') || msg.content?.startsWith('[Product Inquiry:')) ? (() => {
+                         let gameId = null;
+                         let gameName = "";
+                         if (msg.content.startsWith('[Product Inquiry ID:')) {
+                            const gameIdMatch = msg.content.match(/\[Product Inquiry ID: (.*?)\]/);
+                            gameId = gameIdMatch ? gameIdMatch[1] : null;
+                         } else {
+                            const nameMatch = msg.content.match(/\[Product Inquiry: (.*?)\]/);
+                            gameName = nameMatch ? nameMatch[1] : "";
+                            const found = gamesList.find(g => g.title === gameName);
+                            if (found) gameId = found.id;
+                         }
+                         
+                         const game = gamesList.find(g => g.id === gameId);
+                         if (!game) return (language === 'ar' ? "استفسار عن منتح" : "Product Inquiry") + (gameName ? `: ${gameName}` : "");
+                         return (
+                           <div className="flex flex-col gap-2">
+                              <p className="opacity-80">{language === 'ar' ? 'أود الاستفسار عن:' : 'I would like to inquire about:'}</p>
+                              <div 
+                                className="bg-black/50 border border-white/10 rounded-lg p-2 flex gap-2 items-center cursor-pointer hover:bg-black transition-colors"
+                                onClick={() => {
+                                   setSelectedGame(game);
+                                   setIsGameDetailOpen(true);
+                                   setIsChatOpen(false);
+                                }}
+                              >
+                                 <img src={game.cover_url} className="w-10 h-10 object-cover rounded shadow" />
+                                 <div className="flex-1 min-w-0">
+                                   <p className="font-bold text-white truncate text-xs">{game.title}</p>
+                                   <p className="text-purple-300 font-bold text-[10px]">{displayPrice(game.price_usd)}</p>
+                                 </div>
+                              </div>
+                           </div>
+                         );
+                      })() : msg.content}
                     </div>
                     {(() => {
                        if (!isMe) return null;
