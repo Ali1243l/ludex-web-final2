@@ -654,7 +654,14 @@ const [usersList, setUsersList] = useState<any[]>([]);
 
               if (activeChatSessionId) {
                  let msgRes = await fetch(`/api/chat/messages/${activeChatSessionId}`, { headers: { 'Authorization': `Bearer ${token}` } });
-                 if (msgRes.ok) setChatHistory(await msgRes.json());
+                 if (msgRes.ok) {
+                    const newHistory = await msgRes.json();
+                    setChatHistory(prev => {
+                       const savedIds = newHistory.map((m: any) => m.id);
+                       const optimistic = prev.filter(m => m.isOptimistic && !savedIds.includes(m.id));
+                       return [...newHistory, ...optimistic];
+                    });
+                 }
                  fetch('/api/chat/read', { 
                     method: 'POST', 
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -677,7 +684,14 @@ const [usersList, setUsersList] = useState<any[]>([]);
 
               if (userChatSessionId) {
                  let msgRes = await fetch(`/api/chat/messages/${userChatSessionId}`, { headers: { 'Authorization': `Bearer ${token}` } });
-                 if (msgRes.ok) setChatHistory(await msgRes.json());
+                 if (msgRes.ok) {
+                    const newHistory = await msgRes.json();
+                    setChatHistory(prev => {
+                       const savedIds = newHistory.map((m: any) => m.id);
+                       const optimistic = prev.filter(m => m.isOptimistic && !savedIds.includes(m.id));
+                       return [...newHistory, ...optimistic];
+                    });
+                 }
                  fetch('/api/chat/read', { 
                     method: 'POST', 
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -928,7 +942,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
          body: JSON.stringify({ session_id: userChatSessionId, sender_id: userProfile.id, content: chatMessage })
       });
       // Optimistic update
-      setChatHistory(prev => [...prev, { id: Math.random().toString(), sender_id: userProfile.id, content: chatMessage, created_at: new Date().toISOString() }]);
+      setChatHistory(prev => [...prev, { id: 'opt-' + Math.random().toString(), sender_id: userProfile.id, content: chatMessage, created_at: new Date().toISOString(), isOptimistic: true }]);
       setChatMessage('');
     } catch(err) { console.error(err); }
   };
@@ -944,7 +958,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
          body: JSON.stringify({ session_id: activeChatSessionId, sender_id: userProfile.id, content: adminChatMessage })
       });
-      setChatHistory(prev => [...prev, { id: Math.random().toString(), sender_id: userProfile.id, content: adminChatMessage, created_at: new Date().toISOString() }]);
+      setChatHistory(prev => [...prev, { id: 'opt-' + Math.random().toString(), sender_id: userProfile.id, content: adminChatMessage, created_at: new Date().toISOString(), isOptimistic: true }]);
       setAdminChatMessage('');
     } catch(err) { console.error(err); }
   };
@@ -2341,7 +2355,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                          <div key={msg.id} className={`flex flex-col max-w-[80%] ${isAdminType ? 'self-end items-end' : 'self-start items-start'}`}>
                            <span className="text-[10px] text-gray-500 mb-2 flex items-center gap-2">
                              {isMyMsg ? 'You' : <button type="button" onClick={() => msg.sender_id && handleViewProfile(msg.sender_id)} className="hover:text-purple-400 hover:underline transition-all font-bold">{msg.sender?.display_name || (isAdminType ? 'Admin' : 'User')}</button>}
-                             {msg.gameId && (
+                             {msg.content?.startsWith('[Product Inquiry:') && (
                                 <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded text-[9px] uppercase tracking-wider font-bold shadow-[0_0_10px_rgba(147,51,234,0.1)]">
                                   Product Inquiry
                                 </span>
@@ -2352,7 +2366,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                ? 'bg-purple-600 text-white rounded-tr-sm' 
                                : 'bg-black border border-gray-800 text-gray-300 rounded-tl-sm'
                            }`}>
-                             {msg.content}
+                             {msg.content?.startsWith('[Product Inquiry:') ? msg.content.replace(/\[Product Inquiry: (.*?)\]/, 'I would like to inquire about: $1') : msg.content}
                            </div>
                            <div className="text-[9px] text-gray-600 mt-1">
                              {new Date(msg.created_at || new Date()).toLocaleTimeString()}
@@ -4095,22 +4109,42 @@ const [usersList, setUsersList] = useState<any[]>([]);
                       {t[language].buy}
                    </button>
                    <button
-                      onClick={() => {
-                         setIsChatOpen(true);
-                         const newMessage: ChatMessage = {
-                            id: Math.random().toString(),
-                            sender: 'user',
-                            receiver: 'admin',
-                            content: `I would like to inquire about: ${game.title}`,
-                            timestamp: new Date().toISOString(),
-                            gameId: game.id
-                         };
-                         setChatHistory(prev => [...prev, newMessage]);
+                      onClick={async () => {
                          setIsGameDetailOpen(false);
+                         if (!isLoggedIn || !userProfile?.id) {
+                            setToastMessage(language === 'ar' ? 'يرجى تسجيل الدخول أولاً' : 'Please login first');
+                            setShowAuthModal('login');
+                            return;
+                         }
+                         setIsChatOpen(true);
+                         let currentSessionId = userChatSessionId;
+                         const token = await getAuthToken();
+                         if (!currentSessionId) {
+                            const sRes = await fetch('/api/chat/sessions', {
+                               method: 'POST',
+                               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                               body: JSON.stringify({ user_id: userProfile.id })
+                            });
+                            if (sRes.ok) {
+                               const session = await sRes.json();
+                               currentSessionId = session.id;
+                               setUserChatSessionId(session.id);
+                            }
+                         }
+                         if (!currentSessionId) return;
+                         const content = `[Product Inquiry: ${game.title}]`;
+                         const optId = 'opt-' + Math.random().toString();
+                         setChatHistory(prev => [...prev, { id: optId, sender_id: userProfile.id, content, created_at: new Date().toISOString(), isOptimistic: true, gameId: game.id }]);
+                         
+                         fetch('/api/chat/messages', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                            body: JSON.stringify({ session_id: currentSessionId, sender_id: userProfile.id, content })
+                         }).catch(console.error);
                       }}
                       className="w-full py-4 rounded-xl bg-transparent border border-gray-700 text-gray-300 font-bold uppercase tracking-wider hover:border-purple-500 hover:text-purple-400 transition-all flex items-center justify-center gap-2"
                    >
-                     <MessageSquare className="w-5 h-5" /> استفسر عن هذا المنتج
+                     <MessageSquare className="w-5 h-5" /> {language === 'ar' ? 'استفسر عن هذا المنتج' : 'Inquire about this product'}
                    </button>
                  </div>
               </div>
@@ -4339,7 +4373,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                         ? 'bg-purple-600 rounded-br-sm' 
                         : 'bg-gray-800 rounded-bl-sm'
                     }`}>
-                      {msg.content}
+                      {msg.content?.startsWith('[Product Inquiry:') ? msg.content.replace(/\[Product Inquiry: (.*?)\]/, language === 'ar' ? 'استفسار عن المنتج: $1' : 'I would like to inquire about: $1') : msg.content}
                     </div>
                     {(() => {
                        if (!isMe) return null;
@@ -4347,7 +4381,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                        if (adminReaders.length === 0) return null;
                        return (
                          <span className="text-[9px] text-gray-500 self-end mr-1 flex items-center gap-1">
-                            Seen by {adminReaders.map((p:any) => p.display_name).join(', ')}
+                            {language === 'ar' ? 'تمت المشاهدة' : 'Seen'}
                          </span>
                        );
                     })()}
