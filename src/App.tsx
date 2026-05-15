@@ -590,9 +590,32 @@ const [usersList, setUsersList] = useState<any[]>([]);
                }
             } else {
                console.error('[Supabase Sync] Backend failed to sync profile:', syncData);
+               if (isMounted) {
+                  setUserProfile({
+                     id: userId,
+                     email: userEmail,
+                     display_name: userDisplayName || userEmail?.split('@')[0] || 'User',
+                     role: userEmail === 'admin@pixel.com' || userEmail === 'rhydr4702@gmail.com' || userEmail === 'abutrabali40@gmail.com' ? 'ADMIN' : 'USER',
+                     platforms: ['PC'],
+                     interests: [],
+                     avatar_url: null
+                  });
+               }
             }
           } catch(e) { 
             console.error('[Supabase Sync] Execution error:', e); 
+            // Fallback profile if backend fails (e.g. on Vercel without serverless functions config)
+            if (isMounted) {
+               setUserProfile({
+                  id: userId,
+                  email: userEmail,
+                  display_name: userDisplayName || userEmail?.split('@')[0] || 'User',
+                  role: userEmail === 'admin@pixel.com' || userEmail === 'rhydr4702@gmail.com' || userEmail === 'abutrabali40@gmail.com' ? 'ADMIN' : 'USER',
+                  platforms: ['PC'],
+                  interests: [],
+                  avatar_url: null
+               });
+            }
           }
         } else {
            console.log('[Auth Hub] No active user session.');
