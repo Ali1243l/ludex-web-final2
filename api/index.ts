@@ -791,8 +791,18 @@ app.post('/api/loyalty/generate', requireAuth, async (req, res) => {
 
 
 // Reviews
-const fallbackReviews: any[] = [];
+let fallbackReviews: any[] = [];
 let fallbackReviewsEnabled = false;
+const REVIEWS_FILE = "./.local_reviews.json";
+try {
+  if (fs.existsSync(REVIEWS_FILE)) {
+     fallbackReviews = JSON.parse(fs.readFileSync(REVIEWS_FILE, "utf8"));
+  }
+} catch (e) { console.error("Failed to load local reviews", e); }
+
+const saveLocalReviews = () => {
+   try { fs.writeFileSync(REVIEWS_FILE, JSON.stringify(fallbackReviews)); } catch(e){}
+};
 
 app.get("/api/public/reviews/:game_id", async (req, res) => {
   try {
@@ -827,7 +837,7 @@ app.post("/api/reviews", requireAuth, async (req: any, res: any) => {
     const userId = req.user?.id || req.user?.sub || req.user?.username || req.user?.userId;
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
     
-    const { game_id, rating, comment } = req.body;
+    const { game_id, rating, comment, u_name, u_avatar } = req.body;
     
     // Check if user actually bought this game
     const { data: userOrders, error: ordersError } = await getSupabaseClient("orders")
@@ -853,16 +863,27 @@ app.post("/api/reviews", requireAuth, async (req: any, res: any) => {
     }
     // We will enforce it mostly on the frontend, but here we do best-effort validation since we dont want to crash if orders schema differs
 
-    const newReview = { id: Date.now().toString(), user_id: userId, game_id, rating: Number(rating), comment, created_at: new Date().toISOString() };
+    // Fetch user profile info to attach to fallback reviews
+    let profileData = { display_name: u_name || "Verified User", avatar_url: u_avatar || null };
+    if (fallbackReviewsEnabled) {
+       try {
+          const { data } = await getSupabaseClient("profiles").from("profiles").select("display_name, avatar_url").eq("id", userId).maybeSingle();
+          if (data) profileData = { display_name: data.display_name, avatar_url: data.avatar_url };
+       } catch (e) {}
+    }
+
+    const newReview = { id: Date.now().toString(), user_id: userId, game_id, rating: Number(rating), comment, created_at: new Date().toISOString(), profiles: profileData };
     
     if (fallbackReviewsEnabled) {
        fallbackReviews.push(newReview);
+       saveLocalReviews();
        return res.json(newReview);
     }
     
+    const { profiles, ...dbReview } = newReview;
     const { data, error } = await getSupabaseClient("reviews")
       .from("reviews")
-      .insert(newReview)
+      .insert(dbReview)
       .select()
       .single();
       
@@ -870,6 +891,7 @@ app.post("/api/reviews", requireAuth, async (req: any, res: any) => {
        if (error.code === "42P01" || error.message?.includes("schema cache") || error.message?.includes("Could not find the table")) {
           fallbackReviewsEnabled = true;
           fallbackReviews.push(newReview);
+          saveLocalReviews();
           return res.json(newReview);
        }
        throw error;

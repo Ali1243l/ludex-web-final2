@@ -82,7 +82,8 @@ const getAuthToken = async (): Promise<string | null> => {
 export default function App() {
   const [activeTab, setActiveTab] = useState<'store' | 'orders' | 'admin' | 'profile' | 'settings' | 'cart' | 'page' | 'user_dashboard'>('store');
   const [currentSlug, setCurrentSlug] = useState<string | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[]>(() => { try { const o = localStorage.getItem('pixel_orders'); return o ? JSON.parse(o) : []; } catch { return []; } });
+  useEffect(() => { localStorage.setItem('pixel_orders', JSON.stringify(orders)); }, [orders]);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>('Zain Cash');
@@ -822,7 +823,13 @@ const [usersList, setUsersList] = useState<any[]>([]);
         const res = await fetch("/api/reviews", {
            method: "POST",
            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-           body: JSON.stringify({ game_id: selectedGameId, rating: newReviewRating, comment: newReviewComment })
+           body: JSON.stringify({ 
+               game_id: selectedGameId, 
+               rating: newReviewRating, 
+               comment: newReviewComment,
+               u_name: userProfile?.display_name || "Verified User",
+               u_avatar: userProfile?.avatar_url || null
+           })
         });
         const data = await res.json();
         if (!res.ok) {
