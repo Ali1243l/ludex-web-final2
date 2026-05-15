@@ -513,7 +513,18 @@ const [usersList, setUsersList] = useState<any[]>([]);
         const user = await getCurrentUser();
         if (user) {
           console.log('[Auth Hub] Cognito session found. User:', user.userId);
-          const attributes = await fetchUserAttributes();
+          
+          let attributes: any = {};
+          try {
+             attributes = await fetchUserAttributes();
+          } catch (attrErr: any) {
+             console.error('[Auth Hub] Error fetching attributes:', attrErr);
+             // If we can't get attributes (e.g. scope missing), the session is invalid for our app.
+             // We MUST sign out to clear the zombie session!
+             await signOut();
+             throw new Error('Zombie session cleaned. User must re-authenticate properly.');
+          }
+
           if (isMounted) setIsLoggedIn(true);
 
           const userId = user.userId || attributes.sub;

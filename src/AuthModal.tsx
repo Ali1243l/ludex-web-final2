@@ -34,6 +34,17 @@ export function AuthModal({ initialMode, language, onClose, onSuccess }: AuthMod
     try {
       setLoading(true);
 
+      // Clean up any remaining zombie sessions before trying to authenticate
+      try {
+        const currentUser = await getCurrentUser();
+        if (currentUser) {
+           console.log('[Auth] Zombie session detected during modal submit. Signing out.');
+           await signOut();
+        }
+      } catch (e) {
+        // Safe to proceed, not logged in
+      }
+
       if (mode === 'login') {
         if (!email || !password) throw new Error(isRTL ? 'يرجى إكمال جميع الحقول' : 'Please fill all fields');
         if (!validateEmail(email)) throw new Error(isRTL ? 'البريد الإلكتروني غير صالح' : 'Invalid email format');
