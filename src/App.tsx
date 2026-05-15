@@ -420,8 +420,12 @@ const [usersList, setUsersList] = useState<any[]>([]);
               return [...GAMES_DATA.map(g => ({...g, active: true, views_count: Math.floor(Math.random() * 100), sales_count: Math.floor(Math.random() * 50), is_preorder: g.id % 5 === 0, release_date: g.id % 5 === 0 ? '2026-11-20' : null})), ...mappedDb];
            });
         }
+      } catch (e) {
+        console.error("Failed to fetch public products", e);
+      }
 
-        const resPromo = await fetch('/api/public/promotions');
+      try {
+        const resPromo = await fetch('/api/public/showcase');
         if (resPromo.ok) {
            const dbPromos = await resPromo.json();
            if (dbPromos && dbPromos.length > 0) {
@@ -436,7 +440,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
            }
         }
       } catch (e) {
-        console.error("Failed to fetch public data", e);
+        console.error("Failed to fetch showcase", e);
       } finally {
         setTimeout(() => setIsLoadingStore(false), 800);
       }
@@ -861,11 +865,26 @@ const [usersList, setUsersList] = useState<any[]>([]);
                         return;
                     }
                     try {
+                        let uId = userProfile?.id;
+                        if (!uId) {
+                          try {
+                            const currentUser = await getCurrentUser();
+                            const attributes = await fetchUserAttributes();
+                            uId = currentUser?.userId || attributes?.sub;
+                          } catch (e) {
+                            console.error('Error fetching current user:', e);
+                          }
+                        }
+                        if (!uId) {
+                          setToastMessage('Error updating profile: missing user ID.');
+                          return;
+                        }
+
                         const { data, error } = await supabase.from('profiles').update({
                            display_name: userProfile?.display_name,
                            platforms: userProfile?.platforms,
                            interests: userProfile?.interests || []
-                        }).eq('id', userProfile?.id).select().single();
+                        }).eq('id', uId).select().single();
                         
                         if (!error && data) {
                            setToastMessage(language === 'ar' ? 'تم الحفظ بنجاح!' : 'Profile updated!');
@@ -3222,8 +3241,22 @@ const [usersList, setUsersList] = useState<any[]>([]);
                 onSubmit={async (e) => { 
                   e.preventDefault(); 
                   try {
+                    let uId = userProfile?.id;
+                    if (!uId) {
+                      try {
+                        const currentUser = await getCurrentUser();
+                        const attributes = await fetchUserAttributes();
+                        uId = currentUser?.userId || attributes?.sub;
+                      } catch (e) {
+                        console.error('Error fetching current user:', e);
+                      }
+                    }
+                    if (!uId) {
+                      setToastMessage('Error saving settings: missing user ID.');
+                      return;
+                    }
                     const token = await getAuthToken();
-                    const res = await fetch(`/api/admin/profiles/${userProfile?.id}`, {
+                    const res = await fetch(`/api/admin/profiles/${uId}`, {
                        method: 'PUT',
                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                        body: JSON.stringify({ display_name: userProfile?.display_name, platforms: userProfile?.platforms, interests: userProfile?.interests })

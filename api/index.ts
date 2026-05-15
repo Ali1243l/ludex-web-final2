@@ -122,10 +122,15 @@ app.get('/api/public/products', async (req, res) => {
   }
 });
 
-app.get('/api/public/promotions', async (req, res) => {
+app.get('/api/public/showcase', async (req, res) => {
   try {
     const { data, error } = await supabase.from('promotions').select('*');
-    if (error) throw error;
+    if (error) {
+      if (error.message && error.message.includes('Could not find the table')) {
+        return res.json([]);
+      }
+      throw error;
+    }
     res.json(data);
   } catch(e: any) {
     res.status(500).json({ error: e.message });
