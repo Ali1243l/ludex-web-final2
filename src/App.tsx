@@ -680,8 +680,8 @@ const [usersList, setUsersList] = useState<any[]>([]);
                  if (msgRes.ok) {
                     const newHistory = await msgRes.json();
                     setChatHistory(prev => {
-                       const savedIds = newHistory.map((m: any) => m.id);
-                       const optimistic = prev.filter(m => m.isOptimistic && !savedIds.includes(m.id));
+                       const serverHistoryContents = newHistory.map((m: any) => m.content);
+                       const optimistic = prev.filter(m => m.isOptimistic && !serverHistoryContents.includes(m.content));
                        return [...newHistory, ...optimistic];
                     });
                  }
@@ -710,8 +710,8 @@ const [usersList, setUsersList] = useState<any[]>([]);
                  if (msgRes.ok) {
                     const newHistory = await msgRes.json();
                     setChatHistory(prev => {
-                       const savedIds = newHistory.map((m: any) => m.id);
-                       const optimistic = prev.filter(m => m.isOptimistic && !savedIds.includes(m.id));
+                       const serverHistoryContents = newHistory.map((m: any) => m.content);
+                       const optimistic = prev.filter(m => m.isOptimistic && !serverHistoryContents.includes(m.content));
                        return [...newHistory, ...optimistic];
                     });
                  }
@@ -2383,18 +2383,15 @@ const [usersList, setUsersList] = useState<any[]>([]);
                        const isAdminType = msg.sender?.role === 'ADMIN' || isMyMsg;
                        return (
                          <div key={msg.id} className={`flex flex-col max-w-[80%] ${isAdminType ? 'self-end items-end' : 'self-start items-start'}`}>
-                           <span className="text-[10px] text-gray-500 mb-2 flex items-center gap-2">
-                             {isMyMsg ? 'You' : <button type="button" onClick={() => msg.sender_id && handleViewProfile(msg.sender_id)} className="hover:text-purple-400 hover:underline transition-all font-bold">{msg.sender?.display_name || (isAdminType ? 'Admin' : 'User')}</button>}
-                             {msg.content?.startsWith('[Product Inquiry') && (
-                                <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded text-[9px] uppercase tracking-wider font-bold shadow-[0_0_10px_rgba(147,51,234,0.1)]">
-                                  Product Inquiry
-                                </span>
-                             )}
-                           </span>
+                           <div className="flex items-center gap-2 mb-2">
+                             <span className="text-[10px] text-gray-500 font-bold">
+                               {isMyMsg ? 'You' : <button type="button" onClick={() => msg.sender_id && handleViewProfile(msg.sender_id)} className="hover:text-purple-400 hover:underline transition-all">{msg.sender?.display_name || (isAdminType ? 'Admin' : 'User')}</button>}
+                             </span>
+                           </div>
                            <div className={`p-4 rounded-xl text-sm shadow-lg ${
                              isAdminType 
-                               ? 'bg-purple-600 text-white rounded-tr-sm' 
-                               : 'bg-black border border-gray-800 text-gray-300 rounded-tl-sm'
+                               ? 'bg-purple-600/20 text-white border border-purple-500/30 rounded-tr-sm' 
+                               : 'bg-[#111] border border-gray-800 text-gray-300 rounded-tl-sm'
                            }`}>
                              {(msg.content?.startsWith('[Product Inquiry ID:') || msg.content?.startsWith('[Product Inquiry:')) ? (() => {
                                 let gameId = null;
@@ -2412,25 +2409,25 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                 const game = gamesList.find(g => g.id === gameId);
                                 if (!game) return "Product Inquiry" + (gameName ? `: ${gameName}` : "");
                                 return (
-                                  <div className="flex flex-col gap-3">
-                                    <p className="text-xs font-bold opacity-80">I would like to inquire about:</p>
+                                  <div className="flex flex-col gap-3 min-w-[200px]">
+                                    <p className="text-xs font-bold opacity-80 text-purple-300">Product Inquiry</p>
                                     <div 
-                                      className="bg-black/50 border border-purple-500/30 rounded-lg p-2 flex gap-3 items-center cursor-pointer hover:bg-black transition-colors"
+                                      className="bg-black/40 border border-purple-500/20 rounded-lg p-2 flex gap-3 items-center cursor-pointer hover:bg-black/60 transition-colors"
                                       onClick={() => {
                                          setSelectedGame(game);
                                          setIsGameDetailOpen(true);
                                          setActiveTab('store');
                                       }}
                                     >
-                                      <img src={game.image} className="w-12 h-12 object-cover rounded shadow" />
+                                      <img src={game.image} className="w-12 h-12 object-cover rounded border border-purple-500/30" />
                                       <div className="flex-1 min-w-0">
-                                         <p className="font-bold text-white text-sm truncate">{game.title}</p>
-                                         <p className="text-purple-300 text-xs font-black">{displayPrice(game.price)}</p>
+                                         <p className="font-bold text-white text-[13px] truncate">{game.title}</p>
+                                         <p className="text-purple-400 text-[10px] font-black">{displayPrice(game.price)}</p>
                                       </div>
                                     </div>
                                   </div>
                                 );
-                             })() : msg.content}
+                             })() : <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>}
                            </div>
                            <div className="text-[9px] text-gray-600 mt-1">
                              {new Date(msg.created_at || new Date()).toLocaleTimeString()}
@@ -3482,7 +3479,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                          } catch (err) { console.error(err); }
                       }} 
                     />
-                    <Gamepad className="w-6 h-6 text-white" />
+                    <Gamepad2 className="w-6 h-6 text-white" />
                   </label>
                 </div>
                 <div className="flex flex-col items-center sm:items-start text-center sm:text-start relative z-10">
@@ -4482,25 +4479,25 @@ const [usersList, setUsersList] = useState<any[]>([]);
                          const game = gamesList.find(g => g.id === gameId);
                          if (!game) return (language === 'ar' ? "استفسار عن منتح" : "Product Inquiry") + (gameName ? `: ${gameName}` : "");
                          return (
-                           <div className="flex flex-col gap-2">
-                              <p className="opacity-80">{language === 'ar' ? 'أود الاستفسار عن:' : 'I would like to inquire about:'}</p>
+                           <div className="flex flex-col gap-2 min-w-[180px]">
+                              <p className="opacity-80 text-[10px] font-bold text-white/70 uppercase tracking-widest">{language === 'ar' ? 'استفسار عن منتج' : 'Product Inquiry'}</p>
                               <div 
-                                className="bg-black/50 border border-white/10 rounded-lg p-2 flex gap-2 items-center cursor-pointer hover:bg-black transition-colors"
+                                className="bg-black/30 border border-white/20 rounded-lg p-2 flex gap-2 items-center cursor-pointer hover:bg-black/50 transition-colors"
                                 onClick={() => {
                                    setSelectedGame(game);
                                    setIsGameDetailOpen(true);
                                    setIsChatOpen(false);
                                 }}
                               >
-                                 <img src={game.image} className="w-10 h-10 object-cover rounded shadow" />
+                                 <img src={game.image} className="w-10 h-10 object-cover rounded border border-white/10" />
                                  <div className="flex-1 min-w-0">
                                    <p className="font-bold text-white truncate text-xs">{game.title}</p>
-                                   <p className="text-purple-300 font-bold text-[10px]">{displayPrice(game.price)}</p>
+                                   <p className="text-white/80 font-black text-[10px]">{displayPrice(game.price)}</p>
                                  </div>
                               </div>
                            </div>
                          );
-                      })() : msg.content}
+                      })() : <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>}
                     </div>
                     {(() => {
                        if (!isMe) return null;
