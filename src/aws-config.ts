@@ -1,17 +1,27 @@
 import { Amplify } from 'aws-amplify';
 
+const userPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID || '';
+const userPoolClientId = import.meta.env.VITE_COGNITO_CLIENT_ID || '';
+const domain = import.meta.env.VITE_COGNITO_DOMAIN || '';
+const redirectSignIn = import.meta.env.VITE_COGNITO_REDIRECT_SIGNIN || '';
+const redirectSignOut = import.meta.env.VITE_COGNITO_REDIRECT_SIGNOUT || '';
+
+if (!userPoolId || !userPoolClientId) {
+  console.warn('[AWS Config] Cognito User Pool ID or Client ID is missing. Authentication will fail.');
+}
+
 const config = {
   Auth: {
     Cognito: {
-      userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
-      userPoolClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
+      userPoolId,
+      userPoolClientId,
       signUpVerificationMethod: 'code' as const,
       loginWith: {
         oauth: {
-          domain: import.meta.env.VITE_COGNITO_DOMAIN,
+          domain,
           scopes: ['email', 'profile', 'openid'],
-          redirectSignIn: [import.meta.env.VITE_COGNITO_REDIRECT_SIGNIN],
-          redirectSignOut: [import.meta.env.VITE_COGNITO_REDIRECT_SIGNOUT],
+          redirectSignIn: [redirectSignIn],
+          redirectSignOut: [redirectSignOut],
           responseType: 'code' as const
         }
       }

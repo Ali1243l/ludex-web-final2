@@ -101,6 +101,9 @@ export function AuthModal({ initialMode, language, onClose, onSuccess }: AuthMod
       console.error('[Auth Error]', err);
       // Clean up common AWS errors for better UX
       let msg = err.message || 'Authentication error';
+      if (msg.includes('UserPool not configured') || msg.includes('User Pool not configured')) {
+        msg = isRTL ? 'إعدادات تسجيل الدخول مفقودة. يرجى إعداد VITE_COGNITO_USER_POOL_ID' : 'Auth configuration missing. Please complete environment setup.';
+      }
       if (msg.includes('User already exists')) msg = isRTL ? 'هذا الحساب موجود بالفعل' : 'User already exists';
       if (msg.includes('Incorrect username or password')) msg = isRTL ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' : 'Incorrect email or password';
       if (msg.includes('Invalid code')) msg = isRTL ? 'الرمز غير صحيح' : 'Invalid confirmation code';
