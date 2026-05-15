@@ -103,6 +103,8 @@ export default function App() {
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
 
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [viewedProfileId, setViewedProfileId] = useState<string | null>(null);
+  const [viewedProfileData, setViewedProfileData] = useState<any>(null);
   const [viewedProfile, setViewedProfile] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState<'login' | 'register' | null>(null);
@@ -283,6 +285,21 @@ export default function App() {
 
   
   const [heroSlideIdx, setHeroSlideIdx] = useState(0);
+
+  
+  useEffect(() => {
+    if (viewedProfileId) {
+      supabase.from("profiles").select("*").eq("id", viewedProfileId).single().then(({ data, error }) => {
+        if (!error && data) {
+           setViewedProfileData(data);
+        } else {
+           setViewedProfileData({ display_name: "Unknown User" });
+        }
+      });
+    } else {
+      setViewedProfileData(null);
+    }
+  }, [viewedProfileId]);
 
   useEffect(() => {
      const int = setInterval(() => {
@@ -941,7 +958,8 @@ const [usersList, setUsersList] = useState<any[]>([]);
             console.warn('Supabase storage upload error:', error.message, '- failing over to a local blob URL for demo.');
             receiptUrl = URL.createObjectURL(receiptFile);
          } else {
-            receiptUrl = data.path;
+            const { data: publicUrlData } = supabase.storage.from('receipts').getPublicUrl(data.path);
+            receiptUrl = publicUrlData.publicUrl;
          }
        } catch(err) {
          console.warn(err);
@@ -1617,10 +1635,10 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                 className="w-14 h-10 bg-black border border-purple-500/50 rounded overflow-hidden cursor-pointer hover:opacity-80 transition-opacity" 
                                 title="View Receipt"
                                 onClick={() => {
-                                  window.open('https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=600', '_blank');
+                                  window.open(order.receiptUrl || 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=600', '_blank');
                                 }}
                               >
-                                <img src="https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=200" alt="Receipt" className="w-full h-full object-cover" />
+                                <img src={order.receiptUrl || 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=200'} alt="Receipt" className="w-full h-full object-cover" />
                               </div>
                             ) : (
                               <span className="text-xs text-gray-600">{t[language].none}</span>
@@ -3408,11 +3426,29 @@ const [usersList, setUsersList] = useState<any[]>([]);
                             </span>
                           )}
                           {order.gameKey && (
-                            <div className="bg-black border border-purple-500/50 rounded-lg px-4 py-2 w-full text-center group cursor-pointer hover:bg-purple-900/20 transition-colors">
+                            <div 
+                              className="bg-black border border-purple-500/50 rounded-lg px-4 py-2 w-full text-center group cursor-pointer hover:bg-purple-900/20 transition-colors"
+                              onClick={() => {
+                                 navigator.clipboard.writeText(order.gameKey || "");
+                                 setToastMessage(language === "ar" ? "تم نسخ المفتاح!" : "Key Copied!");
+                                 setTimeout(() => setToastMessage(null), 3000);
+                              }}
+                            >
                               <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">{t[language].yourKey}</p>
                               <p className="font-mono text-purple-300 text-sm">{order.gameKey}</p>
                             </div>
                           )}
+                          <button 
+                            onClick={() => {
+                               setIsChatOpen(true);
+                               // Only set if not already set, to not override what they are typing
+                               setChatMessage(`[Order Inquiry ID: #${order.id}]`);
+                            }}
+                            className="w-full bg-purple-900/30 hover:bg-purple-900/50 border border-purple-500/30 text-purple-300 text-[10px] font-bold uppercase py-2 rounded-lg transition-colors flex items-center justify-center gap-2 mt-2"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                            {language === "ar" ? "استفسر عن الطلب" : "Inquire Order"}
+                          </button>
                         </div>
                       </div>
                     );
@@ -4242,7 +4278,18 @@ const [usersList, setUsersList] = useState<any[]>([]);
     
     {isLoggedIn && orders.some(o => o.gameId === selectedGameId && o.status === 'Approved') && (
       <div className="bg-[#151515] border border-purple-500/30 rounded-xl p-4 mb-6 shadow-inner">
-         <h4 className="text-sm font-bold text-gray-300 mb-3">{language === "ar" ? "أضف تقييمك" : "Add Your Review"}</h4>
+         <div className="flex items-center gap-3 mb-3">
+             {userProfile?.avatar_url ? (
+                <img src={userProfile.avatar_url} className="w-10 h-10 rounded-full border border-purple-500/50 object-cover" />
+             ) : (
+                <div className="w-10 h-10 rounded-full bg-purple-900/50 flex items-center justify-center text-sm font-bold text-purple-400 border border-purple-500/50">
+                    {(userProfile?.display_name || "U")[0].toUpperCase()}
+                </div>
+             )}
+             <div>
+                <h4 className="text-sm font-bold text-gray-300">{userProfile?.display_name || (language === "ar" ? "أضف تقييمك" : "Add Your Review")}</h4>
+             </div>
+         </div>
          <div className="flex text-yellow-400 mb-3 cursor-pointer">
             {[1, 2, 3, 4, 5].map(star => (
                <svg key={star} onClick={() => setNewReviewRating(star)} className="hover:scale-110 transition-transform" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill={star <= newReviewRating ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
@@ -4287,16 +4334,16 @@ const [usersList, setUsersList] = useState<any[]>([]);
           gameReviews.map((review, idx) => (
              <div key={review.id || idx} className="bg-[#111] border border-gray-800 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2">
-                   <div className="flex items-center gap-3">
+                   <div className="flex items-center gap-3 cursor-pointer hover:bg-black/40 p-1 -ml-1 rounded transition-colors group" onClick={() => { if(review.user_id) setViewedProfileId(review.user_id) }}>
                       {review.profiles?.avatar_url ? (
-                         <img src={review.profiles.avatar_url} className="w-8 h-8 rounded-full border border-purple-500/30 object-cover" />
+                         <img src={review.profiles.avatar_url} className="w-8 h-8 rounded-full border border-purple-500/30 object-cover group-hover:border-purple-500" />
                       ) : (
-                         <div className="w-8 h-8 rounded-full bg-purple-900/50 flex items-center justify-center text-xs font-bold text-purple-400">
+                         <div className="w-8 h-8 rounded-full bg-purple-900/50 flex items-center justify-center text-xs font-bold text-purple-400 group-hover:border-purple-500 border border-transparent transition-colors">
                             {(review.profiles?.display_name || "U")[0].toUpperCase()}
                          </div>
                       )}
                       <div>
-                         <p className="text-sm font-bold text-gray-300">{review.profiles?.display_name || "Verified User"}</p>
+                         <p className="text-sm font-bold text-gray-300 group-hover:text-purple-300 transition-colors">{review.profiles?.display_name || "Verified User"}</p>
                          <p className="text-[10px] text-gray-500 flex items-center gap-1">
                             {new Date(review.created_at).toLocaleDateString()}
                             <svg className="w-3 h-3 text-green-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
@@ -4446,6 +4493,53 @@ const [usersList, setUsersList] = useState<any[]>([]);
         </div>
       )}
       
+      
+      {viewedProfileId && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in p-4">
+          <div className="bg-[#111] border border-purple-500/30 w-full max-w-sm rounded-2xl p-6 relative">
+            <button
+               onClick={() => { setViewedProfileId(null); setViewedProfileData(null); }}
+               className="absolute top-4 right-4 text-gray-500 hover:text-white"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            {!viewedProfileData ? (
+               <div className="flex justify-center p-10"><div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div></div>
+            ) : (
+               <div className="flex flex-col items-center text-center">
+                 {viewedProfileData.avatar_url ? (
+                    <img src={viewedProfileData.avatar_url} className="w-24 h-24 rounded-full border-2 border-purple-500 object-cover shadow-[0_0_20px_rgba(147,51,234,0.3)] mb-4" />
+                 ) : (
+                    <div className="w-24 h-24 rounded-full bg-purple-900/50 border-2 border-purple-500 flex items-center justify-center text-3xl font-black text-purple-400 mb-4 shadow-[0_0_20px_rgba(147,51,234,0.3)]">
+                       {(viewedProfileData.display_name || "U")[0].toUpperCase()}
+                    </div>
+                 )}
+                 <h3 className="text-xl font-bold text-white mb-1">{viewedProfileData.display_name}</h3>
+                 <p className="text-sm text-gray-400 mb-4">Joined {new Date(viewedProfileData.created_at || Date.now()).toLocaleDateString()}</p>
+                 
+                 {viewedProfileData.platforms && viewedProfileData.platforms.length > 0 && (
+                   <div className="w-full flex flex-wrap gap-2 justify-center mb-4">
+                     {viewedProfileData.platforms.map((plat:string) => (
+                        <span key={plat} className="px-2 py-1 bg-black border border-purple-900/50 text-gray-300 text-[10px] uppercase font-bold rounded">{plat}</span>
+                     ))}
+                   </div>
+                 )}
+                 {viewedProfileData.interests && viewedProfileData.interests.length > 0 && (
+                   <div className="w-full text-left bg-black/50 border border-gray-800 p-3 rounded-xl">
+                     <p className="text-xs text-purple-400 font-bold mb-2 uppercase tracking-widest">{language === "ar" ? "الاهتمامات" : "Interests"}</p>
+                     <div className="flex flex-wrap gap-2">
+                       {viewedProfileData.interests.map((int:string) => (
+                          <span key={int} className="px-2 py-1 bg-[#1a1a1a] text-gray-400 text-xs rounded">{int}</span>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+               </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {isCheckoutModalOpen && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-end md:justify-center bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-[#1e1e24] border-t md:border border-purple-900/40 rounded-t-3xl md:rounded-2xl w-full md:max-w-lg shadow-[0_-10px_50px_rgba(147,51,234,0.3)] md:shadow-[0_0_50px_rgba(147,51,234,0.3)] flex flex-col overflow-hidden max-h-[95vh] md:max-h-[90vh] animate-in slide-in-from-bottom-5 duration-300">
