@@ -566,7 +566,8 @@ const [usersList, setUsersList] = useState<any[]>([]);
 
                  // Strict Onboarding Guard
                  if (!profileData.display_name || !profileData.platforms || profileData.platforms.length === 0) {
-                    console.log('[Onboarding Guard] Missing platforms. Can be completed in profile settings.');
+                    console.log('[Onboarding Guard] Missing platforms. Enforcing onboarding flow.');
+                    setActiveTab('onboarding' as any);
                  } else {
                     console.log('[Auth Hub] User ready. Continuing to the application.');
                  }
@@ -997,14 +998,6 @@ const [usersList, setUsersList] = useState<any[]>([]);
                       <button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white font-black uppercase tracking-widest py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(147,51,234,0.3)] active:scale-[0.98] flex items-center justify-center gap-2 group">
                         {language === 'ar' ? 'بدء اللعب' : 'Start Playing'}
                         <ArrowRight className={`w-5 h-5 group-hover:translate-x-1 transition-transform ${language === 'ar' ? 'rotate-180 group-hover:-translate-x-1' : ''}`} />
-                      </button>
-                      
-                      <button 
-                         type="button"
-                         onClick={() => setActiveTab('store')}
-                         className="w-full bg-[#111] border border-gray-800 hover:border-gray-700 text-gray-400 hover:text-white font-bold tracking-widest py-3 rounded-xl transition-all flex items-center justify-center gap-2"
-                      >
-                         {language === 'ar' ? 'تخطي الآن' : 'Skip for now'}
                       </button>
                     </div>
                  </form>
