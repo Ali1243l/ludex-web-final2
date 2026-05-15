@@ -1730,9 +1730,33 @@ const [usersList, setUsersList] = useState<any[]>([]);
                             <td className="px-4 py-4 font-bold text-white">{user.display_name || user.email || 'N/A'}</td>
                             <td className="px-4 py-4">{user.email}</td>
                             <td className="px-4 py-4">
-                              <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${user.role === 'ADMIN' ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
-                                {user.role || 'USER'}
-                              </span>
+                              <select 
+                                value={user.role || 'USER'}
+                                onChange={async (e) => {
+                                  const newRole = e.target.value;
+                                  try {
+                                     const token = await getAuthToken();
+                                     const res = await fetch(`/api/admin/profiles/${user.id}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                        body: JSON.stringify({ role: newRole })
+                                     });
+                                     if(res.ok) {
+                                        setToastMessage(language === 'ar' ? 'تم تحديث الرتبة بنجاح.' : 'Role updated successfully.');
+                                        setTimeout(()=>setToastMessage(null), 3000);
+                                        const { data: refreshed, error: refErr } = await supabase.from('profiles').select('*');
+                                        if (refErr) console.error("Supabase select error (refetching users 1):", refErr);
+                                        if (refreshed) setUsersList(refreshed);
+                                     }
+                                  } catch(err) { console.error(err) }
+                                }}
+                                className={`px-2 py-1 rounded text-[10px] font-bold uppercase outline-none cursor-pointer ${user.role === 'ADMIN' ? 'bg-purple-900/40 text-purple-400 border border-purple-500/30' : user.role === 'BANNED' || user.role === 'DELETED' ? 'bg-red-900/40 text-red-400 border border-red-500/30' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}
+                              >
+                                <option value="USER">{language === 'ar' ? 'مستخدم' : 'USER'}</option>
+                                <option value="ADMIN">{language === 'ar' ? 'أدمن' : 'ADMIN'}</option>
+                                <option value="BANNED">{language === 'ar' ? 'محظور' : 'BANNED'}</option>
+                                <option value="DELETED">{language === 'ar' ? 'محذوف 30 يوم' : 'DELETED'}</option>
+                              </select>
                             </td>
                             <td className="px-4 py-4">
                               <span className="text-gray-400 text-[10px] font-bold">
@@ -1742,28 +1766,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                             <td className="px-4 py-4 text-right flex flex-wrap items-center justify-end gap-2">
                                <button 
                                  onClick={async () => {
-                                    try {
-                                       const token = (await getAuthToken());
-                                       const res = await fetch(`/api/admin/profiles/${user.id}`, {
-                                          method: 'PUT',
-                                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                          body: JSON.stringify({ role: user.role === 'ADMIN' ? 'USER' : 'ADMIN' })
-                                       });
-                                       if(res.ok) {
-                                          setToastMessage('Role updated successfully.');
-                                          setTimeout(()=>setToastMessage(null), 3000);
-                                          const { data: refreshed, error: refErr } = await supabase.from('profiles').select('*');
-                                          if (refErr) console.error("Supabase select error (refetching users 1):", refErr);
-                                          if (refreshed) setUsersList(refreshed);
-                                       }
-                                    } catch(e) { console.error(e) }
-                                 }}
-                                 className="px-3 py-1 bg-purple-600/20 text-purple-400 hover:bg-purple-600/40 rounded text-[10px] font-bold transition-colors whitespace-nowrap">
-                                 {user.role === 'ADMIN' ? (language === 'ar' ? 'إزالة كأدمن' : 'Demote Admin') : (language === 'ar' ? 'ترقية لأدمن' : 'Promote to Admin')}
-                               </button>
-                               <button 
-                                 onClick={async () => {
-                                    if(window.confirm(language === 'ar' ? 'هل أنت متأكد من حذف هذا المستخدم نهائيا؟' : 'Are you sure you want to permanently delete this user?')) {
+                                    if(window.confirm(language === 'ar' ? 'هل أنت متأكد من حذف هذا المستخدم نهائيا؟ سيتم حذفه من AWS والسب بيس.' : 'Are you sure you want to permanently delete this user? It will be deleted from AWS and Supabase.')) {
                                        try {
                                           const token = (await getAuthToken());
                                           const res = await fetch(`/api/admin/profiles/cognito/${user.id}`, {
@@ -1771,7 +1774,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                              headers: { 'Authorization': `Bearer ${token}` }
                                           });
                                           if(res.ok) {
-                                             setToastMessage('User deleted successfully.');
+                                             setToastMessage(language === 'ar' ? 'تم حذف المستخدم بنجاح.' : 'User deleted successfully.');
                                              setTimeout(()=>setToastMessage(null), 3000);
                                              const { data: refreshed, error: refErr } = await supabase.from('profiles').select('*');
                                              if (refErr) console.error("Supabase select error (refetching users 3):", refErr);
@@ -1785,7 +1788,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                     }
                                  }}
                                  className="px-3 py-1 bg-red-900/40 text-red-400 hover:bg-red-600 hover:text-white border border-red-500/30 rounded text-[10px] font-bold transition-colors whitespace-nowrap">
-                                 {language === 'ar' ? 'حذف المستخدم' : 'Delete User'}
+                                 {language === 'ar' ? 'حذف نهائي' : 'Force Delete'}
                                </button>
                             </td>
                           </tr>
