@@ -409,8 +409,17 @@ app.get('/api/admin/:table', requireAuth, async (req, res) => {
     const { table } = req.params;
     if (!ALLOWED_TABLES.includes(table)) return res.status(400).json({ error: 'Invalid table' });
 
-    const { data, error } = await getSupabaseClient(table).from(table).select('*');
-    if (error) throw error;
+    let query = getSupabaseClient(table).from(table).select('*');
+    if (table === 'promotions') {
+      query = query.order('order_index', { ascending: true });
+    }
+    const { data, error } = await query;
+    if (error) {
+       if (error.code === '42P01' || error.message?.includes('schema cache') || error.message?.includes('Could not find the table')) {
+          return res.json([]);
+       }
+       throw error;
+    }
     
     const sanitizedData = data.map((item: any) => {
        if (table === 'subscriptions' && item.account_password) {
@@ -487,7 +496,7 @@ app.get('/api/chat/sessions', async (req, res) => {
 
     if (error) {
        // Table might not exist yet, fallback to in-memory
-       if (error.code === '42P01') {
+       if (error.code === '42P01' || error.message?.includes('schema cache') || error.message?.includes('Could not find the table')) {
           fallbackChatEnabled = true;
           return res.json(fallbackChatSessions);
        }
@@ -539,7 +548,7 @@ app.post('/api/chat/sessions', async (req, res) => {
        .eq('user_id', user_id)
        .maybeSingle();
 
-    if (selErr && selErr.code !== '42P01') throw selErr;
+    if (selErr && selErr.code !== '42P01' && !selErr.message?.includes('schema cache') && !selErr.message?.includes('Could not find the table')) throw selErr;
 
     if (!session) {
       const { data: newSession, error: insErr } = await getSupabaseClient('chat_sessions')
@@ -549,7 +558,7 @@ app.post('/api/chat/sessions', async (req, res) => {
          .single();
       
       if (insErr) {
-         if (insErr.code === '42P01') {
+         if (insErr.code === '42P01' || insErr.message?.includes('schema cache') || insErr.message?.includes('Could not find the table')) {
              fallbackChatEnabled = true;
              const fallbackSession = { id: 'fb-sess-' + Date.now(), user_id, last_message_at: new Date().toISOString() };
              fallbackChatSessions.push(fallbackSession);
@@ -581,7 +590,7 @@ app.get('/api/chat/messages/:session_id', async (req, res) => {
         .order('created_at', { ascending: true });
         
       if (error) {
-         if (error.code === '42P01') return res.json([]);
+         if (error.code === '42P01' || error.message?.includes('schema cache') || error.message?.includes('Could not find the table')) return res.json([]);
          throw error;
       }
       messages = data || [];
@@ -636,7 +645,7 @@ app.post('/api/chat/messages', async (req, res) => {
       .single();
 
     if (error) {
-       if (error.code === '42P01') {
+       if (error.code === '42P01' || error.message?.includes('schema cache') || error.message?.includes('Could not find the table')) {
           message = { id: 'fb-msg-' + Date.now(), session_id, sender_id, content, created_at: new Date().toISOString(), read_by: [] };
           fallbackChatEnabled = true;
           fallbackChatMessages.push(message);
