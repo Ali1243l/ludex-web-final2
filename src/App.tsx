@@ -2345,7 +2345,11 @@ const [usersList, setUsersList] = useState<any[]>([]);
                            </div>
                            <div className="text-[9px] text-gray-600 mt-1">
                              {new Date(msg.created_at || new Date()).toLocaleTimeString()}
-                             {msg.read_by?.length > 0 && <span> • Seen</span>}
+                             {(() => {
+                                const readers = msg.read_by_profiles?.filter((p:any) => p.id !== msg.sender_id) || [];
+                                if (readers.length === 0) return null;
+                                return <span> • Seen by {readers.map((p:any) => p.role === 'ADMIN' ? p.display_name + ' (Admin)' : p.display_name).join(', ')}</span>;
+                             })()}
                            </div>
                          </div>
                        );
@@ -4270,11 +4274,16 @@ const [usersList, setUsersList] = useState<any[]>([]);
                     }`}>
                       {msg.content}
                     </div>
-                    {isMe && msg.read_by?.length > 0 && (
-                       <span className="text-[9px] text-gray-500 self-end mr-1 flex items-center gap-1">
-                          Seen
-                       </span>
-                    )}
+                    {(() => {
+                       if (!isMe) return null;
+                       const adminReaders = msg.read_by_profiles?.filter((p:any) => p.role === 'ADMIN' && p.id !== msg.sender_id) || [];
+                       if (adminReaders.length === 0) return null;
+                       return (
+                         <span className="text-[9px] text-gray-500 self-end mr-1 flex items-center gap-1">
+                            Seen by {adminReaders.map((p:any) => p.display_name).join(', ')}
+                         </span>
+                       );
+                    })()}
                   </div>
                  );
               })}
@@ -4286,7 +4295,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                    value={chatMessage}
                    onChange={(e) => setChatMessage(e.target.value)}
                    placeholder={t[language].typeMsg} 
-                   className="flex-1 bg-[#111] border border-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500 min-h-[44px]"
+                   className="flex-1 bg-[#111] border border-gray-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500 min-h-[44px]"
                  />
                  <button 
                    type="submit"

@@ -475,13 +475,9 @@ app.delete('/api/admin/:table/:id', requireAuth, async (req, res) => {
 // Chat Endpoints
 app.get('/api/chat/sessions', async (req, res) => {
   try {
-    // Get all sessions with user profile
     const { data: sessions, error } = await getSupabaseClient('chat_sessions')
       .from('chat_sessions')
-      .select(`
-        *,
-        profiles:user_id ( display_name, email, platforms, role )
-      `)
+      .select('*')
       .order('last_message_at', { ascending: false });
 
     if (error) {
@@ -489,8 +485,25 @@ app.get('/api/chat/sessions', async (req, res) => {
        if (error.code === '42P01') return res.json([]);
        throw error;
     }
-    res.json(sessions);
+
+    if (!sessions || sessions.length === 0) {
+      return res.json([]);
+    }
+
+    const userIds = sessions.map((s: any) => s.user_id).filter(Boolean);
+    const { data: profiles } = await getSupabaseClient('profiles')
+      .from('profiles')
+      .select('id, display_name, email, platforms, role')
+      .in('id', userIds);
+
+    const enrichedSessions = sessions.map((s: any) => ({
+       ...s,
+       profiles: profiles?.find((p: any) => p.id === s.user_id) || null
+    }));
+
+    res.json(enrichedSessions);
   } catch (e: any) {
+    console.error("Error in /api/chat/sessions:", e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -533,10 +546,7 @@ app.get('/api/chat/messages/:session_id', async (req, res) => {
     
     const { data: messages, error } = await getSupabaseClient('chat_messages')
       .from('chat_messages')
-      .select(`
-        *,
-        sender:sender_id ( display_name, role )
-      `)
+      .select('*')
       .eq('session_id', session_id)
       .order('created_at', { ascending: true });
 
@@ -544,7 +554,27 @@ app.get('/api/chat/messages/:session_id', async (req, res) => {
        if (error.code === '42P01') return res.json([]);
        throw error;
     }
-    res.json(messages);
+
+    if (!messages || messages.length === 0) {
+      return res.json([]);
+    }
+
+    const senderIds = [...new Set(messages.map((m: any) => m.sender_id).filter(Boolean))];
+    const readByIds = [...new Set(messages.flatMap((m: any) => m.read_by || []))];
+    const allProfileIds = [...new Set([...senderIds, ...readByIds])];
+
+    const { data: profiles } = await getSupabaseClient('profiles')
+      .from('profiles')
+      .select('id, display_name, role')
+      .in('id', allProfileIds);
+
+    const enrichedMessages = messages.map((m: any) => ({
+       ...m,
+       sender: profiles?.find((p: any) => p.id === m.sender_id) || null,
+       read_by_profiles: (m.read_by || []).map((id: string) => profiles?.find((p: any) => p.id === id)).filter(Boolean)
+    }));
+
+    res.json(enrichedMessages);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -590,9 +620,7 @@ app.post('/api/chat/read', async (req, res) => {
 
      for (const msg of messages) {
         let readBy = msg.read_by || [];
-        if (!readBy.includes(user_id)) {
-           // If admin, they read user messages. If user, they read admin messages.
-           // Actually, just add their ID to read_by array.
+        if (msg.sender_id !== user_id && !readBy.includes(user_id)) {
            readBy.push(user_id);
            await getSupabaseClient('chat_messages')
              .from('chat_messages')
