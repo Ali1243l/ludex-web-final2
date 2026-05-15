@@ -531,67 +531,37 @@ const [usersList, setUsersList] = useState<any[]>([]);
           const userEmail = attributes.email;
           const userDisplayName = attributes.name || '';
 
-          // Query Supabase directly
-          console.log('[Supabase Sync] Querying profile for:', userId);
+          // Sync Supabase via backend to bypass RLS issues for new users
+          console.log('[Supabase Sync] Syncing profile with backend for:', userId);
           try {
-            const { data: existingProfile, error: selectError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', userId)
-              .maybeSingle();
+            const syncRes = await fetch('/api/admin/profiles/sync', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ id: userId, email: userEmail, name: userDisplayName })
+            });
+            const syncData = await syncRes.json();
+            
+            if (syncData.success && syncData.profile) {
+               console.log('[Supabase Sync] Profile synced from backend:', syncData.profile.email);
+               const profileData = syncData.profile;
+               
+               if (isMounted) {
+                 setUserProfile((prev: any) => ({
+                    ...prev,
+                    ...profileData
+                 }));
 
-            if (selectError) {
-              console.error('[Supabase Sync] select error:', selectError.message);
-            }
-
-            let profileData = existingProfile;
-
-            // If profile does not exist, immediately INSERT
-            if (!existingProfile && userId && userEmail) {
-              console.log('[Supabase Sync] Profile NOT FOUND. Inserting new user profile.');
-              const isAdmin = userEmail === 'admin@pixel.com';
-              const { data: newProfile, error: insertError } = await supabase
-                .from('profiles')
-                .insert([{
-                  id: userId,
-                  email: userEmail,
-                  display_name: userDisplayName || '',
-                  role: isAdmin ? 'ADMIN' : 'USER',
-                  platforms: [],
-                  interests: []
-                }])
-                .select()
-                .single();
-
-              if (insertError) {
-                console.error('[Supabase Sync] Insert error (new profile):', insertError.message);
-              } else {
-                console.log('[Supabase Sync] Success inserting new profile.', newProfile);
-                profileData = newProfile;
-              }
-            } else if (existingProfile) {
-                console.log('[Supabase Sync] Profile FOUND for', existingProfile.email);
-                if (existingProfile.email !== userEmail) {
-                  // optional: update email if drifted
-                  console.log('[Supabase Sync] Email drifted. Updating to', userEmail);
-                  await supabase.from('profiles').update({ email: userEmail }).eq('id', userId);
-                }
-            }
-
-            if (isMounted && profileData) {
-              setUserProfile((prev: any) => ({
-                 ...prev,
-                 ...profileData
-              }));
-
-              // Strict Onboarding Guard
-              if (!profileData.display_name || !profileData.platforms || profileData.platforms.length === 0) {
-                 console.log('[Onboarding Guard] Missing platforms. Enforcing onboarding flow.');
-                 // The early return in render handles the redirect, but we can also set tab
-                 setActiveTab('onboarding');
-              } else {
-                 console.log('[Auth Hub] User ready. Continuing to the application.');
-              }
+                 // Strict Onboarding Guard
+                 if (!profileData.display_name || !profileData.platforms || profileData.platforms.length === 0) {
+                    console.log('[Onboarding Guard] Missing platforms. Enforcing onboarding flow.');
+                    // The early return in render handles the redirect, but we can also set tab
+                    setActiveTab('onboarding');
+                 } else {
+                    console.log('[Auth Hub] User ready. Continuing to the application.');
+                 }
+               }
+            } else {
+               console.error('[Supabase Sync] Backend failed to sync profile:', syncData);
             }
           } catch(e) { 
             console.error('[Supabase Sync] Execution error:', e); 
@@ -928,20 +898,26 @@ const [usersList, setUsersList] = useState<any[]>([]);
                         }
 
                         console.log('[Onboarding] Saving onboarding data for user:', uId);
-                        const { data, error } = await supabase.from('profiles').update({
-                           display_name: userProfile?.display_name,
-                           platforms: userProfile?.platforms,
-                           interests: userProfile?.interests || []
-                        }).eq('id', uId).select().single();
+                        const token = await getAuthToken();
+                        const res = await fetch(`/api/admin/profiles/${uId}`, {
+                           method: 'PUT',
+                           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                           body: JSON.stringify({
+                             display_name: userProfile?.display_name,
+                             platforms: userProfile?.platforms,
+                             interests: userProfile?.interests || []
+                           })
+                        });
                         
-                        if (!error && data) {
+                        if (res.ok) {
+                           const data = await res.json();
                            console.log('[Onboarding] Profile updated successfully.');
                            setToastMessage(language === 'ar' ? 'تم تجهيز حسابك بنجاح!' : 'Profile updated successfully!');
                            setUserProfile({ ...userProfile, ...data });
                            setTimeout(() => setToastMessage(null), 2000);
                            setActiveTab('store');
                         } else {
-                           console.error('[Onboarding] Supabase profile update error:', error);
+                           console.error('[Onboarding] Supabase profile update error:', await res.text());
                            setToastMessage('Error updating profile');
                            setTimeout(() => setToastMessage(null), 3000);
                         }
