@@ -10,6 +10,7 @@ import { signUp, signIn, signOut, getCurrentUser, fetchUserAttributes, signInWit
 import { Hub } from 'aws-amplify/utils';
 import { t } from './translations';
 
+import { AuthModal } from './AuthModal';
 const GAMES_DATA = [
   { id: 1, title: "Elden Ring: Shadow of the Erdtree", category: "PC Game Keys", type: "Global Key", originalPrice: 39.99, price: 34.50, stock: 12, rating: 4.8, image: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1245620/library_600x900.jpg", description: "Venture into the Land of Shadow with the newest expansion. Discover hidden secrets and battle fearsome new bosses." },
   { id: 2, title: "Grand Theft Auto V", category: "Console Subs", type: "PS5 Premium Edition", originalPrice: 39.99, price: 19.99, stock: 150, rating: 4.8, image: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/271590/library_600x900.jpg", description: "Includes the complete GTAV story experience, Grand Theft Auto Online, and the Criminal Enterprise Starter Pack for PS5." },
@@ -508,8 +509,10 @@ const [usersList, setUsersList] = useState<any[]>([]);
     let isMounted = true;
     const checkUser = async () => {
       try {
+        console.log('[Auth Hub] Checking for active user session...');
         const user = await getCurrentUser();
         if (user) {
+          console.log('[Auth Hub] Cognito session found. User:', user.userId);
           const attributes = await fetchUserAttributes();
           if (isMounted) setIsLoggedIn(true);
 
@@ -517,7 +520,8 @@ const [usersList, setUsersList] = useState<any[]>([]);
           const userEmail = attributes.email;
           const userDisplayName = attributes.name || '';
 
-          // Fetch from Supabase directly
+          // Query Supabase directly
+          console.log('[Supabase Sync] Querying profile for:', userId);
           try {
             const { data: existingProfile, error: selectError } = await supabase
               .from('profiles')
@@ -526,13 +530,14 @@ const [usersList, setUsersList] = useState<any[]>([]);
               .maybeSingle();
 
             if (selectError) {
-              console.error('Supabase select error:', selectError);
+              console.error('[Supabase Sync] select error:', selectError.message);
             }
 
             let profileData = existingProfile;
 
             // If profile does not exist, immediately INSERT
             if (!existingProfile && userId && userEmail) {
+              console.log('[Supabase Sync] Profile NOT FOUND. Inserting new user profile.');
               const isAdmin = userEmail === 'admin@pixel.com';
               const { data: newProfile, error: insertError } = await supabase
                 .from('profiles')
@@ -548,47 +553,61 @@ const [usersList, setUsersList] = useState<any[]>([]);
                 .single();
 
               if (insertError) {
-                console.error('Supabase insert error (new profile):', insertError);
+                console.error('[Supabase Sync] Insert error (new profile):', insertError.message);
               } else {
+                console.log('[Supabase Sync] Success inserting new profile.', newProfile);
                 profileData = newProfile;
               }
-            } else if (existingProfile && existingProfile.email !== userEmail) {
-                // optional: update email if drifted
-                await supabase.from('profiles').update({ email: userEmail }).eq('id', userId);
+            } else if (existingProfile) {
+                console.log('[Supabase Sync] Profile FOUND for', existingProfile.email);
+                if (existingProfile.email !== userEmail) {
+                  // optional: update email if drifted
+                  console.log('[Supabase Sync] Email drifted. Updating to', userEmail);
+                  await supabase.from('profiles').update({ email: userEmail }).eq('id', userId);
+                }
             }
 
             if (isMounted && profileData) {
-              const profile = profileData;
-              const mergedObj = {
-                 ...userProfile,
-                 ...profile
-              };
-              setUserProfile(mergedObj);
+              setUserProfile((prev: any) => ({
+                 ...prev,
+                 ...profileData
+              }));
 
               // Strict Onboarding Guard
-              if (!profile.display_name || !profile.platforms || profile.platforms.length === 0) {
+              if (!profileData.display_name || !profileData.platforms || profileData.platforms.length === 0) {
+                 console.log('[Onboarding Guard] Missing platforms. Enforcing onboarding flow.');
+                 // The early return in render handles the redirect, but we can also set tab
                  setActiveTab('onboarding');
+              } else {
+                 console.log('[Auth Hub] User ready. Continuing to the application.');
               }
             }
           } catch(e) { 
-            console.error('Supabase Sync execution error:', e); 
+            console.error('[Supabase Sync] Execution error:', e); 
           }
+        } else {
+           console.log('[Auth Hub] No active user session.');
         }
       } catch (err) {
+        console.log('[Auth Hub] Not logged in currently.', err);
         if (isMounted) setIsLoggedIn(false);
       }
     };
     checkUser();
 
     // Listen for Auth changes in Hub
+    console.log('[Auth Hub] Registering auth listener...');
     const unsubscribe = Hub.listen('auth', ({ payload }) => {
+      console.log(`[Auth Hub] Event fired: ${payload.event}`);
       switch (payload.event) {
         case 'signedIn':
         case 'signUp':
         case 'autoSignIn':
+          console.log('[Auth Hub] Triggering checkUser()...');
           checkUser();
           break;
         case 'signedOut':
+          console.log('[Auth Hub] Triggering logout state cleanup...');
           if (isMounted) setIsLoggedIn(false);
           break;
       }
@@ -3884,162 +3903,17 @@ const [usersList, setUsersList] = useState<any[]>([]);
       )}
 
       {showAuthModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
-          <div className="bg-[#111] border border-purple-900/40 rounded-2xl w-full max-w-sm shadow-[0_0_50px_rgba(147,51,234,0.3)] flex flex-col overflow-hidden animate-in fade-in duration-200">
-            <div className="p-5 border-b border-gray-800 flex justify-between items-center bg-[#0a0a0a]">
-              <h2 className="text-lg font-bold text-white uppercase tracking-widest">
-                 {showAuthModal === 'login' ? t[language].systemLogin : t[language].systemRegister}
-              </h2>
-              <button onClick={() => setShowAuthModal(null)} className="text-gray-400 hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 flex flex-col gap-4">
-              {showAuthModal === 'register' && (
-                <div>
-                  <label className="block text-xs uppercase text-gray-500 font-bold mb-1">Full Name</label>
-                  <input type="text" value={authForm.name} onChange={e => setAuthForm({...authForm, name: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder="Felix User" />
-                </div>
-              )}
-              <div>
-                <label className="block text-xs uppercase text-gray-500 font-bold mb-1">{t[language].eml}</label>
-                <input type="email" value={authForm.email} onChange={e => setAuthForm({...authForm, email: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder="admin@pixel.com" />
-              </div>
-              <div>
-                <label className="block text-xs uppercase text-gray-500 font-bold mb-1">{t[language].passwordUpper}</label>
-                <input type="password" value={authForm.password} onChange={e => setAuthForm({...authForm, password: e.target.value})} className="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" placeholder="••••••••" />
-              </div>
-              
-              <button 
-                onClick={async () => {
-                  if (showAuthModal === 'register' && (!authForm.name || authForm.name.trim() === '')) {
-                     setToastMessage('يرجى كتابة اسمك الكامل');
-                     setTimeout(() => setToastMessage(null), 3000);
-                     return;
-                  }
-
-                  if (authForm.email && authForm.password) {
-                     try {
-                        try {
-                           const currentUser = await getCurrentUser();
-                           if (currentUser) {
-                              setIsLoggedIn(true);
-                              setShowAuthModal(null);
-                              setToastMessage('أنت مسجل الدخول بالفعل');
-                              setTimeout(() => setToastMessage(null), 3000);
-                              return;
-                           }
-                        } catch (e) {
-                           // Not authenticated, proceed
-                        }
-
-                        if (showAuthModal === 'login') {
-                           if (authForm.email === 'admin@pixel.com') {
-                              // REMOVED MOCK DATA
-                           }
-                           const { isSignedIn } = await signIn({
-                              username: authForm.email,
-                              password: authForm.password,
-                           });
-                           setIsLoggedIn(true);
-                           setShowAuthModal(null);
-                           setToastMessage('Successfully logged in.');
-                           setTimeout(() => {
-                              setToastMessage(null);
-                              window.location.reload();
-                           }, 1000);
-                        } else {
-                           const { isSignUpComplete, userId } = await signUp({
-                              username: authForm.email,
-                              password: authForm.password,
-                              options: {
-                                userAttributes: {
-                                  email: authForm.email,
-                                  name: authForm.name.trim(),
-                                }
-                              }
-                           });
-                           
-                           // Sync to Supabase manually right after Auth creation 
-                           if (userId) {
-                              fetch('/api/admin/profiles/sync', {
-                                 method: 'POST',
-                                 headers: {'Content-Type': 'application/json'},
-                                 body: JSON.stringify({ id: userId, email: authForm.email, name: authForm.name.trim() })
-                              }).catch(console.error);
-                           }
-
-                           if (isSignUpComplete) {
-                              await signIn({ username: authForm.email, password: authForm.password });
-                              setIsLoggedIn(true);
-                              setShowAuthModal(null);
-                              setToastMessage('تم إنشاء الحساب وتسجيل الدخول بنجاح!');
-                              setTimeout(() => {
-                                 setToastMessage(null);
-                                 window.location.reload();
-                              }, 1500);
-                           } else {
-                              setShowAuthModal('login');
-                              setToastMessage('تم إنشاء الحساب! يرجى تأكيد البريد الإلكتروني (إذا لزم الأمر) ثم تسجيل الدخول.');
-                           }
-                           setTimeout(() => setToastMessage(null), 5000);
-                        }
-                     } catch (error: any) {
-                        console.error('Auth Error:', error);
-                        setToastMessage(error.message || 'Authentication error.');
-                        setTimeout(() => setToastMessage(null), 3000);
-                     }
-                  } else {
-                     setToastMessage('Please fill all fields');
-                     setTimeout(() => setToastMessage(null), 3000);
-                  }
-                }}
-                className="w-full bg-purple-600 font-bold text-white py-3 rounded-lg hover:bg-purple-500 transition-colors mt-2"
-              >
-                {showAuthModal === 'login' ? t[language].authenticate : t[language].registerNow}
-              </button>
-              
-              <div className="relative flex items-center py-2">
-                <div className="flex-grow border-t border-gray-800"></div>
-                <span className="flex-shrink-0 mx-4 text-gray-500 text-xs font-bold uppercase">OR</span>
-                <div className="flex-grow border-t border-gray-800"></div>
-              </div>
-              <div 
-                role="button"
-                tabIndex={0}
-                onClick={async (e) => { 
-                   e.preventDefault();
-                   try {
-                     const currentUser = await getCurrentUser();
-                     if (currentUser) {
-                        setIsLoggedIn(true);
-                        setShowAuthModal(null);
-                        setToastMessage('أنت مسجل الدخول بالفعل');
-                        setTimeout(() => setToastMessage(null), 3000);
-                        return;
-                     }
-                   } catch (err) {
-                     // Not signed in
-                   }
-                   signInWithRedirect({ provider: 'Google' }); 
-                }} 
-                className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
-                {showAuthModal === 'login' ? 'Sign in with Google' : 'Sign up with Google'}
-              </div>
-
-              <div className="text-center mt-2">
-                <button 
-                  onClick={() => setShowAuthModal(showAuthModal === 'login' ? 'register' : 'login')} 
-                  className="text-xs text-gray-400 hover:text-purple-400 transition-colors"
-                >
-                  {showAuthModal === 'login' ? (language === 'ar' ? 'ليس لديك حساب؟ إنشاء حساب' : "Don't have an account? Register") : (language === 'ar' ? 'لديك حساب بالفعل؟ تسجيل الدخول' : "Already have an account? Login")}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <AuthModal 
+          initialMode={showAuthModal} 
+          language={language as any} 
+          onClose={() => setShowAuthModal(null)} 
+          onSuccess={() => {
+            setShowAuthModal(null);
+            setToastMessage(language === 'ar' ? 'تم تسجيل الدخول بنجاح' : 'Successfully logged in');
+            setTimeout(() => setToastMessage(null), 3000);
+            window.location.reload();
+          }} 
+        />
       )}
 
       {/* Checkout Modal */}
