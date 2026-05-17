@@ -329,6 +329,8 @@ export default function App() {
 
   // New States
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [platformFilter, setPlatformFilter] = useState("all");
+  const [priceRange, setPriceRange] = useState("all");
   const [visibleGamesCount, setVisibleGamesCount] = useState(12);
   const [userDashboardTab, setUserDashboardTab] = useState<
     "profile" | "orders" | "settings"
@@ -1332,7 +1334,21 @@ export default function App() {
       const matchesCategory = activeCategory
         ? game.category === activeCategory
         : true;
-      return matchesSearch && matchesCategory;
+        
+      let matchesPlatform = true;
+      if (platformFilter !== "all") {
+          matchesPlatform = game.platform === platformFilter || game.platform?.toLowerCase().includes(platformFilter);
+      }
+      
+      let matchesPrice = true;
+      const originalPrice = game.price; 
+      // Need to compare assuming $ as base or use the actual amount, currently games are in USD? We have to check actual price.
+      // game.price seems to be in USD in DB? Wait, games prices are in USD. (e.g. 59.99)
+      if (priceRange === "under_20") matchesPrice = originalPrice < 20;
+      else if (priceRange === "20_50") matchesPrice = originalPrice >= 20 && originalPrice <= 50;
+      else if (priceRange === "over_50") matchesPrice = originalPrice > 50;
+
+      return matchesSearch && matchesCategory && matchesPlatform && matchesPrice;
     });
 
     if (sortBy === "price_low") {
@@ -1345,7 +1361,7 @@ export default function App() {
     }
 
     return result;
-  }, [searchQuery, activeCategory, sortBy, gamesList]);
+  }, [searchQuery, activeCategory, sortBy, gamesList, platformFilter, priceRange]);
 
   useEffect(() => {
     if (isGameDetailOpen && selectedGameId !== null) {
@@ -2089,8 +2105,16 @@ export default function App() {
                       className={`w-4 h-4 transition-transform ${adminMenuState.catalog ? "rotate-180" : ""}`}
                     />
                   </button>
+                  <AnimatePresence>
                   {adminMenuState.catalog && (
-                    <div className="pl-6 flex flex-col gap-1">
+                    <motion.div 
+                      key="catalog"
+                      initial={{ opacity: 0, height: 0, overflow: "hidden" }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0, overflow: "hidden" }}
+                      transition={{ duration: 0.3 }}
+                      className="ltr:pl-6 rtl:pr-6  flex flex-col gap-1"
+                    >
                       <button
                         onClick={() => setAdminTab("subscriptions")}
                         className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === "subscriptions" ? "bg-purple-600/20 text-purple-400 border border-purple-500/30" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
@@ -2119,8 +2143,9 @@ export default function App() {
                         <Layers className="w-4 h-4" />
                         {t[language].adminCats}
                       </button>
-                    </div>
+                    </motion.div>
                   )}
+                  </AnimatePresence>
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -2135,8 +2160,16 @@ export default function App() {
                       className={`w-4 h-4 transition-transform ${adminMenuState.sales ? "rotate-180" : ""}`}
                     />
                   </button>
+                  <AnimatePresence>
                   {adminMenuState.sales && (
-                    <div className="pl-6 flex flex-col gap-1">
+                    <motion.div 
+                      key="sales"
+                      initial={{ opacity: 0, height: 0, overflow: "hidden" }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0, overflow: "hidden" }}
+                      transition={{ duration: 0.3 }}
+                      className="ltr:pl-6 rtl:pr-6 flex flex-col gap-1"
+                    >
                       <button
                         onClick={() => setAdminTab("sales")}
                         className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === "sales" ? "bg-purple-600/20 text-purple-400 border border-purple-500/30" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
@@ -2151,8 +2184,9 @@ export default function App() {
                         <ShoppingBag className="w-4 h-4" />
                         {t[language].adminOrdLeg}
                       </button>
-                    </div>
+                    </motion.div>
                   )}
+                  </AnimatePresence>
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -2206,8 +2240,16 @@ export default function App() {
                       className={`w-4 h-4 transition-transform ${adminMenuState.system ? "rotate-180" : ""}`}
                     />
                   </button>
+                  <AnimatePresence>
                   {adminMenuState.system && (
-                    <div className="pl-6 flex flex-col gap-1">
+                    <motion.div 
+                      key="system"
+                      initial={{ opacity: 0, height: 0, overflow: "hidden" }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0, overflow: "hidden" }}
+                      transition={{ duration: 0.3 }}
+                      className="ltr:pl-6 rtl:pr-6 flex flex-col gap-1"
+                    >
                       <button
                         onClick={() => setAdminTab("macros")}
                         className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === "macros" ? "bg-purple-600/20 text-purple-400 border border-purple-500/30" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
@@ -2238,8 +2280,9 @@ export default function App() {
                         <Layers className="w-4 h-4" />
                         {t[language].adminPages}
                       </button>
-                    </div>
+                    </motion.div>
                   )}
+                  </AnimatePresence>
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -6628,18 +6671,18 @@ export default function App() {
                                 slides.push({
                                   type: "game",
                                   label: "Trending 🔥",
-                                  title: topVisited.title,
+                                  title: topVisited.name,
                                   desc: language === 'ar' ? 'انضم إلى آلاف اللاعبين الآن!' : "Join thousands of active players right now!",
-                                  imageUrl: topVisited.image,
+                                  imageUrl: topVisited.coverImage,
                                   targetId: topVisited.id,
                                 });
                               if (topSelling)
                                 slides.push({
                                   type: "game",
                                   label: "Best Seller 👑",
-                                  title: topSelling.title,
+                                  title: topSelling.name,
                                   desc: language === 'ar' ? 'اللعبة الأكثر مبيعاً!' : "#1 Top Selling Game!",
-                                  imageUrl: topSelling.image,
+                                  imageUrl: topSelling.coverImage,
                                   targetId: topSelling.id,
                                 });
 
@@ -6649,7 +6692,7 @@ export default function App() {
                               if (!currentSlide) return null;
 
                               return (
-                                <div className="mb-6 sm:mb-10 w-full overflow-hidden rounded-2xl border border-purple-500/30 relative group bg-black shadow-[0_0_30px_rgba(168,85,247,0.15)] flex flex-col md:flex-row h-[26rem] md:h-80">
+                                <div className="mb-6 sm:mb-10 w-full overflow-hidden rounded-2xl border border-purple-500/30 relative group bg-black shadow-[0_0_30px_rgba(168,85,247,0.15)] flex flex-col md:flex-row h-80 md:h-80">
                                   <AnimatePresence mode="wait">
                                     <motion.div
                                       key={heroSlideIdx % slides.length}
@@ -6662,13 +6705,13 @@ export default function App() {
                                       }}
                                       className="absolute inset-0 flex flex-col md:flex-row w-full h-full"
                                     >
-                                      <div className="flex-1 p-8 md:p-12 flex flex-col justify-center relative z-20 w-full md:w-2/3 h-full ltr:bg-gradient-to-r rtl:bg-gradient-to-l from-black via-black/90 to-transparent">
+                                      <div className="flex-1 p-6 md:p-12 flex flex-col justify-center relative z-20 w-full md:w-2/3 h-full ltr:bg-gradient-to-r rtl:bg-gradient-to-l from-black via-black/90 to-transparent">
                                         <span className="text-purple-400 font-black tracking-widest text-xs uppercase mb-3 px-3 py-1 bg-purple-900/30 rounded-full w-fit">
                                           {currentSlide.label}
                                         </span>
                                         <h2
                                           dir="auto"
-                                          className="text-3xl md:text-5xl font-black text-white leading-tight mb-4 line-clamp-2 md:w-2/3"
+                                          className="text-2xl md:text-5xl font-black text-white leading-tight mb-4 line-clamp-2 md:w-2/3"
                                         >
                                           {currentSlide.title}
                                         </h2>
@@ -7116,6 +7159,8 @@ export default function App() {
                                 {language === "ar" ? "المنصة" : "Platform"}
                               </label>
                               <select
+                                value={platformFilter}
+                                onChange={(e) => setPlatformFilter(e.target.value)}
                                 className="bg-[#111116] border border-gray-800/80 rounded-xl px-4 py-3 text-sm font-bold text-white focus:border-purple-500 focus:bg-purple-900/10 focus:outline-none transition-all cursor-pointer shadow-inner appearance-none relative"
                                 style={{
                                   backgroundImage:
@@ -7151,6 +7196,8 @@ export default function App() {
                                   : "Price Range"}
                               </label>
                               <select
+                                value={priceRange}
+                                onChange={(e) => setPriceRange(e.target.value)}
                                 className="bg-[#111116] border border-gray-800/80 rounded-xl px-4 py-3 text-sm font-bold text-white focus:border-purple-500 focus:bg-purple-900/10 focus:outline-none transition-all cursor-pointer shadow-inner appearance-none relative"
                                 style={{
                                   backgroundImage:
@@ -7187,7 +7234,7 @@ export default function App() {
 
                       <AnimatePresence mode="wait">
                         <motion.div
-                          key={`${activeCategory}-${searchQuery}-${sortBy}`}
+                          key={`${activeCategory}-${searchQuery}-${sortBy}-${platformFilter}-${priceRange}`}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}
