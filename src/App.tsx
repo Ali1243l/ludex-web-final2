@@ -6114,7 +6114,6 @@ export default function App() {
                                   </div>
                                   <button
                                     onClick={(e) => {
-                                      e.stopPropagation();
                                       setActiveTab("user_dashboard");
                                       setUserDashboardTab("profile");
                                       setIsProfileOpen(false);
@@ -6127,7 +6126,6 @@ export default function App() {
                                   {userProfile?.role === "ADMIN" && (
                                     <button
                                       onClick={(e) => {
-                                        e.stopPropagation();
                                         setActiveTab("admin");
                                         setIsProfileOpen(false);
                                       }}
@@ -6140,7 +6138,6 @@ export default function App() {
                                   <hr className="my-2 border-gray-800" />
                                   <button
                                     onClick={async (e) => {
-                                      e.stopPropagation();
                                       await signOut();
                                       setIsProfileOpen(false);
                                     }}
@@ -6631,18 +6628,18 @@ export default function App() {
                                 slides.push({
                                   type: "game",
                                   label: "Trending 🔥",
-                                  title: topVisited.name,
-                                  desc: "Join thousands of active players right now!",
-                                  imageUrl: topVisited.coverImage,
+                                  title: topVisited.title,
+                                  desc: language === 'ar' ? 'انضم إلى آلاف اللاعبين الآن!' : "Join thousands of active players right now!",
+                                  imageUrl: topVisited.image,
                                   targetId: topVisited.id,
                                 });
                               if (topSelling)
                                 slides.push({
                                   type: "game",
                                   label: "Best Seller 👑",
-                                  title: topSelling.name,
-                                  desc: "#1 Top Selling Game!",
-                                  imageUrl: topSelling.coverImage,
+                                  title: topSelling.title,
+                                  desc: language === 'ar' ? 'اللعبة الأكثر مبيعاً!' : "#1 Top Selling Game!",
+                                  imageUrl: topSelling.image,
                                   targetId: topSelling.id,
                                 });
 
@@ -7188,11 +7185,15 @@ export default function App() {
                         )}
                       </AnimatePresence>
 
-                      <motion.div
-                        layout
-                        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 w-full relative"
-                      >
-                        <AnimatePresence mode="popLayout">
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={`${activeCategory}-${searchQuery}-${sortBy}`}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.3 }}
+                          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 w-full relative"
+                        >
                           {isLoadingStore ? (
                             Array.from({ length: 6 }).map((_, i) => (
                               <div
@@ -7340,8 +7341,8 @@ export default function App() {
                                 </motion.div>
                               ))
                           )}
-                        </AnimatePresence>
-                      </motion.div>
+                        </motion.div>
+                      </AnimatePresence>
 
                       {filteredGames.length > visibleGamesCount && (
                         <div className="flex justify-center mt-10">
