@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from "motion/react";
-import { Search, ShoppingBag, ShoppingCart, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, Send, CreditCard, Upload, User, Settings, Home, ListOrdered, AlertCircle, CheckCircle2, Shield, Key, Package, Layers, Clock, Gift, Download, Check, Menu, Filter, ChevronDown, LogOut, Star, Tag, TrendingUp, ArrowRight } from 'lucide-react';
+import { Search, ShoppingBag, ShoppingCart, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, Send, CreditCard, Upload, User, Settings, Home, ListOrdered, AlertCircle, CheckCircle2, Shield, Key, Package, Layers, Clock, Gift, Download, Check, Menu, Filter, ChevronDown, LogOut, Star, Tag, TrendingUp, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from './supabase'; // Keep it for storage for now
 import { signUp, signIn, signOut, getCurrentUser, fetchUserAttributes, signInWithRedirect, deleteUser } from 'aws-amplify/auth';
 import { Hub } from 'aws-amplify/utils';
@@ -3186,18 +3186,24 @@ const [usersList, setUsersList] = useState<any[]>([]);
           <aside className="w-64 border-e border-purple-900/20 bg-black/20 p-6 flex-col gap-8 hidden lg:flex overflow-y-auto custom-scrollbar flex-shrink-0 h-full">
             <div>
               <h3 className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-4">{t[language].categories}</h3>
-              <ul className="space-y-3">
+              <ul className="space-y-3 relative">
                 {CATEGORIES.map(cat => (
                   <li 
                     key={cat.name}
                     onClick={() => setActiveCategory(cat.name === activeCategory ? null : cat.name)}
-                    className={`flex items-center gap-3 text-sm p-3 rounded-lg cursor-pointer transition-all duration-300 ${
+                    className={`group relative flex items-center gap-3 text-sm p-3 rounded-lg cursor-pointer transition-colors duration-300 ${
                       activeCategory === cat.name 
-                        ? 'text-purple-400 bg-purple-500/10 border-s-2 border-purple-500 font-bold' 
-                        : 'text-gray-400 hover:text-purple-400 hover:bg-purple-900/10 border-s-2 border-transparent'
+                        ? 'text-white font-bold' 
+                        : 'text-gray-400 hover:text-white'
                     }`}
                   >
-                    <cat.icon className="w-4 h-4 opacity-70" /> {cat.name === 'PC Game Keys' ? t[language].pcKeys : cat.name === 'Console Subs' ? t[language].consoleSubs : cat.name === 'In-game Currency' ? t[language].inGameCurrency : cat.name === 'Software' ? t[language].software : cat.name}
+                    {activeCategory === cat.name && (
+                       <motion.div layoutId="activeCategoryBg" className="absolute inset-0 bg-purple-500/20 md:ltr:border-l-2 md:rtl:border-r-2 border-purple-500 rounded-lg z-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ type: "spring", stiffness: 300, damping: 25 }} />
+                    )}
+                    <div className="relative z-10 flex items-center gap-3 w-full">
+                       <cat.icon className={`w-4 h-4 ${activeCategory === cat.name ? 'text-purple-400 opacity-100' : 'opacity-70 group-hover:text-purple-400 group-hover:opacity-100'} transition-all`} /> 
+                       <span>{cat.name === 'PC Game Keys' ? t[language].pcKeys : cat.name === 'Console Subs' ? t[language].consoleSubs : cat.name === 'In-game Currency' ? t[language].inGameCurrency : cat.name === 'Software' ? t[language].software : cat.name}</span>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -3285,8 +3291,17 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   if (!currentSlide) return null;
 
                   return (
-                    <div className="mb-6 sm:mb-10 w-full overflow-hidden rounded-2xl border border-purple-500/30 relative group bg-black shadow-[0_0_30px_rgba(168,85,247,0.15)] flex flex-col md:flex-row h-auto md:h-80">
-                       <div className="flex-1 p-8 md:p-12 flex flex-col justify-center relative z-10 ltr:bg-gradient-to-r rtl:bg-gradient-to-l from-black via-black/90 to-transparent">
+                    <div className="mb-6 sm:mb-10 w-full overflow-hidden rounded-2xl border border-purple-500/30 relative group bg-black shadow-[0_0_30px_rgba(168,85,247,0.15)] flex flex-col md:flex-row h-[26rem] md:h-80">
+                      <AnimatePresence mode="wait">
+                       <motion.div 
+                         key={heroSlideIdx % slides.length}
+                         initial={{ opacity: 0, scale: 0.98 }}
+                         animate={{ opacity: 1, scale: 1 }}
+                         exit={{ opacity: 0, scale: 1.02 }}
+                         transition={{ duration: 0.5, ease: "easeInOut" }}
+                         className="absolute inset-0 flex flex-col md:flex-row w-full h-full"
+                       >
+                       <div className="flex-1 p-8 md:p-12 flex flex-col justify-center relative z-20 w-full md:w-2/3 h-full ltr:bg-gradient-to-r rtl:bg-gradient-to-l from-black via-black/90 to-transparent">
                           <span className="text-purple-400 font-black tracking-widest text-xs uppercase mb-3 px-3 py-1 bg-purple-900/30 rounded-full w-fit">
                              {currentSlide.label}
                           </span>
@@ -3309,14 +3324,24 @@ const [usersList, setUsersList] = useState<any[]>([]);
                             </button>
                           )}
                           
-                          <div className="mt-8 flex gap-2 z-20">
-                              {slides.map((_, idx) => (
-                                 <div key={idx} onClick={() => setHeroSlideIdx(idx)} className={"w-2 h-2 rounded-full cursor-pointer transition-all " + (idx === (heroSlideIdx % slides.length) ? 'bg-purple-500 w-4' : 'bg-gray-500 hover:bg-white')}></div>
-                              ))}
+                          <div className="mt-8 flex items-center gap-4 z-20">
+                             <div className="flex gap-2">
+                                {slides.map((_, idx) => (
+                                   <div key={idx} onClick={() => setHeroSlideIdx(idx)} className={"w-2 h-2 rounded-full cursor-pointer transition-all " + (idx === (heroSlideIdx % slides.length) ? 'bg-purple-500 w-4' : 'bg-white/30 hover:bg-white')}></div>
+                                ))}
+                             </div>
+                             <div className="flex items-center gap-2 ms-4">
+                               <button onClick={() => setHeroSlideIdx(prev => prev === 0 ? slides.length - 1 : prev - 1)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-purple-600 flex items-center justify-center transition-colors backdrop-blur-sm text-white">
+                                 <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
+                               </button>
+                               <button onClick={() => setHeroSlideIdx(prev => prev + 1)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-purple-600 flex items-center justify-center transition-colors backdrop-blur-sm text-white">
+                                 <ChevronRight className="w-4 h-4 rtl:rotate-180" />
+                               </button>
+                             </div>
                           </div>
                        </div>
                        
-                       <div className="w-full md:w-2/3 h-48 md:h-full absolute ltr:right-0 rtl:left-0 top-0 bottom-0 z-0 cursor-pointer" onClick={() => {
+                       <div className="w-full md:w-2/3 h-full absolute ltr:right-0 rtl:left-0 top-0 bottom-0 z-0 cursor-pointer" onClick={() => {
                           if (currentSlide.type === 'game' && currentSlide.targetId) {
                               handleOpenGameDetail(currentSlide.targetId);
                           } else if (currentSlide.type === 'banner' && currentSlide.link) {
@@ -3326,14 +3351,17 @@ const [usersList, setUsersList] = useState<any[]>([]);
                          <div className="absolute inset-0 ltr:bg-gradient-to-r rtl:bg-gradient-to-l from-black via-black/50 to-transparent z-10 md:hidden"></div>
                          <img 
                            key={currentSlide.imageUrl}
-                           src={currentSlide.imageUrl} 
+                           src={currentSlide.imageUrl || "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1200"} 
+                           onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1200"; }}
                            alt={currentSlide.title} 
-                           className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700 animate-[fadeIn_0.5s_ease-out]"
+                           className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
                          />
                          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10 md:hidden"></div>
                          <div className="hidden md:block absolute inset-0 ltr:bg-gradient-to-l rtl:bg-gradient-to-r from-transparent via-black/20 to-black z-10"></div>
-                         <div className="absolute inset-0 border-[3px] border-purple-500/10 rounded-2xl z-20 pointer-events-none"></div>
                        </div>
+                       </motion.div>
+                      </AnimatePresence>
+                      <div className="absolute inset-0 border-[3px] border-purple-500/10 rounded-2xl z-30 pointer-events-none"></div>
                     </div>
                   );
               })()}
@@ -3515,76 +3543,62 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   filteredGames.slice(0, visibleGamesCount).map((game, index) => (
                     <motion.div 
                       key={game.id} 
-                      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ duration: 0.4, delay: index * 0.05, ease: "easeOut" }}
-                      whileHover={{ y: -5, transition: { duration: 0.2 } }}
-                      className="group bg-[#0a0a0c] border border-white/5 hover:border-purple-500/30 rounded-xl sm:rounded-2xl flex flex-col h-full transition-shadow duration-300 hover:shadow-[0_15px_40px_rgba(168,85,247,0.2)] relative overflow-hidden cursor-pointer" 
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.3, delay: index * 0.03 }}
+                      className="group bg-[#0d0d12] border border-white/5 hover:border-purple-500/50 rounded-2xl flex flex-col h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(168,85,247,0.15)] relative overflow-hidden cursor-pointer" 
                       onClick={() => handleOpenGameDetail(game.id)} 
                       dir={language === 'ar' ? 'rtl' : 'ltr'}
                     >
-                      <div className="relative aspect-square sm:aspect-[4/5] overflow-hidden bg-[#111116] border-b border-white/5">
-                        <motion.img 
-                          whileHover={{ scale: 1.1 }}
-                          transition={{ duration: 0.7, ease: "easeOut" }}
-                          src={game.image} 
-                          alt={game.title} 
-                          className="w-full h-full object-cover opacity-90 group-hover:opacity-100" 
-                          loading="lazy" 
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-transparent to-black/40 opacity-90 group-hover:opacity-100 transition-opacity duration-500"></div>
-                        
-                        <div className="absolute top-2 start-2 end-2 flex items-start justify-between">
-                           <div className={`bg-black/80 backdrop-blur-md px-2 py-1 rounded text-[10px] sm:text-xs font-bold uppercase tracking-wider border ${game.badgeColor} shadow-lg`}>
-                             {game.type}
-                           </div>
-                           {game.originalPrice && (
-                             <span className="bg-red-600/90 text-white px-2 py-1 rounded text-[10px] sm:text-xs font-black uppercase tracking-wider shadow-lg line-through decoration-red-400/50">
-                               {displayPrice(game.originalPrice)}
+                      <div className="relative aspect-[3/4] sm:aspect-[4/5] overflow-hidden bg-black w-full">
+                         <img src={game.image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" alt={game.title} />
+                         <div className="absolute inset-0 bg-gradient-to-t from-[#0d0d12] via-[#0d0d12]/20 to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300"></div>
+                         
+                         {/* Badges top */}
+                         <div className="absolute top-3 left-3 right-3 flex justify-between items-start pointer-events-none">
+                             <span className={`px-2 py-1 bg-black/60 backdrop-blur border border-white/10 rounded text-[10px] sm:text-xs font-bold uppercase tracking-wider ${game.badgeColor}`}>
+                                {game.type}
                              </span>
-                           )}
-                        </div>
-                        
-                        <div className="absolute bottom-2 start-2 end-2 flex flex-wrap gap-1 items-center justify-between pointer-events-none">
-                           <div className="bg-black/70 backdrop-blur-lg border border-white/10 rounded-lg px-2 py-1.5 flex items-center gap-1.5 shadow-xl">
-                             {game.category.includes('Console') || game.type.includes('PS5') || game.type.includes('Xbox') || game.type.includes('Nintendo') ? <Gamepad2 className="w-3 h-3 text-purple-400" /> : <Monitor className="w-3 h-3 text-purple-400" />}
-                             <span className="text-[9px] sm:text-[10px] font-bold text-gray-200 uppercase tracking-widest">{game.platform || 'DIGITAL'}</span>
-                           </div>
-                           {(!game.stock || game.stock === 0) && (
-                              <div className="bg-red-500/90 backdrop-blur-md px-2 py-1 rounded-lg border border-red-500/50 shadow-sm">
-                                <span className="text-[9px] sm:text-[10px] text-white font-bold uppercase tracking-wider">{t[language].outOfStock}</span>
-                              </div>
-                           )}
-                        </div>
+                             {(!game.stock || game.stock === 0) && (
+                                <span className="bg-red-500/90 shadow-lg text-white px-2 py-1 rounded text-[10px] font-bold uppercase">
+                                   {t[language].outOfStock}
+                                </span>
+                             )}
+                         </div>
                       </div>
-                      
-                      <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between z-10 relative bg-gradient-to-b from-[#0a0a0c] to-[#0d0d12]">
-                        <h4 className="font-bold text-[13px] sm:text-[15px] leading-snug text-gray-100 group-hover:text-purple-400 transition-colors line-clamp-2 mb-3" dir="auto">{game.title}</h4>
-                        
-                        <div className="flex items-center justify-between mt-auto">
-                          <div className="flex flex-col">
+
+                      <div className="p-4 flex flex-col justify-between flex-1 relative z-10 -mt-12 bg-gradient-to-b from-transparent to-[#0d0d12]">
+                         <div className="flex items-center gap-1.5 mb-2 pointer-events-none drop-shadow-md">
+                            {game.category.includes('Console') || game.type.includes('PS5') || game.type.includes('Xbox') || game.type.includes('Nintendo') ? <Gamepad2 className="w-3.5 h-3.5 text-purple-400" /> : <Monitor className="w-3.5 h-3.5 text-purple-400" />}
+                            <span className="text-[10px] font-bold text-gray-200 uppercase tracking-widest">{game.platform || 'DIGITAL'}</span>
+                         </div>
+                         
+                         <h4 className="font-bold text-[13px] sm:text-[14px] leading-tight text-white mb-3 line-clamp-2 transition-colors group-hover:text-purple-300" dir="auto">{game.title}</h4>
+                         
+                         {/* Bottom Info */}
+                         <div className="flex items-end justify-between mt-auto">
+                           <div className="flex flex-col">
                              {game.originalPrice ? (
                                 <>
-                                  <span className="text-[12px] text-green-400 font-bold tracking-wider uppercase mb-0.5" dir="ltr">Save {Math.round((1 - game.price/game.originalPrice)*100)}%</span>
-                                  <span className="text-base sm:text-lg font-black text-white font-mono leading-none drop-shadow-md">{displayPrice(game.price)}</span>
+                                  <span className="text-[10px] sm:text-[11px] text-green-400 font-bold mb-0.5">Save {Math.round((1 - game.price/game.originalPrice)*100)}%</span>
+                                  <div className="flex flex-col">
+                                    <span className="text-gray-500 text-[10px] sm:text-xs line-through decoration-red-500/50 leading-none">{displayPrice(game.originalPrice)}</span>
+                                    <span className="text-base sm:text-lg font-black text-white leading-tight font-mono">{displayPrice(game.price)}</span>
+                                  </div>
                                 </>
                              ) : (
-                                <span className="text-base sm:text-lg font-black text-white font-mono leading-none mt-1 drop-shadow-md">{displayPrice(game.price)}</span>
+                                <span className="text-base sm:text-lg font-black text-white font-mono mt-2">{displayPrice(game.price)}</span>
                              )}
-                          </div>
-                          
-                          <motion.button 
-                            whileTap={{ scale: 0.9 }}
-                            className="bg-white/5 hover:bg-purple-600 border border-white/10 group-hover:border-purple-500/50 text-white w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all shadow-[0_0_15px_rgba(0,0,0,0.5)] group-hover:shadow-[0_0_20px_rgba(147,51,234,0.4)] z-20"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              addToCart(game.id);
-                            }}
-                            title={t[language].addToCart || 'Add to Cart'}
-                          >
-                            <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
-                          </motion.button>
-                        </div>
+                           </div>
+                           
+                           <button 
+                             onClick={(e) => { e.stopPropagation(); addToCart(game.id); }}
+                             className="w-10 h-10 rounded-xl bg-purple-600/20 hover:bg-purple-600 border border-purple-500/30 group-hover:border-purple-500 text-purple-300 hover:text-white flex items-center justify-center transition-all duration-300 z-20"
+                             title={t[language].addToCart || 'Add to Cart'}
+                           >
+                             <ShoppingCart className="w-4.5 h-4.5" />
+                           </button>
+                         </div>
                       </div>
                     </motion.div>
                   ))
