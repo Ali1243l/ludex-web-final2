@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { signIn, signUp, confirmSignUp, resetPassword, confirmResetPassword, signInWithRedirect, resendSignUpCode } from 'aws-amplify/auth';
+import { signIn, signUp, confirmSignUp, resetPassword, confirmResetPassword, signInWithRedirect, resendSignUpCode, getCurrentUser, signOut } from 'aws-amplify/auth';
 import { X, Mail, Lock, User, ArrowRight, ShieldCheck } from 'lucide-react';
 import { t } from './translations';
 
@@ -297,7 +297,13 @@ export function AuthModal({ initialMode, language, onClose, onSuccess }: AuthMod
               </div>
               
               <button 
-                onClick={() => signInWithRedirect({ provider: 'Google' })}
+                onClick={() => {
+                   if (window.self !== window.top) {
+                      alert(isRTL ? 'الرجاء فتح التطبيق في علامة تبويب جديدة لاستخدام تسجيل الدخول عبر Google' : 'Please open the app in a new browser tab to use Google Sign-In.');
+                      return;
+                   }
+                   signInWithRedirect({ provider: 'Google' });
+                }}
                 disabled={loading}
                 type="button"
                 className="w-full bg-[#111] border border-gray-800 text-gray-300 font-bold py-3.5 rounded-xl hover:bg-gray-800 hover:text-white transition-all flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50 active:scale-[0.98]"

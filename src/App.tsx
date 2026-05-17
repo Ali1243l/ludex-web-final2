@@ -4,7 +4,8 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ShoppingBag, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, Send, CreditCard, Upload, User, Settings, Home, ListOrdered, AlertCircle, CheckCircle2, Shield, Key, Package, Layers, Clock, Gift, Download, Check, Menu, Filter, ChevronDown, LogOut, Star, Tag, TrendingUp, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from "motion/react";
+import { Search, ShoppingBag, ShoppingCart, MessageSquare, Gamepad2, Monitor, Coins, Zap, X, Send, CreditCard, Upload, User, Settings, Home, ListOrdered, AlertCircle, CheckCircle2, Shield, Key, Package, Layers, Clock, Gift, Download, Check, Menu, Filter, ChevronDown, LogOut, Star, Tag, TrendingUp, ArrowRight } from 'lucide-react';
 import { supabase } from './supabase'; // Keep it for storage for now
 import { signUp, signIn, signOut, getCurrentUser, fetchUserAttributes, signInWithRedirect, deleteUser } from 'aws-amplify/auth';
 import { Hub } from 'aws-amplify/utils';
@@ -67,7 +68,7 @@ interface CMSPage {
 const INITIAL_PAGES: CMSPage[] = [
   { id: 1, title: 'Privacy Policy', slug: 'privacy', content: 'Our privacy policy details.', lastUpdated: new Date().toISOString() },
   { id: 2, title: 'Terms of Service', slug: 'terms', content: 'Our terms of service.', lastUpdated: new Date().toISOString() },
-  { id: 3, title: 'About Us', slug: 'about', content: 'About Pixel Store.', lastUpdated: new Date().toISOString() }
+  { id: 3, title: 'About Us', slug: 'about', content: 'About Ludex Store.', lastUpdated: new Date().toISOString() }
 ];
 
 const getAuthToken = async (): Promise<string | null> => {
@@ -83,8 +84,8 @@ const getAuthToken = async (): Promise<string | null> => {
 export default function App() {
   const [activeTab, setActiveTab] = useState<'store' | 'orders' | 'admin' | 'profile' | 'settings' | 'cart' | 'page' | 'user_dashboard'>('store');
   const [currentSlug, setCurrentSlug] = useState<string | null>(null);
-  const [orders, setOrders] = useState<Order[]>(() => { try { const o = localStorage.getItem('pixel_orders'); return o ? JSON.parse(o) : []; } catch { return []; } });
-  useEffect(() => { localStorage.setItem('pixel_orders', JSON.stringify(orders)); }, [orders]);
+  const [orders, setOrders] = useState<Order[]>(() => { try { const o = localStorage.getItem('ludex_orders'); return o ? JSON.parse(o) : []; } catch { return []; } });
+  useEffect(() => { localStorage.setItem('ludex_orders', JSON.stringify(orders)); }, [orders]);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>('Zain Cash');
@@ -113,6 +114,7 @@ export default function App() {
   const [authForm, setAuthForm] = useState({email: '', password: '', name: ''});
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<(number | string)[]>([ ]);
@@ -319,7 +321,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
 
   // Promo Codes
   const [promoCodes, setPromoCodes] = useState([
-    { id: '1', code: 'PIXEL10', discountPercent: 10, expiryDate: '2026-12-31', usageLimit: 100, usedCount: 0, active: true },
+    { id: '1', code: 'LUDEX10', discountPercent: 10, expiryDate: '2026-12-31', usageLimit: 100, usedCount: 0, active: true },
   ]);
   const [activePromoCode, setActivePromoCode] = useState<any>(null);
   const [promoCodeInput, setPromoCodeInput] = useState('');
@@ -327,15 +329,15 @@ const [usersList, setUsersList] = useState<any[]>([]);
   const [newPromoCode, setNewPromoCode] = useState({ id: '', code: '', discountPercent: '', expiryDate: '', usageLimit: '', usedCount: 0, active: true });
 
   const [language, setLanguage] = useState<'en' | 'ar'>('ar');
-  const [currency, setCurrency] = useState<'USD' | 'IQD'>((localStorage.getItem('pixel_currency') as 'USD' | 'IQD') || 'IQD');
+  const [currency, setCurrency] = useState<'USD' | 'IQD'>((localStorage.getItem('ludex_currency') as 'USD' | 'IQD') || 'IQD');
   useEffect(() => {
-    localStorage.setItem('pixel_currency', currency);
+    localStorage.setItem('ludex_currency', currency);
   }, [currency]);
 
   const [globalSettings, setGlobalSettings] = useState({
      currencyRate: 1500,
-     storeName: "Pixel Store",
-     contactEmail: "support@pixelstore.com",
+     storeName: "Ludex Store",
+     contactEmail: "support@ludexstore.com",
      contactPhone: "0770 123 4567",
      xpMultiplier: 10
   });
@@ -619,7 +621,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                      id: userId,
                      email: userEmail,
                      display_name: userDisplayName || userEmail?.split('@')[0] || 'User',
-                     role: userEmail === 'admin@pixel.com' || userEmail === 'rhydr4702@gmail.com' || userEmail === 'abutrabali40@gmail.com' ? 'ADMIN' : 'USER',
+                     role: userEmail === 'admin@ludex.com' || userEmail === 'rhydr4702@gmail.com' || userEmail === 'abutrabali40@gmail.com' ? 'ADMIN' : 'USER',
                      platforms: ['PC'],
                      interests: [],
                      avatar_url: null
@@ -634,7 +636,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   id: userId,
                   email: userEmail,
                   display_name: userDisplayName || userEmail?.split('@')[0] || 'User',
-                  role: userEmail === 'admin@pixel.com' || userEmail === 'rhydr4702@gmail.com' || userEmail === 'abutrabali40@gmail.com' ? 'ADMIN' : 'USER',
+                  role: userEmail === 'admin@ludex.com' || userEmail === 'rhydr4702@gmail.com' || userEmail === 'abutrabali40@gmail.com' ? 'ADMIN' : 'USER',
                   platforms: ['PC'],
                   interests: [],
                   avatar_url: null
@@ -655,7 +657,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
     console.log('[Auth Hub] Registering auth listener...');
     const unsubscribe = Hub.listen('auth', ({ payload }) => {
       console.log(`[Auth Hub] Event fired: ${payload.event}`);
-      switch (payload.event) {
+      switch (payload.event as string) {
         case 'signedIn':
         case 'signUp':
         case 'autoSignIn':
@@ -774,7 +776,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
 
      if ((adminTab === 'support' && userProfile?.role === 'ADMIN') || (isChatOpen && userProfile?.id)) {
         fetchChatData();
-        pollInterval = setInterval(fetchChatData, 5000);
+        pollInterval = setInterval(fetchChatData, 2000);
      }
 
      return () => {
@@ -1043,7 +1045,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
       o.id === orderId ? { 
         ...o, 
         status: 'Approved', 
-        gameKey: 'PIXEL-' + Math.random().toString(36).substr(2, 4).toUpperCase() + '-' + Math.random().toString(36).substr(2, 4).toUpperCase(),
+        gameKey: 'LUDEX-' + Math.random().toString(36).substr(2, 4).toUpperCase() + '-' + Math.random().toString(36).substr(2, 4).toUpperCase(),
         invoiceNumber: 'INV-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000)
       } : o
     ));
@@ -1301,9 +1303,9 @@ const [usersList, setUsersList] = useState<any[]>([]);
           <div className="w-64 bg-[#0a0a0a] border-e border-purple-900/40 p-4 flex flex-col gap-2 relative z-20 overflow-y-auto custom-scrollbar flex-shrink-0 h-full">
             <div className="px-4 py-6 border-b border-gray-800 mb-6 flex flex-col gap-2">
               <h3 className="font-black text-purple-500 text-xl flex items-center gap-2">
-                <Shield className="w-6 h-6" /> Pixel HQ
+                <Shield className="w-6 h-6" /> Ludex HQ
               </h3>
-              <p className="text-[10px] text-green-400 mt-1 uppercase font-mono bg-green-500/10 px-2 py-1 rounded inline-block w-fit">/pixel-hq-portal</p>
+              <p className="text-[10px] text-green-400 mt-1 uppercase font-mono bg-green-500/10 px-2 py-1 rounded inline-block w-fit">/ludex-hq-portal</p>
             </div>
             
             <button 
@@ -2464,57 +2466,80 @@ const [usersList, setUsersList] = useState<any[]>([]);
             )}
 
             {adminTab === 'support' && (
-              <div className="max-w-[98%] 2xl:max-w-[1600px] w-full mx-auto h-[650px] flex gap-4">
+              <div className="max-w-7xl w-full mx-auto h-[calc(100vh-250px)] min-h-[600px] flex gap-4 mt-6">
                 {/* Chat Sessions Sidebar */}
-                <div className="w-1/3 bg-[#111] border border-gray-800 rounded-xl overflow-hidden flex flex-col">
-                   <div className="p-4 border-b border-gray-800 bg-[#1a1a1a]">
-                      <h3 className="font-bold text-white text-sm">Active Conversations</h3>
+                <div className="w-[320px] shrink-0 bg-[#0a0a0a] border border-gray-800 rounded-2xl overflow-hidden flex flex-col shadow-xl">
+                   <div className="p-5 border-b border-gray-800 bg-[#111] flex items-center justify-between">
+                      <h3 className="font-bold text-white flex items-center gap-2">
+                         <MessageSquare className="w-5 h-5 text-purple-500" />
+                         Inbox
+                      </h3>
+                      <span className="text-xs font-bold bg-gray-800 text-gray-300 px-2 py-1 rounded-md">{chatSessions?.length || 0}</span>
                    </div>
-                   <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800">
+                   <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 p-2 space-y-1">
                       {chatSessions?.map((session) => (
                          <div 
                            key={session.id} 
-                           onClick={() => setActiveChatSessionId(session.id)}
-                           className={`p-4 border-b border-gray-800/50 cursor-pointer transition-colors flex gap-4 ${activeChatSessionId === session.id ? 'bg-purple-900/20 border-l-4 border-l-purple-500' : 'hover:bg-white/5 border-l-4 border-l-transparent'}`}
+                           onClick={() => {
+                              if (activeChatSessionId !== session.id) setChatHistory([]);
+                              setActiveChatSessionId(session.id);
+                           }}
+                           className={`p-3 rounded-xl cursor-pointer transition-all flex items-center gap-3 relative ${activeChatSessionId === session.id ? 'bg-purple-900/40 border border-purple-500/30' : 'hover:bg-[#111] border border-transparent'}`}
                          >
+                            {session.admin_unread > 0 && <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-purple-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(168,85,247,0.8)]"></span>}
                             <img 
                                src={session.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.profiles?.display_name || session.profiles?.email}&backgroundColor=4c1d95`} 
                                onClick={(e) => { e.stopPropagation(); session.user_id && handleViewProfile(session.user_id); }}
-                               className="w-12 h-12 rounded-full border border-purple-500/30 shadow-[0_0_10px_rgba(147,51,234,0.1)] object-cover bg-black cursor-pointer hover:border-purple-400 hover:scale-105 transition-all shrink-0"
+                               className="w-10 h-10 rounded-full border border-gray-700 object-cover bg-black cursor-pointer shrink-0"
                                title="View Profile"
                             />
                             <div className="flex-1 min-w-0">
-                               <div className="flex justify-between items-start">
-                                  <p className="font-bold text-sm text-white truncate group-hover:text-purple-400">{session.profiles?.display_name || session.profiles?.email}</p>
-                                  <div className="flex items-center gap-2">
-                                     {session.admin_unread > 0 && <span className="bg-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">{session.admin_unread} new</span>}
-                                     {session.profiles?.role === 'ADMIN' && <span className="text-[9px] px-1.5 py-0.5 bg-red-900/40 text-red-400 rounded outline outline-1 outline-red-900 overflow-hidden shrink-0">ADMIN</span>}
-                                  </div>
+                               <div className="flex justify-between items-center mb-0.5">
+                                  <p className="font-bold text-sm text-gray-200 truncate group-hover:text-white">{session.profiles?.display_name || session.profiles?.email}</p>
+                                  <span className="text-[10px] text-gray-500 shrink-0">{new Date(session.last_message_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                </div>
-                               <p className="text-xs text-gray-500 truncate mt-1">ID: {session.user_id?.substring(0,8)}...</p>
-                               <p className="text-[10px] text-gray-600 mt-1">{new Date(session.last_message_at).toLocaleString()}</p>
+                               <p className="text-xs text-gray-500 truncate mt-0.5 pr-4">User ID: {session.user_id?.substring(0,8)}...</p>
                             </div>
                          </div>
                       ))}
                       {chatSessions?.length === 0 && (
-                         <p className="p-6 text-center text-gray-500 text-sm">No active conversations.</p>
+                         <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-3">
+                            <MessageSquare className="w-8 h-8 opacity-20" />
+                            <p className="text-sm">No active conversations</p>
+                         </div>
                       )}
                    </div>
                 </div>
 
                 {/* Main Chat Area */}
-                <div className="flex-1 bg-[#111] border border-gray-800 rounded-xl flex flex-col h-full overflow-hidden">
-                  <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-[#1a1a1a]">
-                    <h3 className="text-white font-bold flex items-center gap-2 text-lg">
-                       <MessageSquare className="w-6 h-6 text-purple-500" /> 
-                       {activeChatSessionId ? `Chat with ${chatSessions.find(s=>s.id === activeChatSessionId)?.profiles?.display_name || 'User'}` : 'Select a conversation'}
-                    </h3>
+                <div className="flex-1 bg-[#0a0a0a] border border-gray-800 rounded-2xl flex flex-col h-full overflow-hidden shadow-xl relative">
+                  {!activeChatSessionId ? (
+                     <div className="flex-1 flex flex-col items-center justify-center text-gray-500 gap-4">
+                        <div className="w-16 h-16 rounded-full border border-gray-800 bg-[#111] flex items-center justify-center">
+                           <MessageSquare className="w-6 h-6 opacity-30" />
+                        </div>
+                        <p className="text-sm">Select a conversation to start chatting</p>
+                     </div>
+                  ) : (
+                     <>
+                  <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center bg-[#111]">
+                    <div className="flex items-center gap-4">
+                       <img 
+                          src={chatSessions.find(s=>s.id === activeChatSessionId)?.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${chatSessions.find(s=>s.id === activeChatSessionId)?.profiles?.display_name || 'User'}&backgroundColor=4c1d95`}
+                          className="w-10 h-10 rounded-full border border-gray-700 bg-black cursor-pointer"
+                          onClick={() => { const session = chatSessions.find(s=>s.id === activeChatSessionId); if(session && session.user_id) handleViewProfile(session.user_id); }}
+                       />
+                       <div>
+                          <h3 className="text-white font-bold text-sm">
+                             {chatSessions.find(s=>s.id === activeChatSessionId)?.profiles?.display_name || 'User'}
+                          </h3>
+                          <p className="text-xs text-gray-500">{chatSessions.find(s=>s.id === activeChatSessionId)?.profiles?.email || 'Unknown Email'}</p>
+                       </div>
+                    </div>
                   </div>
                   
-                  <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6 scrollbar-thin scrollbar-thumb-gray-800">
-                    {!activeChatSessionId ? (
-                       <div className="flex-1 flex items-center justify-center text-gray-500">Pick a user from the left to start chatting</div>
-                    ) : chatHistory?.map((msg) => {
+                  <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4 scrollbar-thin scrollbar-thumb-gray-800">
+                    {chatHistory?.map((msg) => {
                        const isMyMsg = msg.sender_id === userProfile?.id;
                        const isAdminType = msg.sender?.role === 'ADMIN' || isMyMsg;
                        return (
@@ -2524,10 +2549,10 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                {isMyMsg ? 'You' : <button type="button" onClick={() => msg.sender_id && handleViewProfile(msg.sender_id)} className="hover:text-purple-400 hover:underline transition-all">{msg.sender?.display_name || (isAdminType ? 'Admin' : 'User')}</button>}
                              </span>
                            </div>
-                           <div className={`p-4 rounded-xl text-sm shadow-lg ${
+                           <div className={`px-4 py-2.5 rounded-2xl text-[14px] shadow-sm whitespace-pre-wrap leading-relaxed ${
                              isAdminType 
-                               ? 'bg-purple-600/20 text-white border border-purple-500/30 rounded-tr-sm' 
-                               : 'bg-[#111] border border-gray-800 text-gray-300 rounded-tl-sm'
+                               ? 'bg-purple-600 text-white rounded-tr-sm' 
+                               : 'bg-[#1a1a1a] border border-gray-800/60 text-gray-200 rounded-tl-sm'
                            }`}>
                              {(msg.content?.startsWith('[Product Inquiry ID:') || msg.content?.startsWith('[Product Inquiry:')) ? (() => {
                                 let gameId = null;
@@ -2576,12 +2601,12 @@ const [usersList, setUsersList] = useState<any[]>([]);
                                 );
                              })() : <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>}
                            </div>
-                           <div className="text-[9px] text-gray-600 mt-1">
-                             {new Date(msg.created_at || new Date()).toLocaleTimeString()}
+                           <div className="text-[10px] text-gray-500 mt-1.5 px-1 font-medium">
+                             {new Date(msg.created_at || new Date()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                              {(() => {
                                 const readers = msg.read_by_profiles?.filter((p:any) => p.id !== msg.sender_id) || [];
                                 if (readers.length === 0) return null;
-                                return <span> • Seen by {readers.map((p:any) => p.role === 'ADMIN' ? p.display_name + ' (Admin)' : p.display_name).join(', ')}</span>;
+                                return <span> • Read</span>;
                              })()}
                            </div>
                          </div>
@@ -2589,28 +2614,33 @@ const [usersList, setUsersList] = useState<any[]>([]);
                     })}
                   </div>
                   
-                  <form onSubmit={handleAdminReply} className="p-6 border-t border-gray-800 bg-[#1a1a1a] flex gap-4">
-                    <input 
-                      type="text" 
-                      id="adminChatMessage"
-                      name="adminChatMessage"
-                      value={adminChatMessage}
-                      onChange={e => setAdminChatMessage(e.target.value)}
-                      placeholder={activeChatSessionId ? "Reply to user as Admin..." : "Select a conversation first"} 
-                      disabled={!activeChatSessionId}
-                      dir="auto"
-                      className="flex-1 bg-black border border-gray-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-purple-500 text-white disabled:opacity-50"
-                    />
-                    <button type="submit" disabled={!adminChatMessage.trim() || !activeChatSessionId} className="bg-purple-600 px-8 font-bold rounded-lg text-white hover:bg-purple-500 disabled:opacity-50 transition-colors">
-                      Reply
-                    </button>
-                  </form>
+                  <div className="p-4 bg-[#0a0a0a] border-t border-gray-800">
+                      <form onSubmit={handleAdminReply} className="flex gap-3 bg-[#111] p-2 rounded-xl border border-gray-800 focus-within:border-purple-500/50 transition-colors">
+                        <input 
+                          type="text" 
+                          id="adminChatMessage"
+                          name="adminChatMessage"
+                          value={adminChatMessage}
+                          onChange={e => setAdminChatMessage(e.target.value)}
+                          placeholder="Type your reply here..." 
+                          dir="auto"
+                          className="flex-1 bg-transparent px-3 py-2 text-sm focus:outline-none text-white"
+                        />
+                        <button type="submit" disabled={!adminChatMessage.trim()} className="bg-purple-600 px-6 font-bold rounded-lg text-white hover:bg-purple-500 disabled:opacity-50 transition-colors flex items-center justify-center">
+                          Send
+                        </button>
+                      </form>
+                  </div>
+                     </>
+                  )}
                 </div>
 
                 {/* User Profile View (Right Pane) */}
                 {activeChatSessionId && (
-                  <div className="w-1/4 bg-[#111] border border-gray-800 rounded-xl overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-800">
-                    <h3 className="font-bold text-white mb-6 border-b border-gray-800 pb-2">User Profile</h3>
+                  <div className="w-[300px] shrink-0 bg-[#0a0a0a] border border-gray-800 rounded-2xl overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-800 shadow-xl hidden lg:block">
+                    <h3 className="font-bold text-white mb-6 border-b border-gray-800 pb-3 flex items-center gap-2">
+                       <User size={18} className="text-gray-400" /> User Info
+                    </h3>
                     {(() => {
                        const session = chatSessions.find(s=>s.id === activeChatSessionId);
                        if (!session) return null;
@@ -2824,7 +2854,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex flex-col gap-4 bg-black border border-gray-800 rounded-xl p-5 h-[500px] overflow-y-auto">
                        <h4 className="font-bold text-white text-sm">Create Promo Code</h4>
-                       <input type="text" placeholder="Code (e.g. PIXEL10)" value={newPromoCode.code} onChange={e => setNewPromoCode({...newPromoCode, code: e.target.value.toUpperCase()})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white uppercase" />
+                       <input type="text" placeholder="Code (e.g. LUDEX10)" value={newPromoCode.code} onChange={e => setNewPromoCode({...newPromoCode, code: e.target.value.toUpperCase()})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white uppercase" />
                        <input type="number" placeholder="Discount Percentage (%)" value={newPromoCode.discountPercent} onChange={e => setNewPromoCode({...newPromoCode, discountPercent: e.target.value})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" />
                        <input type="date" placeholder="Expiry Date" value={newPromoCode.expiryDate} onChange={e => setNewPromoCode({...newPromoCode, expiryDate: e.target.value})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" />
                        <input type="number" placeholder="Usage Limit" value={newPromoCode.usageLimit} onChange={e => setNewPromoCode({...newPromoCode, usageLimit: e.target.value})} className="w-full bg-[#111] border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white" />
@@ -2873,15 +2903,35 @@ const [usersList, setUsersList] = useState<any[]>([]);
       ) : (
         <>
           {/* Navbar */}
-      <nav className="h-16 md:h-20 w-full px-4 md:px-8 flex items-center justify-between border-b border-purple-900/30 bg-[#050505]/80 backdrop-blur-md z-10 flex-shrink-0 relative">
-        <div className="flex items-center justify-center flex-none md:justify-start gap-10">
-          <div className="text-xl md:text-2xl font-black tracking-tighter text-white cursor-pointer text-center hidden md:block" onClick={() => { setActiveTab('store'); setActiveCategory(null); setIsMobileMenuOpen(false); }}>
-            PIXEL<span className="text-purple-500">STORE</span>
+      <nav className={`h-16 md:h-20 w-full px-4 md:px-8 flex items-center justify-between border-b border-white/5 bg-[#0a0a0c]/90 backdrop-blur-2xl z-20 flex-shrink-0 sticky top-0 shadow-[0_5px_40px_rgba(0,0,0,0.4)] transition-all duration-300 ${isMobileSearchOpen ? 'bg-gradient-to-b from-purple-900/10 to-[#0a0a0c]' : ''}`}>
+        
+        {/* Mobile Search Overlay */}
+        <div className={`absolute inset-0 px-4 flex items-center md:hidden transition-all duration-300 ease-out z-30 ${isMobileSearchOpen ? 'opacity-100 translate-y-0 pointer-events-auto scale-100' : 'opacity-0 -translate-y-4 pointer-events-none scale-95'}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+           <div className="relative w-full flex items-center shadow-[0_0_20px_rgba(168,85,247,0.15)] rounded-full">
+             <Search className={`absolute ${language === 'ar' ? 'right-4' : 'left-4'} w-4 h-4 text-purple-400`} />
+             <input 
+               type="text" 
+               placeholder={t[language].search} 
+               value={searchQuery}
+               onChange={(e) => { setSearchQuery(e.target.value); if(e.target.value) setActiveTab('store'); }}
+               className={`w-full bg-[#111116] border border-purple-500/40 rounded-full py-2.5 ${language === 'ar' ? 'pr-11 pl-12' : 'pl-11 pr-12'} text-sm focus:outline-none focus:border-purple-400 focus:bg-purple-900/10 text-white placeholder-gray-500 transition-all font-bold`} 
+             />
+             <button onClick={() => setIsMobileSearchOpen(false)} className={`absolute ${language === 'ar' ? 'left-2' : 'right-2'} p-2.5 text-gray-400 hover:text-white rounded-full bg-black/20 hover:bg-black/50 transition-colors`}>
+                <X className="w-4 h-4" />
+             </button>
+           </div>
+        </div>
+
+        <div className={`flex w-full items-center justify-between transition-all duration-300 ${isMobileSearchOpen ? 'opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto blur-sm md:blur-none' : 'opacity-100 pointer-events-auto blur-none'}`}>
+        <div className="flex items-center flex-none gap-6 md:gap-10">
+          <div className="text-xl md:text-2xl font-black tracking-tighter text-white cursor-pointer hidden md:flex items-center" onClick={() => { setActiveTab('store'); setActiveCategory(null); setIsMobileMenuOpen(false); }}>
+            LUDEX<span className="text-purple-500">STORE</span>
           </div>
+          
           {/* Mobile Logo Only */}
-          <div className="text-xl font-black tracking-tighter text-white cursor-pointer md:hidden flex items-center gap-2" onClick={() => { setActiveTab('store'); setActiveCategory(null); }}>
-            <span className="bg-purple-600 text-white w-8 h-8 flex items-center justify-center rounded-lg shadow-[0_0_15px_rgba(147,51,234,0.5)]">L</span>
-            <span>PIXEL<span className="text-purple-500">STORE</span></span>
+          <div className="text-lg font-black tracking-tighter text-white cursor-pointer md:hidden flex items-center gap-2" onClick={() => { setActiveTab('store'); setActiveCategory(null); }}>
+            <div className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white w-8 h-8 flex items-center justify-center rounded-lg shadow-[0_0_15px_rgba(147,51,234,0.4)]">L</div>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">LUDEX<span className="text-purple-400">STORE</span></span>
           </div>
           
           <div className="hidden md:flex gap-8 text-sm font-bold text-gray-400 tracking-widest">
@@ -2891,7 +2941,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
           </div>
         </div>
         
-        <div className="flex flex-1 items-center justify-end gap-3 md:gap-6">
+        <div className="flex flex-1 items-center justify-end gap-2 md:gap-6">
           <div className="relative hidden md:flex items-center">
             <div className="absolute start-3 w-4 h-4 text-gray-500">
               <Search className="w-4 h-4" />
@@ -2905,9 +2955,9 @@ const [usersList, setUsersList] = useState<any[]>([]);
             />
           </div>
           
-          {/* Mobile Search Icon */}
-          <div className="md:hidden flex items-center justify-center p-2 text-gray-400 hover:text-white cursor-pointer" onClick={() => { setIsMobileMenuOpen(true) }}>
-             <Search className="w-5 h-5" />
+          {/* Mobile Search Icon & User Login */}
+          <div className="md:hidden flex items-center justify-center p-2 text-gray-300 hover:text-white cursor-pointer bg-gray-800/40 rounded-full border border-gray-700/50 hover:bg-gray-800/80 transition-colors" onClick={() => { setIsMobileSearchOpen(true) }}>
+             <Search className="w-4 h-4" />
           </div>
 
           <div className="flex items-center gap-4">
@@ -2932,125 +2982,202 @@ const [usersList, setUsersList] = useState<any[]>([]);
             <div className="relative">
               {isLoggedIn ? (
                 <>
-                  <div onClick={() => setIsProfileOpen(!isProfileOpen)} className="w-8 h-8 md:w-10 md:h-10 bg-purple-900 rounded-full border border-purple-500/50 cursor-pointer overflow-hidden hover:border-purple-400 transition-colors flex items-center justify-center font-bold text-white uppercase select-none">
-                     <img src={userProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile?.display_name || userProfile?.email}&backgroundColor=4c1d95`} alt="Avatar" className="w-full h-full object-cover" />
+                  <div onClick={() => setIsProfileOpen(!isProfileOpen)} className="w-9 h-9 md:w-10 md:h-10 bg-gradient-to-br from-purple-700 to-purple-900 rounded-full border-2 border-purple-500/50 cursor-pointer overflow-hidden hover:border-purple-400 transition-all flex items-center justify-center font-bold text-white uppercase select-none shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                     {userProfile?.avatar_url ? (
+                        <img src={userProfile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                     ) : (
+                        (userProfile?.display_name || userProfile?.email || '?').charAt(0)
+                     )}
                   </div>
+
+                  {/* Profile Dropdown */}
+                  <AnimatePresence>
                   {isProfileOpen && (
-                    <div className={`absolute ${language === 'ar' ? 'left-0' : 'right-0'} mt-2 w-48 bg-[#111] border border-purple-900/50 rounded-xl shadow-xl overflow-hidden z-20 flex flex-col`}>
-                      {userProfile?.role === 'ADMIN' && (
-                        <button onClick={() => { setActiveTab('admin'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-purple-400 font-bold uppercase tracking-widest">
-                          <Shield className="w-4 h-4" /> Pixel HQ Portal
-                        </button>
-                      )}
-                      <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('profile'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-white">
-                        <User className="w-4 h-4" /> {t[language].profile}
-                      </button>
-                      <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('settings'); setIsProfileOpen(false); }} className="px-4 py-3 text-sm text-start hover:bg-purple-900/30 transition-colors border-b border-gray-800 flex items-center gap-2 text-white">
-                        <Settings className="w-4 h-4" /> {t[language].settings}
-                      </button>
-                      <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center bg-black/50">
-                        <span className="text-xs font-bold text-gray-400">Language</span>
-                        <div className="flex bg-[#111] rounded-md border border-purple-900/30 p-1">
-                          <button onClick={() => setLanguage('en')} className={`px-2 py-1 text-[10px] rounded font-bold transition-colors ${language === 'en' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}>EN</button>
-                          <button onClick={() => setLanguage('ar')} className={`px-2 py-1 text-[10px] rounded font-bold transition-colors ${language === 'ar' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}>عربي</button>
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        transition={{ duration: 0.15 }}
+                        className={`absolute top-full mt-2 w-56 bg-[#111] border border-gray-800 rounded-xl shadow-2xl py-2 z-50 text-sm ${language === 'ar' ? 'left-0' : 'right-0'}`} 
+                        dir={language === 'ar' ? 'rtl' : 'ltr'}
+                      >
+                        <div className="px-4 py-2 border-b border-gray-800 mb-2">
+                           <p className="font-bold text-white truncate">{userProfile?.display_name || 'User'}</p>
+                           <p className="text-[10px] text-gray-500 font-mono truncate">{userProfile?.email}</p>
                         </div>
-                      </div>
-                      <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center bg-black/50">
-                        <span className="text-xs font-bold text-gray-400">Currency</span>
-                        <div className="flex bg-[#111] rounded-md border border-purple-900/30 p-1">
-                          <button onClick={() => setCurrency('USD')} className={`px-2 py-1 text-[10px] rounded font-bold transition-colors ${currency === 'USD' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}>USD</button>
-                          <button onClick={() => setCurrency('IQD')} className={`px-2 py-1 text-[10px] rounded font-bold transition-colors ${currency === 'IQD' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}>IQD</button>
-                        </div>
-                      </div>
-                      <button onClick={async () => { 
-                          try {
-                             await signOut();
-                          } catch (e) {
-                             console.error('Sign out error:', e);
-                          }
-                          setIsLoggedIn(false); 
-                          setUserProfile(null); 
-                          setIsProfileOpen(false); 
-                          if(activeTab === 'admin' || activeTab === 'profile') { setActiveTab('store'); setActiveCategory(null); }
-                      }} className="px-4 py-3 text-sm text-start text-red-500 hover:bg-red-500/10 transition-colors">{t[language].logout}</button>
-                    </div>
+                        <button onClick={() => { setActiveTab('user_dashboard'); setIsProfileOpen(false); }} className={`w-full text-left px-4 py-2 text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2`}><User className="w-4 h-4 text-purple-400"/> {language === 'ar' ? 'حسابي' : 'My Account'}</button>
+                        {userProfile?.role === 'ADMIN' && (
+                           <button onClick={() => { setActiveTab('admin'); setIsProfileOpen(false); }} className={`w-full text-left px-4 py-2 text-purple-400 hover:bg-purple-900/20 font-bold transition-colors flex items-center gap-2`}><Shield className="w-4 h-4"/> Ludex HQ Portal</button>
+                        )}
+                        <hr className="my-2 border-gray-800" />
+                        <button onClick={async () => { await signOut(); setIsProfileOpen(false); }} className={`w-full text-left px-4 py-2 text-red-400 hover:bg-red-900/20 transition-colors flex items-center gap-2`}><LogOut className="w-4 h-4"/> {language === 'ar' ? 'تسجيل الخروج' : 'Sign Out'}</button>
+                      </motion.div>
+                    </>
                   )}
+                  </AnimatePresence>
                 </>
               ) : (
-                <>
-                  <div className="hidden md:flex items-center gap-2">
-                    <button onClick={() => setShowAuthModal('login')} className="text-gray-400 hover:text-white text-sm font-bold transition-colors">{t[language].signIn}</button>
-                    <button onClick={() => setShowAuthModal('register')} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">{t[language].register}</button>
-                  </div>
-                  <div className="md:hidden">
-                    <button onClick={() => setShowAuthModal('login')} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-2 uppercase">
-                      <User className="w-3.5 h-3.5" />
-                      {t[language].signIn}
-                    </button>
-                  </div>
-                </>
+                <button
+                  onClick={() => setShowAuthModal('login')}
+                  className="bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-500 hover:to-purple-700 text-white px-3 md:px-5 py-1.5 md:py-2 rounded-lg font-black uppercase text-[10px] md:text-xs tracking-widest transition-all shadow-[0_0_15px_rgba(147,51,234,0.3)] hover:shadow-[0_0_20px_rgba(147,51,234,0.5)] flex items-center gap-1.5"
+                >
+                  <User className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  {t[language].signIn}
+                </button>
               )}
             </div>
           </div>
         </div>
+        </div>
       </nav>
 
       {/* Mobile slide-out drawer (Moved outside nav for proper fixed positioning) */}
+      <AnimatePresence>
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-[1000] md:hidden flex">
-          {/* Backdrop */}
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsMobileMenuOpen(false)}></div>
+        <div className="fixed inset-0 z-[1000] md:hidden flex" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+          {/* Backdrop with a subtle blur fade */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></motion.div>
           
-          {/* Drawer */}
-          <div className="relative w-[300px] max-w-[80vw] h-full bg-[#0a0a0a]/95 backdrop-blur-xl border-r border-purple-500/30 shadow-[5px_0_30px_rgba(168,85,247,0.3)] flex flex-col p-6 overflow-y-auto animate-in slide-in-from-left duration-300 z-10">
-             <div className="flex justify-between items-center mb-10">
-               <div className="text-xl font-black tracking-tighter text-white">
-                 PIXEL<span className="text-purple-500">STORE</span>
+          {/* Drawer container - sleek and dynamic */}
+          <motion.div 
+            initial={{ x: language === 'ar' ? '100%' : '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: language === 'ar' ? '100%' : '-100%' }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className={`relative w-[300px] max-w-[85vw] h-full bg-gradient-to-b from-[#0f0f13] to-[#050505] backdrop-blur-2xl ${language === 'ar' ? 'border-l' : 'border-r'} border-purple-900/40 shadow-2xl flex flex-col overflow-hidden z-10`}
+          >
+             
+             {/* Header */}
+             <div className="p-5 border-b border-gray-800/40 flex justify-between items-center bg-[#111115]/50">
+               <div className="flex items-center gap-2.5">
+                 <div className="w-9 h-9 rounded-xl bg-purple-600/20 flex items-center justify-center border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.2)]">
+                   <Gamepad2 className="w-5 h-5 text-purple-400" />
+                 </div>
+                 <span className="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-fuchsia-500">LUDEX</span>
                </div>
-               <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-white/5 rounded-full">
+               <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white p-2 flex items-center justify-center bg-gray-800/30 hover:bg-gray-800/80 rounded-full transition-colors">
                  <X className="w-5 h-5" />
                </button>
              </div>
              
-             <button onClick={() => { setActiveTab('store'); setActiveCategory(null); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 ${activeTab === 'store' && activeCategory !== 'Subscriptions' ? "text-purple-400" : "text-white"}`}>{t[language].store}</button>
-             <button onClick={() => { setActiveTab('store'); setActiveCategory('Subscriptions'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 ${activeTab === 'store' && activeCategory === 'Subscriptions' ? "text-purple-400" : "text-white"}`}>{t[language].subs || 'Subscriptions'}</button>
-             <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('orders'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 ${activeTab === 'user_dashboard' && userDashboardTab === 'orders' ? "text-purple-400" : "text-white"}`}>{t[language].orders}</button>
+             {/* Body */}
+             <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-6 custom-scrollbar">
+                
+                {/* Search */}
+                <div className="relative group">
+                  <Search className={`absolute ${language === 'ar' ? 'right-3.5' : 'left-3.5'} top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4 group-focus-within:text-purple-400 transition-colors`} />
+                  <input 
+                    type="text" 
+                    placeholder={t[language].search} 
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); if(e.target.value) setActiveTab('store'); }}
+                    className={`w-full bg-[#111] border border-gray-800/70 rounded-xl py-3 text-sm focus:outline-none focus:border-purple-500 focus:bg-purple-900/10 text-white placeholder-gray-600 transition-all shadow-inner ${language === 'ar' ? 'pr-10 pl-4 text-right' : 'pl-10 pr-4 text-left'}`} 
+                  />
+                </div>
+                
+                {/* User Info (if logged in) */}
+                {isLoggedIn && userProfile && (
+                   <div className="bg-gradient-to-br from-[#1c1c1f] to-[#121214] border border-gray-800/60 rounded-2xl p-4 flex gap-4 items-center shadow-lg relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-purple-600/10 rounded-full blur-2xl"></div>
+                      <img src={userProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile?.display_name || userProfile?.email}&backgroundColor=4c1d95`} className="w-12 h-12 rounded-xl border border-gray-700 object-cover bg-black relative z-10" />
+                      <div className="flex-1 min-w-0 relative z-10">
+                         <p className="font-bold text-white truncate text-sm">{userProfile.display_name || 'User'}</p>
+                         <p className="text-[11px] text-gray-500 font-mono truncate">{userProfile.email}</p>
+                      </div>
+                   </div>
+                )}
+
+                {/* Navigation Menu */}
+                <div className="flex flex-col gap-1.5">
+                   <p className="text-[10px] uppercase font-black text-gray-600 tracking-widest mb-1 px-3">{t[language].menu}</p>
+                   
+                   <button onClick={() => { setActiveTab('store'); setActiveCategory(null); setIsMobileMenuOpen(false); }} className={`group flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'store' && !activeCategory ? 'bg-purple-600 border border-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-transparent border border-transparent text-gray-300 hover:bg-gray-800/40 hover:text-white'}`}>
+                      <div className="flex items-center gap-3">
+                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${activeTab === 'store' && !activeCategory ? 'bg-white/20' : 'bg-gray-800/80 group-hover:bg-purple-500/20 group-hover:text-purple-400'}`}>
+                            <Home className="w-4 h-4" />
+                         </div>
+                         <span className="text-start">{t[language].store}</span>
+                      </div>
+                   </button>
+                   
+                   {isLoggedIn && (
+                      <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('orders'); setIsMobileMenuOpen(false); }} className={`group flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'user_dashboard' && userDashboardTab === 'orders' ? 'bg-purple-600 border border-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-transparent border border-transparent text-gray-300 hover:bg-gray-800/40 hover:text-white'}`}>
+                         <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${activeTab === 'user_dashboard' && userDashboardTab === 'orders' ? 'bg-white/20' : 'bg-gray-800/80 group-hover:bg-purple-500/20 group-hover:text-purple-400'}`}>
+                               <ListOrdered className="w-4 h-4" />
+                            </div>
+                            <span className="text-start">{t[language].orders}</span>
+                         </div>
+                      </button>
+                   )}
+                   
+                   <button onClick={() => { setActiveTab('cart'); setIsMobileMenuOpen(false); }} className={`group flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'cart' ? 'bg-purple-600 border border-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-transparent border border-transparent text-gray-300 hover:bg-gray-800/40 hover:text-white'}`}>
+                      <div className="flex items-center gap-3">
+                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${activeTab === 'cart' ? 'bg-white/20' : 'bg-gray-800/80 group-hover:bg-purple-500/20 group-hover:text-purple-400'}`}>
+                            <ShoppingBag className="w-4 h-4" />
+                         </div>
+                         <span className="text-start">{t[language].cart}</span>
+                      </div>
+                      {cart.length > 0 && <span className="bg-white text-purple-700 font-black text-[10px] px-2 py-0.5 rounded-full">{cart.length}</span>}
+                   </button>
+                   
+                   {isLoggedIn && userProfile?.role === 'ADMIN' && (
+                      <button onClick={() => { setActiveTab('admin'); setIsMobileMenuOpen(false); }} className={`group flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all mt-2 ${activeTab === 'admin' ? 'bg-purple-600 border border-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-purple-900/10 border border-purple-900/30 text-purple-400 hover:bg-purple-900/30 hover:text-purple-300'}`}>
+                         <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${activeTab === 'admin' ? 'bg-white/20' : 'bg-purple-500/20 group-hover:bg-purple-500/40'}`}>
+                               <Shield className="w-4 h-4" />
+                            </div>
+                            <span className="text-start">Ludex HQ Portal</span>
+                         </div>
+                      </button>
+                   )}
+                </div>
+                
+                {/* Categories */}
+                <div className="flex flex-col gap-1.5 mt-2">
+                   <p className="text-[10px] uppercase font-black text-gray-600 tracking-widest mb-1 px-3">{t[language].categories}</p>
+                   {CATEGORIES.map((cat, idx) => {
+                     const catName = cat.name === 'PC Game Keys' ? t[language].pcKeys : cat.name === 'Console Subs' ? t[language].consoleSubs : cat.name === 'In-game Currency' ? t[language].inGameCurrency : cat.name === 'Software' ? t[language].software : cat.name;
+                     return (
+                      <button 
+                        key={idx} 
+                        onClick={() => { setActiveCategory(cat.name); setActiveTab('store'); setIsMobileMenuOpen(false); }}
+                        className={`group flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeCategory === cat.name ? 'bg-purple-600 border border-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-transparent border border-transparent text-gray-400 hover:bg-gray-800/40 hover:text-white'}`}
+                      >
+                         <div className="flex items-center gap-3 w-full">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors flex-shrink-0 ${activeCategory === cat.name ? 'bg-white/20' : 'bg-gray-800/50 group-hover:bg-purple-500/20 group-hover:text-purple-400'}`}>
+                               <cat.icon className="w-4 h-4" />
+                            </div>
+                            <span className="text-start truncate">{catName}</span>
+                         </div>
+                      </button>
+                   )})}
+                </div>
+             </div>
              
-             {isLoggedIn && userProfile?.role === 'ADMIN' && (
-               <button onClick={() => { setActiveTab('admin'); setIsMobileMenuOpen(false); }} className={`p-4 text-lg text-left font-bold border-b border-purple-900/30 flex items-center gap-2 ${activeTab === 'admin' ? "text-purple-400" : "text-purple-500"}`}>
-                  <Shield className="w-5 h-5" /> Pixel HQ Portal
-               </button>
-             )}
-
-             <div className="relative mt-8 px-2">
-             <div className="absolute start-5 top-3 w-5 h-5 text-gray-500">
-               <Search className="w-5 h-5" />
+             {/* Footer area */}
+             <div className="p-5 border-t border-gray-800/40 bg-[#0a0a0c]/80 backdrop-blur-md flex flex-col gap-4">
+                <div className="flex bg-[#111116] p-1.5 rounded-xl border border-gray-800/80 shadow-inner">
+                   <button onClick={() => { setLanguage('en'); setIsMobileMenuOpen(false); }} className={`flex-1 py-1.5 text-sm font-bold rounded-lg transition-all ${language === 'en' ? 'bg-purple-600 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'text-gray-400 hover:text-white'}`}>En</button>
+                   <button onClick={() => { setLanguage('ar'); setIsMobileMenuOpen(false); }} className={`flex-1 py-1.5 text-sm font-bold rounded-lg transition-all ${language === 'ar' ? 'bg-purple-600 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'text-gray-400 hover:text-white'}`}>عربي</button>
+                </div>
+                
+                {!isLoggedIn ? (
+                   <button onClick={() => { setShowAuthModal('login'); setIsMobileMenuOpen(false); }} className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-500 hover:to-purple-700 rounded-xl text-white font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(147,51,234,0.3)] hover:shadow-[0_0_25px_rgba(147,51,234,0.5)] transition-all">
+                      <User className="w-4 h-4" /> {t[language].signIn}
+                   </button>
+                ) : (
+                   <button onClick={async () => { await signOut(); setIsMobileMenuOpen(false); }} className="w-full py-3.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-red-500 font-bold flex items-center justify-center gap-2 transition-colors">
+                      <LogOut className="w-4 h-4" /> {language === 'ar' ? 'تسجيل الخروج' : 'Sign Out'}
+                   </button>
+                )}
              </div>
-             <input 
-               type="text" 
-               placeholder={t[language].search} 
-               value={searchQuery}
-               onChange={(e) => setSearchQuery(e.target.value)}
-               className="w-full bg-[#111] border border-purple-900/40 rounded-xl py-3 ps-12 pe-4 text-base focus:outline-none focus:border-purple-500 text-white placeholder-gray-500 min-h-[50px] shadow-inner" 
-             />
-           </div>
-           
-           {!isLoggedIn && (
-             <div className="flex flex-col gap-3 mt-6">
-               <button onClick={() => { setShowAuthModal('login'); setIsMobileMenuOpen(false); }} className="w-full py-3 bg-[#111] border border-gray-800 rounded-lg text-white font-bold hover:bg-[#1a1a2e]">{t[language].signIn}</button>
-               <button onClick={() => { setShowAuthModal('register'); setIsMobileMenuOpen(false); }} className="w-full py-3 bg-purple-600 rounded-lg text-white font-bold hover:bg-purple-500">{t[language].register}</button>
-             </div>
-           )}
-
-           <div className="mt-auto pt-8 flex flex-col gap-4">
-               <div className="flex gap-4">
-                  <button onClick={() => { setLanguage('en'); setIsMobileMenuOpen(false); }} className={`flex-1 py-3 rounded-lg border text-sm font-bold ${language === 'en' ? 'bg-purple-600 border-purple-500 text-white' : 'bg-[#111] border-gray-800 text-gray-400'}`}>English</button>
-                  <button onClick={() => { setLanguage('ar'); setIsMobileMenuOpen(false); }} className={`flex-1 py-3 rounded-lg border text-sm font-bold ${language === 'ar' ? 'bg-purple-600 border-purple-500 text-white' : 'bg-[#111] border-gray-800 text-gray-400'}`}>العربية</button>
-               </div>
-           </div>
-          </div>
+          </motion.div>
         </div>
       )}
+      </AnimatePresence>
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
@@ -3124,9 +3251,10 @@ const [usersList, setUsersList] = useState<any[]>([]);
         )}
 
         {/* Main Interface Area conditionally rendered */}
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto flex flex-col scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
+        <main className="flex-1 p-4 sm:p-6 pb-28 md:p-8 overflow-y-auto flex flex-col scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
+        <AnimatePresence mode="wait">
           {activeTab === 'store' && (
-            <>
+            <motion.div key="store" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="flex-1 flex flex-col w-full">
               {/* Dynamic Unified Banners */}
               {!activeCategory && !searchQuery && (() => {
                   if (isLoadingStore) {
@@ -3148,7 +3276,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   const topVisited = [...publicProducts].sort((a: any, b: any) => (b.views_count || 0) - (a.views_count || 0))[0];
                   const topSelling = [...publicProducts].sort((a: any, b: any) => (b.sales_count || 0) - (a.sales_count || 0))[0];
                   
-                  const slides: any[] = [...activeBanners];
+                                    const slides: any[] = [...activeBanners];
                   if (topVisited) slides.push({ type: 'game', label: 'Trending 🔥', title: topVisited.name, desc: 'Join thousands of active players right now!', imageUrl: topVisited.coverImage, targetId: topVisited.id });
                   if (topSelling) slides.push({ type: 'game', label: 'Best Seller 👑', title: topSelling.name, desc: '#1 Top Selling Game!', imageUrl: topSelling.coverImage, targetId: topSelling.id });
 
@@ -3158,18 +3286,18 @@ const [usersList, setUsersList] = useState<any[]>([]);
 
                   return (
                     <div className="mb-6 sm:mb-10 w-full overflow-hidden rounded-2xl border border-purple-500/30 relative group bg-black shadow-[0_0_30px_rgba(168,85,247,0.15)] flex flex-col md:flex-row h-auto md:h-80">
-                       <div className="flex-1 p-8 md:p-12 flex flex-col justify-center relative z-10 bg-gradient-to-r from-black via-black/90 to-transparent">
+                       <div className="flex-1 p-8 md:p-12 flex flex-col justify-center relative z-10 ltr:bg-gradient-to-r rtl:bg-gradient-to-l from-black via-black/90 to-transparent">
                           <span className="text-purple-400 font-black tracking-widest text-xs uppercase mb-3 px-3 py-1 bg-purple-900/30 rounded-full w-fit">
                              {currentSlide.label}
                           </span>
-                          <h2 className="text-3xl md:text-5xl font-black text-white leading-tight mb-4 line-clamp-2">{currentSlide.title}</h2>
-                          <p className="text-gray-400 text-sm md:text-base max-w-md mb-6 line-clamp-2">{currentSlide.desc}</p>
+                          <h2 dir="auto" className="text-3xl md:text-5xl font-black text-white leading-tight mb-4 line-clamp-2 md:w-2/3">{currentSlide.title}</h2>
+                          <p dir="auto" className="text-gray-400 text-sm md:text-base max-w-md mb-6 line-clamp-2">{currentSlide.desc}</p>
                           {currentSlide.type === 'banner' && currentSlide.link && (
                             <button 
                               onClick={() => setActiveCategory(currentSlide.link)}
                               className="w-fit bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-[0_0_15px_rgba(147,51,234,0.3)]"
                             >
-                              Explore Now
+                              {language === 'ar' ? 'استكشف الآن' : 'Explore Now'}
                             </button>
                           )}
                           {currentSlide.type === 'game' && currentSlide.targetId && (
@@ -3177,7 +3305,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                               onClick={() => handleOpenGameDetail(currentSlide.targetId)}
                               className="w-fit bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-[0_0_15px_rgba(147,51,234,0.3)]"
                             >
-                              View Deals
+                              {language === 'ar' ? 'عرض الصفقات' : 'View Deals'}
                             </button>
                           )}
                           
@@ -3188,14 +3316,14 @@ const [usersList, setUsersList] = useState<any[]>([]);
                           </div>
                        </div>
                        
-                       <div className="w-full md:w-2/3 h-48 md:h-full absolute right-0 top-0 bottom-0 z-0 cursor-pointer" onClick={() => {
+                       <div className="w-full md:w-2/3 h-48 md:h-full absolute ltr:right-0 rtl:left-0 top-0 bottom-0 z-0 cursor-pointer" onClick={() => {
                           if (currentSlide.type === 'game' && currentSlide.targetId) {
                               handleOpenGameDetail(currentSlide.targetId);
                           } else if (currentSlide.type === 'banner' && currentSlide.link) {
                               setActiveCategory(currentSlide.link);
                           }
                        }}>
-                         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent z-10 md:hidden"></div>
+                         <div className="absolute inset-0 ltr:bg-gradient-to-r rtl:bg-gradient-to-l from-black via-black/50 to-transparent z-10 md:hidden"></div>
                          <img 
                            key={currentSlide.imageUrl}
                            src={currentSlide.imageUrl} 
@@ -3203,9 +3331,9 @@ const [usersList, setUsersList] = useState<any[]>([]);
                            className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700 animate-[fadeIn_0.5s_ease-out]"
                          />
                          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10 md:hidden"></div>
-                         <div className="hidden md:block absolute inset-0 bg-gradient-to-l from-transparent via-black/20 to-black z-10"></div>
+                         <div className="hidden md:block absolute inset-0 ltr:bg-gradient-to-l rtl:bg-gradient-to-r from-transparent via-black/20 to-black z-10"></div>
                          <div className="absolute inset-0 border-[3px] border-purple-500/10 rounded-2xl z-20 pointer-events-none"></div>
-                        </div>
+                       </div>
                     </div>
                   );
               })()}
@@ -3221,13 +3349,13 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   <div className="flex gap-4 overflow-x-auto pb-4 pt-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-purple-900/50">
                     {publicProducts.filter(p => p.discountPrice || p.isFeatured).map(product => (
                       <div key={product.id} className="min-w-[280px] w-[280px] snap-start bg-[#0a0a0a] border border-purple-900/30 rounded-xl overflow-hidden relative group hover:border-purple-500/50 transition-all hover:shadow-[0_0_20px_rgba(147,51,234,0.3)] shadow-[0_0_15px_rgba(0,0,0,0.5)] flex flex-col cursor-pointer" onClick={() => {
-                          const matchingGame = gamesList.find(g => g.id === product.id);
+                          const matchingGame = gamesList.find(g => String(g.id) === String(product.id));
                           if(matchingGame) {
                             setSelectedGameId(matchingGame.id);
                             setIsGameDetailOpen(true);
                           } else {
-                            // Mock opening detail for fetched db product if not in legacy list
-                            console.log("Open product details", product.id);
+                            setSelectedGameId(product.id);
+                            setIsGameDetailOpen(true);
                           }
                       }}>
                          {/* Badge */}
@@ -3277,23 +3405,33 @@ const [usersList, setUsersList] = useState<any[]>([]);
 
 
               {/* Mobile Categories Slider */}
-              <div className="lg:hidden w-full overflow-x-auto pb-4 mb-4 flex gap-3 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-purple-900/50">
-                <button 
-                  onClick={() => setActiveCategory(null)}
-                  className={`flex-none snap-start px-5 py-2 rounded-full border text-sm font-bold whitespace-nowrap transition-all ${!activeCategory ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-[#111] border-gray-800 text-gray-400 hover:text-white'}`}
-                >
-                  {t[language].allGames || 'All Games'}
-                </button>
-                {CATEGORIES.map(cat => (
+              <div className="lg:hidden relative w-full mb-8">
+                {/* Fade masks for smooth edges */}
+                <div className={`absolute top-0 bottom-0 ${language === 'ar' ? 'right-0' : 'left-0'} w-4 bg-gradient-to-r ${language === 'ar' ? 'from-transparent to-[#0a0a0c]' : 'from-[#0a0a0c] to-transparent'} z-10 pointer-events-none`}></div>
+                <div className={`absolute top-0 bottom-0 ${language === 'ar' ? 'left-0' : 'right-0'} w-12 bg-gradient-to-l ${language === 'ar' ? 'from-transparent to-[#0a0a0c]' : 'from-[#0a0a0c] to-transparent'} z-10 pointer-events-none`}></div>
+                
+                <div className="w-[calc(100%+3rem)] -mx-6 px-6 overflow-x-auto pb-4 pt-1 flex gap-3 snap-x snap-mandatory scroll-px-6 relative z-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" dir={language === 'ar' ? 'rtl' : 'ltr'}>
                   <button 
-                    key={cat.name}
-                    onClick={() => setActiveCategory(cat.name === activeCategory ? null : cat.name)}
-                    className={`flex-none snap-start px-5 py-2 rounded-full border text-sm font-bold whitespace-nowrap flex items-center gap-2 transition-all ${activeCategory === cat.name ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-[#111] border-gray-800 text-gray-400 hover:text-white'}`}
+                    onClick={() => setActiveCategory(null)}
+                    className={`flex-none snap-start px-6 py-3 rounded-full border text-sm font-bold whitespace-nowrap transition-all duration-300 ease-out shadow-sm ${!activeCategory ? 'bg-gradient-to-r from-purple-600 to-purple-800 border-transparent text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_25px_rgba(168,85,247,0.5)] scale-105' : 'bg-[#111116] border-purple-900/30 text-gray-400 hover:text-white hover:bg-purple-900/20 hover:border-purple-500/30'}`}
                   >
-                    <cat.icon className="w-4 h-4 opacity-70" />
-                    {cat.name === 'PC Game Keys' ? t[language].pcKeys : cat.name === 'Console Subs' ? t[language].consoleSubs : cat.name === 'In-game Currency' ? t[language].inGameCurrency : cat.name === 'Software' ? t[language].software : cat.name}
+                    {language === 'ar' ? 'الكل' : 'All Games'}
                   </button>
-                ))}
+                  {CATEGORIES.map(cat => {
+                    const catName = cat.name === 'PC Game Keys' ? t[language].pcKeys : cat.name === 'Console Subs' ? t[language].consoleSubs : cat.name === 'In-game Currency' ? t[language].inGameCurrency : cat.name === 'Software' ? t[language].software : cat.name;
+                    return (
+                    <button 
+                      key={cat.name}
+                      onClick={() => setActiveCategory(cat.name === activeCategory ? null : cat.name)}
+                      className={`group flex-none snap-start px-5 py-3 rounded-full border text-sm font-bold whitespace-nowrap flex items-center gap-2.5 transition-all duration-300 ease-out shadow-sm ${activeCategory === cat.name ? 'bg-gradient-to-r from-purple-600 to-purple-800 border-transparent text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] scale-105' : 'bg-[#111116] border-purple-900/30 text-gray-400 hover:text-white hover:bg-purple-900/20 hover:border-purple-500/30'}`}
+                    >
+                      <cat.icon className={`w-4 h-4 transition-transform ${activeCategory === cat.name ? 'scale-110 opacity-100' : 'opacity-70 group-hover:scale-110'}`} />
+                      {catName}
+                    </button>
+                  )})}
+                  {/* Spacer block correctly for the scroll area */}
+                  <div className="w-8 flex-shrink-0"></div>
+                </div>
               </div>
 
               
@@ -3302,55 +3440,57 @@ const [usersList, setUsersList] = useState<any[]>([]);
               
               
 
-              <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 md:mb-8 gap-4">
-                <div>
-                  <h1 className="text-[clamp(1.5rem,5vw,2.25rem)] leading-snug md:leading-tight font-bold tracking-tight">{t[language].discover} <span className="text-purple-500">{t[language].worlds}</span></h1>
-                  <p className="text-gray-500 text-sm mt-1">{t[language].desc}</p>
+              <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 md:mb-10 gap-5 relative z-10" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                <div className="text-center md:text-start">
+                  <h1 className="text-3xl sm:text-4xl leading-tight font-black tracking-tight">{t[language].discover} <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-fuchsia-500">{t[language].worlds}</span></h1>
+                  <p className="text-gray-400 text-sm mt-1">{t[language].desc}</p>
                 </div>
 
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => setIsFilterOpen(!isFilterOpen)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm border bg-[#0a0a0a] border-purple-900/50 hover:bg-purple-900/20 transition-colors rounded-lg text-white font-bold min-h-[44px]"
-                  >
-                    <Filter className="w-4 h-4" /> Filters
-                  </button>
+                <div className="flex gap-2.5 w-full md:w-auto mt-2 md:mt-0">
                   <select 
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
-                    className="px-4 py-2 text-sm border bg-[#0a0a0a] border-purple-900/50 hover:bg-purple-900/20 transition-colors rounded-lg text-gray-300 focus:outline-none w-full md:w-auto min-h-[44px] cursor-pointer"
+                    className="flex-1 md:flex-none px-4 py-3 text-sm font-bold border bg-[#111116] border-purple-900/30 hover:border-purple-500/50 transition-colors rounded-xl text-gray-300 focus:outline-none cursor-pointer shadow-inner appearance-none"
+                    style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%239CA3AF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: language === 'ar' ? 'left 1rem top 50%' : 'right 1rem top 50%', backgroundSize: '0.65em auto' }}
                   >
                     <option value="newest" className="text-gray-200 bg-[#111]">{t[language].newest}</option>
                     <option value="price_low" className="text-gray-200 bg-[#111]">{t[language].priceLow}</option>
                     <option value="price_high" className="text-gray-200 bg-[#111]">{t[language].priceHigh}</option>
                   </select>
+                  <button 
+                    onClick={() => setIsFilterOpen(!isFilterOpen)}
+                    className={`flex items-center justify-center gap-2 px-6 py-3 text-sm border hover:border-purple-500/50 transition-colors rounded-xl font-bold shadow-inner flex-shrink-0 ${isFilterOpen ? 'bg-purple-600 border-purple-500 text-white' : 'bg-[#111116] border-purple-900/30 text-white hover:bg-purple-900/20'}`}
+                  >
+                    <Filter className="w-4 h-4" /> {language === 'ar' ? 'تصفية' : 'Filters'}
+                  </button>
                 </div>
               </div>
               
               {isFilterOpen && (
-                <div className="mb-6 p-4 bg-[#111] border border-purple-900/30 rounded-xl flex flex-wrap gap-4 animate-in slide-in-from-top-2 duration-200">
-                   <div className="flex flex-col gap-2">
-                     <label className="text-xs text-gray-500 uppercase font-bold tracking-widest">Platform</label>
-                     <select className="bg-black border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none">
-                       <option value="all">All Platforms</option>
-                       <option value="pc">PC</option>
-                       <option value="ps">PlayStation</option>
-                       <option value="xbox">Xbox</option>
+                <div className="mb-6 p-5 bg-[#0a0a0c] border border-purple-900/40 rounded-2xl flex flex-wrap gap-5 animate-in slide-in-from-top-2 duration-200 shadow-[0_0_20px_rgba(168,85,247,0.1)] relative overflow-hidden" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                   <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-b from-purple-900/10 to-transparent pointer-events-none"></div>
+                   <div className="flex flex-col gap-2.5 flex-1 min-w-[200px] relative z-10">
+                     <label className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{language === 'ar' ? 'المنصة' : 'Platform'}</label>
+                     <select className="bg-[#111116] border border-gray-800/80 rounded-xl px-4 py-3 text-sm font-bold text-white focus:border-purple-500 focus:bg-purple-900/10 focus:outline-none transition-all cursor-pointer shadow-inner appearance-none relative" style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%239CA3AF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: language === 'ar' ? 'left 1rem top 50%' : 'right 1rem top 50%', backgroundSize: '0.65em auto' }}>
+                       <option value="all" className="bg-[#111]">{language === 'ar' ? 'جميع المنصات' : 'All Platforms'}</option>
+                       <option value="pc" className="bg-[#111]">PC</option>
+                       <option value="ps" className="bg-[#111]">PlayStation</option>
+                       <option value="xbox" className="bg-[#111]">Xbox</option>
                      </select>
                    </div>
-                   <div className="flex flex-col gap-2">
-                     <label className="text-xs text-gray-500 uppercase font-bold tracking-widest">Price Range</label>
-                     <select className="bg-black border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none">
-                       <option value="all">Any Price</option>
-                       <option value="under20">Under $20</option>
-                       <option value="20to50">$20 - $50</option>
-                       <option value="over50">Over $50</option>
+                   <div className="flex flex-col gap-2.5 flex-1 min-w-[200px] relative z-10">
+                     <label className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{language === 'ar' ? 'نطاق السعر' : 'Price Range'}</label>
+                     <select className="bg-[#111116] border border-gray-800/80 rounded-xl px-4 py-3 text-sm font-bold text-white focus:border-purple-500 focus:bg-purple-900/10 focus:outline-none transition-all cursor-pointer shadow-inner appearance-none relative" style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%239CA3AF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: language === 'ar' ? 'left 1rem top 50%' : 'right 1rem top 50%', backgroundSize: '0.65em auto' }}>
+                       <option value="all" className="bg-[#111]">{language === 'ar' ? 'أي سعر' : 'Any Price'}</option>
+                       <option value="under20" className="bg-[#111]">{language === 'ar' ? 'أقل من $20' : 'Under $20'}</option>
+                       <option value="20to50" className="bg-[#111]">$20 - $50</option>
+                       <option value="over50" className="bg-[#111]">{language === 'ar' ? 'أكثر من $50' : 'Over $50'}</option>
                      </select>
                    </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-6 w-full">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 w-full">
                 {isLoadingStore ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="bg-[#151515] border border-gray-800 rounded-xl flex flex-col h-full animate-skeleton overflow-hidden">
@@ -3373,51 +3513,80 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   </div>
                 ) : (
                   filteredGames.slice(0, visibleGamesCount).map((game, index) => (
-                    <div key={game.id} style={{ animationDelay: `${(index % 12) * 50}ms` }} className="group bg-[#151515] border border-transparent rounded-xl flex flex-col h-full hover:border-[#bc13fe] transition-all duration-300 hover:shadow-[0_0_10px_rgba(188,19,254,0.4)] relative overflow-hidden transform hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-8 duration-500 fill-mode-both">
-                      <div onClick={() => { handleOpenGameDetail(game.id); }} className="cursor-pointer">
-                        <div className={`aspect-[3/4] sm:aspect-[2/3] bg-[#0a0a0a] relative rounded-t-xl overflow-hidden`}>
-                          <img src={game.image} alt={game.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                          <div className={`absolute bottom-2 left-2 sm:bottom-3 sm:left-3 bg-black/80 backdrop-blur-md px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[8px] sm:text-[10px] font-bold uppercase border ${game.badgeColor} max-w-[80%] truncate`}>
-                            {game.type}
-                          </div>
-                          <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1">
-                            {game.stock && game.stock > 0 ? (
-                               <><div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></div><span className="text-[10px] text-green-400 font-bold uppercase tracking-wider">{t[language].inStock}</span></>
-                            ) : (
-                               <><div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_#ef4444]"></div><span className="text-[10px] text-red-400 font-bold uppercase tracking-wider">{t[language].outOfStock}</span></>
-                            )}
-                          </div>
+                    <motion.div 
+                      key={game.id} 
+                      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.4, delay: index * 0.05, ease: "easeOut" }}
+                      whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                      className="group bg-[#0a0a0c] border border-white/5 hover:border-purple-500/30 rounded-xl sm:rounded-2xl flex flex-col h-full transition-shadow duration-300 hover:shadow-[0_15px_40px_rgba(168,85,247,0.2)] relative overflow-hidden cursor-pointer" 
+                      onClick={() => handleOpenGameDetail(game.id)} 
+                      dir={language === 'ar' ? 'rtl' : 'ltr'}
+                    >
+                      <div className="relative aspect-square sm:aspect-[4/5] overflow-hidden bg-[#111116] border-b border-white/5">
+                        <motion.img 
+                          whileHover={{ scale: 1.1 }}
+                          transition={{ duration: 0.7, ease: "easeOut" }}
+                          src={game.image} 
+                          alt={game.title} 
+                          className="w-full h-full object-cover opacity-90 group-hover:opacity-100" 
+                          loading="lazy" 
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-transparent to-black/40 opacity-90 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        
+                        <div className="absolute top-2 start-2 end-2 flex items-start justify-between">
+                           <div className={`bg-black/80 backdrop-blur-md px-2 py-1 rounded text-[10px] sm:text-xs font-bold uppercase tracking-wider border ${game.badgeColor} shadow-lg`}>
+                             {game.type}
+                           </div>
+                           {game.originalPrice && (
+                             <span className="bg-red-600/90 text-white px-2 py-1 rounded text-[10px] sm:text-xs font-black uppercase tracking-wider shadow-lg line-through decoration-red-400/50">
+                               {displayPrice(game.originalPrice)}
+                             </span>
+                           )}
+                        </div>
+                        
+                        <div className="absolute bottom-2 start-2 end-2 flex flex-wrap gap-1 items-center justify-between pointer-events-none">
+                           <div className="bg-black/70 backdrop-blur-lg border border-white/10 rounded-lg px-2 py-1.5 flex items-center gap-1.5 shadow-xl">
+                             {game.category.includes('Console') || game.type.includes('PS5') || game.type.includes('Xbox') || game.type.includes('Nintendo') ? <Gamepad2 className="w-3 h-3 text-purple-400" /> : <Monitor className="w-3 h-3 text-purple-400" />}
+                             <span className="text-[9px] sm:text-[10px] font-bold text-gray-200 uppercase tracking-widest">{game.platform || 'DIGITAL'}</span>
+                           </div>
+                           {(!game.stock || game.stock === 0) && (
+                              <div className="bg-red-500/90 backdrop-blur-md px-2 py-1 rounded-lg border border-red-500/50 shadow-sm">
+                                <span className="text-[9px] sm:text-[10px] text-white font-bold uppercase tracking-wider">{t[language].outOfStock}</span>
+                              </div>
+                           )}
                         </div>
                       </div>
-                      <div className="p-4 flex-1 flex flex-col justify-between items-stretch z-10 bg-[#151515]">
-                        <div onClick={() => { handleOpenGameDetail(game.id); }} className="cursor-pointer">
-                          <div className="flex justify-between items-start mb-1 gap-2">
-                            <h4 className="font-bold text-xs sm:text-base leading-tight text-gray-100 group-hover:text-purple-400 transition-colors uppercase line-clamp-2">{game.title}</h4>
+                      
+                      <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between z-10 relative bg-gradient-to-b from-[#0a0a0c] to-[#0d0d12]">
+                        <h4 className="font-bold text-[13px] sm:text-[15px] leading-snug text-gray-100 group-hover:text-purple-400 transition-colors line-clamp-2 mb-3" dir="auto">{game.title}</h4>
+                        
+                        <div className="flex items-center justify-between mt-auto">
+                          <div className="flex flex-col">
+                             {game.originalPrice ? (
+                                <>
+                                  <span className="text-[12px] text-green-400 font-bold tracking-wider uppercase mb-0.5" dir="ltr">Save {Math.round((1 - game.price/game.originalPrice)*100)}%</span>
+                                  <span className="text-base sm:text-lg font-black text-white font-mono leading-none drop-shadow-md">{displayPrice(game.price)}</span>
+                                </>
+                             ) : (
+                                <span className="text-base sm:text-lg font-black text-white font-mono leading-none mt-1 drop-shadow-md">{displayPrice(game.price)}</span>
+                             )}
                           </div>
-                          <div className="flex items-center gap-2 mb-3 text-gray-400 mt-1">
-  {game.category.includes('Console') || game.type.includes('PS5') || game.type.includes('Xbox') || game.type.includes('Nintendo') ? <Gamepad2 className="w-3 h-3 text-gray-500" /> : <Monitor className="w-3 h-3 text-gray-500" />}
-  <p className="text-[10px] uppercase font-bold tracking-wider">{game.type}</p>
-</div>
-                        </div>
-                        <div className="flex items-end justify-between mt-auto">
-                          <div onClick={() => { handleOpenGameDetail(game.id); }} className="cursor-pointer">
-                            {game.originalPrice ? (
-                              <span className="text-xs text-gray-500 line-through block mb-1">{displayPrice(game.originalPrice)}</span>
-                            ) : (
-                              <span className="block mb-1 text-transparent select-none text-xs">-</span>
-                            )}
-                            <p className="font-bold text-purple-400 text-xl leading-none">{displayPrice(game.price)}</p>
-                          </div>
-                          <button 
-                            disabled={!game.stock || game.stock === 0}
-                            onClick={(e) => { e.stopPropagation(); addToCart(game.id); }}
-                            className="bg-white text-black text-[10px] sm:text-xs font-bold px-3 sm:px-5 py-2.5 rounded-lg hover:bg-gray-200 transition-all active:scale-95 md:translate-y-4 md:opacity-0 group-hover:translate-y-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-[0_4px_10px_rgba(255,255,255,0.1)]"
+                          
+                          <motion.button 
+                            whileTap={{ scale: 0.9 }}
+                            className="bg-white/5 hover:bg-purple-600 border border-white/10 group-hover:border-purple-500/50 text-white w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all shadow-[0_0_15px_rgba(0,0,0,0.5)] group-hover:shadow-[0_0_20px_rgba(147,51,234,0.4)] z-20"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToCart(game.id);
+                            }}
+                            title={t[language].addToCart || 'Add to Cart'}
                           >
-                            {t[language].buy}
-                          </button>
+                            <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </motion.button>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   ))
                 )}
               </div>
@@ -3432,11 +3601,11 @@ const [usersList, setUsersList] = useState<any[]>([]);
                    </button>
                 </div>
               )}
-            </>
+            </motion.div>
           )}
 
           {(activeTab === 'orders' || (activeTab === 'user_dashboard' && userDashboardTab === 'orders')) && (
-            <div className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto w-full flex flex-col items-start gap-8">
+            <motion.div key="orders" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto flex flex-col items-start gap-8">
               <div>
                 <h2 className="text-2xl font-bold text-white mb-2">{t[language].myOrders}</h2>
                 <p className="text-gray-400 text-sm">{t[language].track}</p>
@@ -3504,12 +3673,11 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   })}
                 </div>
               )}
-            </div>
+            </motion.div>
           )}
 
-
           {activeTab === 'cart' && (
-            <div className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto w-full flex flex-col gap-6">
+            <motion.div key="cart" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto flex flex-col gap-6">
               <h2 className="text-2xl font-bold text-white">{t[language].cart}</h2>
               {cart.length === 0 ? (
                 <div className="w-full p-10 border border-purple-900/30 rounded-2xl bg-[#111] flex flex-col items-center justify-center text-center">
@@ -3608,12 +3776,12 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   </div>
                 </div>
               )}
-            </div>
+            </motion.div>
           )}
 
           {(activeTab === 'profile' || (activeTab === 'user_dashboard' && userDashboardTab === 'profile')) && (
             userProfile ? (
-            <div className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto w-full flex flex-col gap-6">
+            <motion.div key="profile" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto flex flex-col gap-6">
               <h2 className="text-2xl font-bold text-white tracking-widest uppercase">{t[language].profOverview}</h2>
               <div className="bg-[#111] border border-purple-900/30 rounded-2xl p-6 flex flex-col sm:flex-row items-center sm:items-start gap-6 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[80px] pointer-events-none"></div>
@@ -3649,7 +3817,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                 </div>
                 <div className="flex flex-col items-center sm:items-start text-center sm:text-start relative z-10">
                   <h3 className="text-2xl font-bold text-white mb-1 uppercase tracking-widest">{userProfile?.display_name || userProfile?.email}</h3>
-                  <p className="text-gray-400 text-sm mb-4 font-mono">Player ID: <span className="text-purple-400 font-bold">#PIXEL-9034</span></p>
+                  <p className="text-gray-400 text-sm mb-4 font-mono">Player ID: <span className="text-purple-400 font-bold">#LUDEX-9034</span></p>
                   <div className="flex gap-4">
                     <div className="bg-black border border-gray-800 rounded-lg p-3 text-center min-w-[100px] shadow-inner">
                       <p className="text-2xl font-black text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]">{orders.length}</p>
@@ -3663,10 +3831,10 @@ const [usersList, setUsersList] = useState<any[]>([]);
                 </div>
               </div>
 
-              {/* Pixel Elite Gamer Card */}
+              {/* Ludex Elite Gamer Card */}
               <h3 className="text-xl font-bold text-white mt-4 tracking-widest uppercase flex items-center gap-2">
                  <Zap className="w-5 h-5 text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
-                 Pixel Elite Loyalty
+                 Ludex Elite Loyalty
               </h3>
               <div className="bg-[#0a0a0a] border border-purple-500/30 rounded-2xl p-6 lg:p-8 relative overflow-hidden group shadow-[0_0_30px_rgba(147,51,234,0.1)]">
                  <div className="absolute inset-0 bg-gradient-to-r from-purple-900/10 to-transparent pointer-events-none"></div>
@@ -3674,7 +3842,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
                     <div className="flex-1 w-full">
                        <div className="flex items-center gap-4 mb-3">
-                          <h4 className="text-lg font-black text-white uppercase tracking-wider">PIXEL Elite Card</h4>
+                          <h4 className="text-lg font-black text-white uppercase tracking-wider">LUDEX Elite Card</h4>
                           <span className={`px-3 py-1 bg-black border border-gray-800 rounded-full font-bold text-[10px] uppercase tracking-widest ${currentTier.color}`}>
                              {currentTier.name} Tier
                           </span>
@@ -3757,12 +3925,12 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   </tbody>
                 </table>
               </div>
-            </div>
+            </motion.div>
             ) : null
           )}
 
           {(activeTab === 'settings' || (activeTab === 'user_dashboard' && userDashboardTab === 'settings')) && (
-            <div className="max-w-2xl mx-auto w-full flex flex-col gap-6">
+            <motion.div key="settings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-2xl mx-auto w-full flex flex-col gap-6">
               <h2 className="text-2xl font-bold text-white">{t[language].accSet}</h2>
               <form 
                 onSubmit={async (e) => { 
@@ -3863,66 +4031,75 @@ const [usersList, setUsersList] = useState<any[]>([]);
                   </button>
                 </div>
               </form>
-            </div>
+            </motion.div>
           )}
 
           {activeTab === 'page' && currentSlug && (() => {
              const page = cmsPages.find(p => p.slug === currentSlug);
              if (!page) return <div className="text-white text-center py-20 font-bold">Page Not Found</div>;
              return (
-               <div className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto w-full flex flex-col gap-6">
+               <motion.div key="page" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-[95%] 2xl:max-w-[1400px] w-full mx-auto flex flex-col gap-6">
                  <h2 className="text-3xl md:text-4xl font-black tracking-tight text-white">{page.title}</h2>
                  <div className="bg-[#111] border border-gray-800 rounded-2xl p-8 text-gray-300 text-sm leading-relaxed whitespace-pre-wrap font-sans">
                    {page.content}
                  </div>
-               </div>
+               </motion.div>
              );
           })()}
+        </AnimatePresence>
         </main>
       </div>
 
       
-      {/* Mobile Bottom Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 w-full h-20 bg-[#0a0a0a]/90 backdrop-blur-xl border-t border-purple-900/40 z-[90] flex items-center justify-around pb-safe shadow-[0_-5px_30px_rgba(168,85,247,0.15)] pb-2" dir={language === 'ar' ? 'rtl' : 'ltr'}>
-        <button onClick={() => { setActiveTab('store'); setActiveCategory(null); }} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'store' ? 'text-purple-400' : 'text-gray-500 hover:text-purple-300 transition-colors'}`}>
-          <Home className={`w-6 h-6 ${activeTab === 'store' ? 'drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]' : ''}`} />
-          <span className="text-[10px] font-bold uppercase tracking-wider">{t[language].store}</span>
-        </button>
-        <button onClick={() => { setActiveTab('cart'); }} className={`relative flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'cart' ? 'text-purple-400' : 'text-gray-500 hover:text-purple-300 transition-colors'}`}>
-          <ShoppingBag className={`w-6 h-6 ${cartAnimating ? 'animate-bounce-cart' : ''} ${activeTab === 'cart' ? 'drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]' : ''}`} />
-          {cart.length > 0 && (
-             <span className="absolute top-[8px] right-[20px] w-4 h-4 bg-red-500 border-2 border-[#0a0a0a] rounded-full text-[9px] flex items-center justify-center font-bold text-white scale-110 shadow-[0_0_8px_#ef4444] animate-in zoom-in">{cart.length}</span>
-          )}
-          <span className="text-[10px] font-bold uppercase tracking-wider">{t[language].cart || 'Cart'}</span>
-        </button>
-        {isLoggedIn ? (
-          <button onClick={() => { setActiveTab('user_dashboard'); setUserDashboardTab('orders'); }} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'user_dashboard' && userDashboardTab === 'orders' ? 'text-purple-400' : 'text-gray-500 hover:text-purple-300 transition-colors'}`}>
-            <ListOrdered className={`w-6 h-6 ${activeTab === 'user_dashboard' && userDashboardTab === 'orders' ? 'drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]' : ''}`} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">{t[language].orders}</span>
-          </button>
-        ) : (
-          <button onClick={() => { setShowAuthModal('login') }} className="flex flex-col items-center justify-center w-full h-full space-y-1 text-gray-500 hover:text-purple-300 transition-colors">
-            <User className="w-6 h-6" />
-            <span className="text-[10px] font-bold uppercase tracking-wider">{t[language].signIn}</span>
-          </button>
-        )}
-        <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isMobileMenuOpen ? 'text-purple-400' : 'text-gray-500 hover:text-purple-300 transition-colors'}`}>
-          <Menu className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Menu</span>
-        </button>
+      {/* Premium Mobile Bottom Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] pb-[safe-area-inset-bottom] bg-[#0a0a0c]/85 backdrop-blur-2xl border-t border-white/5 z-[90] flex items-center justify-around px-2 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+         <button onClick={() => { setActiveTab('store'); setActiveCategory(null); }} className="relative flex flex-col items-center justify-center w-full h-full group pb-2">
+             <div className="relative flex flex-col items-center justify-center h-full pt-1">
+                <Home className={`w-6 h-6 transition-all duration-500 ease-out ${activeTab === 'store' ? 'text-white scale-110 drop-shadow-[0_0_12px_rgba(255,255,255,0.8)] fill-white/20' : 'text-gray-500 group-hover:text-gray-400'}`} />
+                <span className={`text-[10px] mt-1.5 font-bold transition-all duration-300 ${activeTab === 'store' ? 'text-white' : 'text-gray-500'}`}>{t[language].store}</span>
+             </div>
+         </button>
+
+         <button onClick={() => setActiveTab('cart')} className="relative flex flex-col items-center justify-center w-full h-full group pb-2">
+             <div className="relative flex flex-col items-center justify-center h-full pt-1">
+                <ShoppingCart className={`w-6 h-6 transition-all duration-500 ease-out ${cartAnimating ? 'animate-bounce-cart' : ''} ${activeTab === 'cart' ? 'text-white scale-110 drop-shadow-[0_0_12px_rgba(255,255,255,0.8)] fill-white/20' : 'text-gray-500 group-hover:text-gray-400'}`} />
+                {cart.length > 0 && (
+                   <span className="absolute -top-1 -right-2 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-black flex items-center justify-center rounded-full shadow-lg border-2 border-[#0a0a0c] animate-in zoom-in duration-300">{cart.length}</span>
+                )}
+                <span className={`text-[10px] mt-1.5 font-bold transition-all duration-300 ${activeTab === 'cart' ? 'text-white' : 'text-gray-500'}`}>{t[language].cart || 'Cart'}</span>
+             </div>
+         </button>
+
+         <button onClick={() => { if(isLoggedIn){ setActiveTab('user_dashboard'); setUserDashboardTab('orders'); } else { setShowAuthModal('login'); } }} className="relative flex flex-col items-center justify-center w-full h-full group pb-2">
+             <div className="relative flex flex-col items-center justify-center h-full pt-1">
+                {isLoggedIn ? (
+                   <ListOrdered className={`w-6 h-6 transition-all duration-500 ease-out ${(activeTab === 'user_dashboard' && userDashboardTab === 'orders') ? 'text-white scale-110 drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]' : 'text-gray-500 group-hover:text-gray-400'}`} />
+                ) : (
+                   <User className={`w-6 h-6 transition-all duration-500 ease-out text-gray-500 group-hover:text-gray-400`} />
+                )}
+                <span className={`text-[10px] mt-1.5 font-bold transition-all duration-300 ${(activeTab === 'user_dashboard' && userDashboardTab === 'orders') ? 'text-white' : 'text-gray-500'}`}>{isLoggedIn ? t[language].orders : t[language].signIn}</span>
+             </div>
+         </button>
+
+         <button onClick={() => setIsMobileMenuOpen(true)} className="relative flex flex-col items-center justify-center w-full h-full group pb-2">
+             <div className="relative flex flex-col items-center justify-center h-full pt-1">
+                <Menu className={`w-6 h-6 transition-all duration-500 ease-out ${isMobileMenuOpen ? 'text-white scale-110 drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]' : 'text-gray-500 group-hover:text-gray-400'}`} />
+                <span className={`text-[10px] mt-1.5 font-bold transition-all duration-300 ${isMobileMenuOpen ? 'text-white' : 'text-gray-500'}`}>Menu</span>
+             </div>
+         </button>
       </div>
       
       {/* Bottom Bar Info */}
 
       <footer className="hidden md:flex w-full bg-black/60 backdrop-blur-md border-t border-purple-900/30 px-6 md:px-8 py-6 md:py-0 md:h-12 flex-col md:flex-row items-center justify-center md:justify-between text-[10px] text-gray-500 uppercase tracking-[0.2em] font-medium flex-shrink-0 z-10 relative gap-4 md:gap-0 mt-auto">
         <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
-          <span>&copy; 2026 Pixel Store - ALL RIGHTS RESERVED</span>
+          <span>&copy; 2026 Ludex Store - ALL RIGHTS RESERVED</span>
           {isLoggedIn && userProfile?.role === 'ADMIN' && (
             <button 
               onClick={() => setActiveTab('admin')} 
               className="border border-purple-900 px-3 py-1 rounded text-purple-400 hover:bg-purple-900/30 transition-colors bg-black font-bold flex items-center gap-1.5"
             >
-              <Shield className="w-3 h-3" /> Pixel HQ Portal
+              <Shield className="w-3 h-3" /> Ludex HQ Portal
             </button>
           )}
         </div>
@@ -3956,9 +4133,9 @@ const [usersList, setUsersList] = useState<any[]>([]);
              <div className="p-4 md:p-8 overflow-y-auto flex-1 font-mono">
                 <div className="flex justify-between items-start border-b border-gray-800 pb-6 md:pb-8 mb-6 md:mb-8">
                    <div>
-                      <h2 className="text-2xl font-black text-white tracking-tighter mb-1">PIXEL<span className="text-purple-500">STORE</span></h2>
+                      <h2 className="text-2xl font-black text-white tracking-tighter mb-1">LUDEX<span className="text-purple-500">STORE</span></h2>
                       <p className="text-xs text-gray-500">Baghdad, Iraq</p>
-                      <p className="text-xs text-gray-500 mt-4 max-w-[200px]">support@pixelstore.com<br/>0770 123 4567</p>
+                      <p className="text-xs text-gray-500 mt-4 max-w-[200px]">support@ludexstore.com<br/>0770 123 4567</p>
                    </div>
                    <div className="text-right">
                       <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Invoice Number</p>
@@ -3992,7 +4169,7 @@ const [usersList, setUsersList] = useState<any[]>([]);
                 <div className="mt-8 flex justify-between items-end border-t border-gray-800 pt-6">
                    <div className="text-xs text-gray-500 max-w-[250px] leading-relaxed">
                       Payment Method: Zain Cash / FIB (Manual Transfer)<br />
-                      Thank you for shopping at Pixel Store.
+                      Thank you for shopping at Ludex Store.
                    </div>
                    <div className="text-right w-64">
                       <div className="flex justify-between items-center mb-2">
@@ -4252,12 +4429,13 @@ const [usersList, setUsersList] = useState<any[]>([]);
         </div>
       )}
 
+      <AnimatePresence>
       {isGameDetailOpen && selectedGameId !== null && (() => {
         const game = gamesList.find(g => g.id === selectedGameId);
         if (!game) return null;
         return (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-0 lg:p-4 animate-[fadeIn_0.2s_ease-out]">
-            <div className={`bg-[#151515] border border-purple-900/40 rounded-none lg:rounded-2xl w-full h-full lg:h-auto lg:max-h-[90vh] lg:max-w-4xl overflow-hidden flex flex-col md:flex-row relative shadow-[0_0_50px_rgba(147,51,234,0.15)] animate-[slideInUp_0.3s_ease-out] ${isGameDetailLoading ? 'animate-skeleton' : ''}`}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-0 lg:p-4">
+            <motion.div initial={{ y: 50, opacity: 0, scale: 0.95 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 50, opacity: 0, scale: 0.95 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className={`bg-[#151515] border border-purple-900/40 rounded-none lg:rounded-2xl w-full h-full lg:h-auto lg:max-h-[90vh] lg:max-w-4xl overflow-hidden flex flex-col md:flex-row relative shadow-[0_0_80px_rgba(147,51,234,0.2)] ${isGameDetailLoading ? 'animate-skeleton' : ''}`}>
               <button 
                 onClick={() => setIsGameDetailOpen(false)} 
                 className="absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-white/20 transition-colors"
@@ -4268,11 +4446,11 @@ const [usersList, setUsersList] = useState<any[]>([]);
               
               {isGameDetailLoading ? (
                  <>
-                    <div className="w-full md:w-1/2 h-64 md:h-full relative bg-gray-800/20 border-b md:border-r border-gray-800 flex flex-col justify-end p-8">
+                    <div className="w-full h-64 md:h-auto md:w-1/2 relative bg-gray-800/20 border-b md:border-r border-gray-800 flex flex-col justify-end p-8 flex-shrink-0">
                        <div className="w-20 h-6 bg-gray-700/50 rounded mb-3"></div>
                        <div className="w-3/4 h-8 bg-gray-700/50 rounded"></div>
                     </div>
-                    <div className="w-full md:w-1/2 p-6 md:p-8 overflow-y-auto flex flex-col gap-6 bg-[#151515]">
+                    <div className="w-full md:w-1/2 p-6 md:p-8 overflow-y-auto flex-1 flex flex-col gap-6 bg-[#151515]">
                        <div>
                          <div className="w-1/3 h-4 bg-gray-700/50 rounded mb-2"></div>
                          <div className="w-1/4 h-8 bg-gray-700/50 rounded mb-4"></div>
@@ -4292,14 +4470,14 @@ const [usersList, setUsersList] = useState<any[]>([]);
                  </>
               ) : (
                  <>
-                            <div className="w-full md:w-1/2 h-64 md:h-auto relative bg-gradient-to-br from-purple-900/20 to-black border-r border-purple-900/30">
+                            <div className="w-full h-64 md:h-auto md:w-1/2 relative bg-gradient-to-br from-purple-900/20 to-black border-b md:border-b-0 md:border-r border-purple-900/30 flex-shrink-0">
                 <img src={game.image} className="w-full h-full object-cover mix-blend-overlay opacity-80" alt={game.title} />
                 <div className="absolute inset-0 p-8 flex flex-col justify-end">
                    <div className="bg-black/80 backdrop-blur px-3 py-1.5 w-fit rounded text-xs font-bold uppercase border border-purple-500/30 text-purple-400 mb-3">{game.type}</div>
-                   <h2 className="text-3xl font-black text-white">{game.title}</h2>
+                   <h2 className="text-3xl font-black text-white drop-shadow-md">{game.title}</h2>
                 </div>
               </div>
-              <div className="w-full md:w-1/2 p-8 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-900/50 flex flex-col gap-6">
+              <div className="w-full md:w-1/2 flex-1 p-6 md:p-8 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-900/50 flex flex-col gap-6 pb-24 md:pb-8">
                  <div className="flex justify-between items-start">
                    <div>
                      <p className="text-sm font-bold text-gray-500 tracking-wider uppercase mb-1">{game.category}</p>
@@ -4462,10 +4640,11 @@ const [usersList, setUsersList] = useState<any[]>([]);
               </div>
               </>
               )}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         );
       })()}
+      </AnimatePresence>
 
       {toastMessage && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 md:translate-x-0 md:top-auto md:left-auto md:bottom-10 md:right-10 z-[300] bg-[#111] border border-purple-500 backdrop-blur w-[90%] md:w-auto md:min-w-[300px] text-white px-6 py-4 rounded-xl shadow-[0_0_25px_rgba(168,85,247,0.4)] font-bold flex items-center gap-3 animate-in fade-in duration-300 pointer-events-none">
@@ -4500,9 +4679,10 @@ const [usersList, setUsersList] = useState<any[]>([]);
 
       {/* Checkout Modal */}
       {/* View Profile Modal */}
+      <AnimatePresence>
       {viewedProfile && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 shadow-2xl overflow-y-auto" onClick={() => setViewedProfile(null)}>
-          <div className="bg-[#050505] border border-purple-900/40 rounded-2xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(147,51,234,0.15)] mt-4 mb-4" onClick={e => e.stopPropagation()}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 shadow-2xl overflow-y-auto" onClick={() => setViewedProfile(null)}>
+          <motion.div initial={{ y: 20, scale: 0.95 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.95 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="bg-[#050505] border border-purple-900/40 rounded-2xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(147,51,234,0.15)] mt-4 mb-4" onClick={e => e.stopPropagation()}>
             <button onClick={() => setViewedProfile(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white bg-black hover:bg-purple-900/40 p-2 rounded-full transition-all">
               <X className="w-5 h-5" />
             </button>
@@ -4548,14 +4728,15 @@ const [usersList, setUsersList] = useState<any[]>([]);
                  )}
               </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
       
-      
+      <AnimatePresence>
       {viewedProfileId && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in p-4">
-          <div className="bg-[#111] border border-purple-500/30 w-full max-w-sm rounded-2xl p-6 relative">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <motion.div initial={{ y: 20, scale: 0.95 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.95 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="bg-[#111] border border-purple-500/30 w-full max-w-sm rounded-2xl p-6 relative">
             <button
                onClick={() => { setViewedProfileId(null); setViewedProfileData(null); }}
                className="absolute top-4 right-4 text-gray-500 hover:text-white"
@@ -4595,13 +4776,15 @@ const [usersList, setUsersList] = useState<any[]>([]);
                  )}
                </div>
             )}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
+      <AnimatePresence>
       {isCheckoutModalOpen && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-end md:justify-center bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-[#1e1e24] border-t md:border border-purple-900/40 rounded-t-3xl md:rounded-2xl w-full md:max-w-lg shadow-[0_-10px_50px_rgba(147,51,234,0.3)] md:shadow-[0_0_50px_rgba(147,51,234,0.3)] flex flex-col overflow-hidden max-h-[95vh] md:max-h-[90vh] animate-in slide-in-from-bottom-5 duration-300">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 z-[100] flex flex-col items-center justify-end md:justify-center bg-black/80 backdrop-blur-sm">
+          <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="bg-[#1e1e24] border-t md:border border-purple-900/40 rounded-t-3xl md:rounded-2xl w-full md:max-w-lg shadow-[0_-10px_50px_rgba(147,51,234,0.3)] md:shadow-[0_0_50px_rgba(147,51,234,0.3)] flex flex-col overflow-hidden max-h-[95vh] md:max-h-[90vh]">
             <div className="p-5 border-b border-purple-900/30 flex justify-between items-center bg-[#18181c] flex-shrink-0">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-purple-500" />
@@ -4703,44 +4886,68 @@ const [usersList, setUsersList] = useState<any[]>([]);
                 Confirm Payment & Upload Receipt
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Chat Widget */}
-      <div className={`fixed bottom-28 md:bottom-20 ${language === 'ar' ? 'left-4 md:left-8 items-start' : 'right-4 md:right-8 items-end'} z-50 flex flex-col`}>
+      <div className={`fixed bottom-24 md:bottom-10 ${language === 'ar' ? 'left-4 md:left-8 items-start' : 'right-4 md:right-8 items-end'} z-[110] md:z-50 flex flex-col pointer-events-none`}>
+        <AnimatePresence>
         {isChatOpen && (
-          <div className="bg-[#0a0a0a] border border-purple-900/40 rounded-2xl w-72 sm:w-80 h-[400px] max-h-[60vh] mb-4 shadow-[0_0_40px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 fade-in duration-200">
-            <div className="bg-purple-900/20 border-b border-purple-900/40 p-4 flex justify-between items-center flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></div>
-                <h3 className="font-bold text-sm">{t[language].chatSup}</h3>
+          <motion.div 
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="bg-[#0a0a0c] border border-gray-800 rounded-3xl w-[calc(100vw-32px)] sm:w-[350px] md:w-[380px] h-[600px] max-h-[60vh] md:max-h-[70vh] mb-4 shadow-[0_30px_60px_rgba(168,85,247,0.25)] flex flex-col overflow-hidden pointer-events-auto origin-bottom"
+          >
+            <div className="bg-gradient-to-r from-purple-900/40 to-indigo-900/40 border-b border-gray-800 p-4 flex justify-between items-center flex-shrink-0 relative overflow-hidden">
+              <div className="absolute inset-0 bg-purple-500/10 blur-xl pointer-events-none"></div>
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="relative flex items-center justify-center">
+                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                      <MessageSquare className="w-4 h-4 text-white" />
+                   </div>
+                   <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-[#0f0f13]"></div>
+                </div>
+                <div className="flex flex-col">
+                   <h3 className="font-black text-sm tracking-wide text-white">{t[language].chatSup}</h3>
+                   <span className="text-[10px] text-green-400 font-medium">Online</span>
+                </div>
               </div>
-              <button onClick={() => setIsChatOpen(false)} className="text-gray-400 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center">
-                <X className="w-4 h-4" />
+              <button onClick={() => setIsChatOpen(false)} className="text-gray-400 hover:text-white transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center relative z-10 hover:bg-white/5 rounded-full">
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-3 scrollbar-thin scrollbar-thumb-gray-800">
+            <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4 scrollbar-thin scrollbar-thumb-gray-800 bg-[#0a0a0c]">
               {!isLoggedIn ? (
-                 <div className="h-full flex items-center justify-center text-center px-4">
-                    <p className="text-sm text-gray-400">Please log in to chat with support.</p>
+                 <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-3">
+                    <User className="w-12 h-12 text-gray-700" />
+                    <p className="text-sm text-gray-400 font-medium leading-relaxed">Please log in to start a conversation with our support team.</p>
                  </div>
               ) : chatHistory.length === 0 ? (
-                 <div className="h-full flex items-center justify-center text-center px-4">
-                    <p className="text-sm text-gray-400">Start a conversation with our team.</p>
+                 <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-3">
+                    <MessageSquare className="w-12 h-12 text-gray-700" />
+                    <h4 className="text-white font-bold">How can we help?</h4>
+                    <p className="text-xs text-gray-500 leading-relaxed">Send us a message and we'll reply as soon as possible.</p>
                  </div>
               ) : chatHistory.map((msg, i) => {
                  const isMe = msg.sender_id === userProfile?.id;
                  const isAdminReply = !isMe && msg.sender?.role === 'ADMIN';
+                 const showHeader = i === 0 || chatHistory[i-1].sender_id !== msg.sender_id;
+                 
                  return (
                   <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} flex-col gap-1`}>
-                    {!isMe && (
-                       <span className="text-[10px] text-gray-500 ml-1 hover:text-purple-400 hover:underline cursor-pointer" onClick={() => msg.sender_id && handleViewProfile(msg.sender_id)}>{msg.sender?.display_name || 'Admin'}</span>
+                    {!isMe && showHeader && (
+                       <span className="text-[10px] font-bold text-gray-500 ml-1 mt-2 uppercase tracking-wide flex items-center gap-1">
+                          {isAdminReply && <Shield className="w-3 h-3 text-purple-500" />} {msg.sender?.display_name || 'Support'}
+                       </span>
                     )}
-                    <div dir="auto" className={`max-w-[85%] rounded-xl p-2.5 text-xs text-white self-${isMe ? 'end' : 'start'} ${
+                    <div dir="auto" className={`max-w-[85%] rounded-2xl p-3 text-sm shadow-sm ${
                       isMe 
-                        ? 'bg-purple-600 rounded-br-sm' 
-                        : 'bg-gray-800 rounded-bl-sm'
+                        ? 'bg-purple-600 text-white rounded-br-sm' 
+                        : 'bg-[#1a1a20] text-gray-100 border border-gray-800 rounded-bl-sm'
                     }`}>
                       {(msg.content?.startsWith('[Product Inquiry ID:') || msg.content?.startsWith('[Product Inquiry:')) ? (() => {
                          let gameId = null;
@@ -4823,12 +5030,13 @@ const [usersList, setUsersList] = useState<any[]>([]);
                  </button>
                </form>
             )}
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
         
         <div 
           onClick={() => setIsChatOpen(!isChatOpen)}
-          className={`bg-purple-600 w-12 h-12 md:w-14 md:h-14 rounded-full cursor-pointer group hover:bg-purple-500 transition-all hover:scale-105 active:scale-95 flex items-center justify-center mt-auto shadow-xl ${!isChatOpen ? 'animate-pulse-glow' : 'shadow-[0_0_30px_rgba(168,85,247,0.4)]'}`}
+          className={`bg-purple-600 w-12 h-12 md:w-14 md:h-14 rounded-full cursor-pointer pointer-events-auto group hover:bg-purple-500 transition-all hover:scale-105 active:scale-95 flex items-center justify-center mt-auto shadow-xl ${!isChatOpen ? 'animate-pulse-glow' : 'shadow-[0_0_30px_rgba(168,85,247,0.4)]'}`}
         >
           {isChatOpen ? (
              <X className="w-6 h-6 text-white" />

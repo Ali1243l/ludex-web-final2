@@ -17,7 +17,7 @@ export const t: any = {
     sec3: "Admin CMS Secured via JWT Middleware",
     sec4: "Input Sanitization & XSS Guards Online",
 
-    aboutUs: "ABOUT US", termsOfService: "TERMS OF SERVICE", privacyPolicy: "PRIVACY POLICY", systemStatusOptimal: "SYSTEM STATUS: OPTIMAL", rightsReserved: "PIXEL STORE - ALL RIGHTS RESERVED 2026 ©",
+    aboutUs: "ABOUT US", termsOfService: "TERMS OF SERVICE", privacyPolicy: "PRIVACY POLICY", systemStatusOptimal: "SYSTEM STATUS: OPTIMAL", rightsReserved: "Ludex Store - ALL RIGHTS RESERVED 2026 ©",
 
     exitAdmin: "Exit Dashboard",
 
@@ -80,7 +80,7 @@ export const t: any = {
     sec3: "لوحة التحكم مأمنة عبر JWT Middleware",
     sec4: "تعقيم الإدخال وحماية XSS فعالة",
 
-    aboutUs: "معلومات عنا", termsOfService: "شروط الخدمة", privacyPolicy: "سياسة الخصوصية", systemStatusOptimal: "حالة النظام: مثالية", rightsReserved: "جميع الحقوق محفوظة PIXEL STORE 2026 ©",
+    aboutUs: "معلومات عنا", termsOfService: "شروط الخدمة", privacyPolicy: "سياسة الخصوصية", systemStatusOptimal: "حالة النظام: مثالية", rightsReserved: "جميع الحقوق محفوظة Ludex Store 2026 ©",
 
     exitAdmin: "الخروج من لوحة القيادة",
 
