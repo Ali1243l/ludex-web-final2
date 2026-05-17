@@ -1337,7 +1337,9 @@ export default function App() {
         
       let matchesPlatform = true;
       if (platformFilter !== "all") {
-          matchesPlatform = game.platform === platformFilter || game.platform?.toLowerCase().includes(platformFilter);
+        matchesPlatform =
+          game.platform?.toLowerCase() === platformFilter.toLowerCase() ||
+          game.platform?.toLowerCase().includes(platformFilter.toLowerCase());
       }
       
       let matchesPrice = true;
@@ -2201,8 +2203,16 @@ export default function App() {
                       className={`w-4 h-4 transition-transform ${adminMenuState.ledger ? "rotate-180" : ""}`}
                     />
                   </button>
+                  <AnimatePresence>
                   {adminMenuState.ledger && (
-                    <div className="pl-6 flex flex-col gap-1">
+                    <motion.div 
+                      key="ledger"
+                      initial={{ opacity: 0, height: 0, overflow: "hidden" }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0, overflow: "hidden" }}
+                      transition={{ duration: 0.3 }}
+                      className="ltr:pl-6 rtl:pr-6 flex flex-col gap-1"
+                    >
                       <button
                         onClick={() => setAdminTab("transactions")}
                         className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === "transactions" ? "bg-purple-600/20 text-purple-400 border border-purple-500/30" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
@@ -2224,8 +2234,9 @@ export default function App() {
                         <CreditCard className="w-4 h-4" />
                         {t[language].adminPay}
                       </button>
-                    </div>
+                    </motion.div>
                   )}
+                  </AnimatePresence>
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -2297,8 +2308,16 @@ export default function App() {
                       className={`w-4 h-4 transition-transform ${adminMenuState.marketing ? "rotate-180" : ""}`}
                     />
                   </button>
+                  <AnimatePresence>
                   {adminMenuState.marketing && (
-                    <div className="pl-6 flex flex-col gap-1">
+                    <motion.div 
+                      key="marketing"
+                      initial={{ opacity: 0, height: 0, overflow: "hidden" }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0, overflow: "hidden" }}
+                      transition={{ duration: 0.3 }}
+                      className="ltr:pl-6 rtl:pr-6 flex flex-col gap-1"
+                    >
                       <button
                         onClick={() => setAdminTab("promotions")}
                         className={`flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === "promotions" ? "bg-purple-600/20 text-purple-400 border border-purple-500/30" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
@@ -2313,8 +2332,9 @@ export default function App() {
                         <Tag className="w-4 h-4" />
                         {t[language].adminPromoCodes}
                       </button>
-                    </div>
+                    </motion.div>
                   )}
+                  </AnimatePresence>
                 </div>
 
                 <div className="mt-auto border-t border-gray-800 pt-4 flex flex-col gap-2">
@@ -6157,6 +6177,7 @@ export default function App() {
                                   </div>
                                   <button
                                     onClick={(e) => {
+                                      e.stopPropagation();
                                       setActiveTab("user_dashboard");
                                       setUserDashboardTab("profile");
                                       setIsProfileOpen(false);
@@ -6169,6 +6190,7 @@ export default function App() {
                                   {userProfile?.role === "ADMIN" && (
                                     <button
                                       onClick={(e) => {
+                                        e.stopPropagation();
                                         setActiveTab("admin");
                                         setIsProfileOpen(false);
                                       }}
@@ -6181,6 +6203,7 @@ export default function App() {
                                   <hr className="my-2 border-gray-800" />
                                   <button
                                     onClick={async (e) => {
+                                      e.stopPropagation();
                                       await signOut();
                                       setIsProfileOpen(false);
                                     }}
@@ -6692,7 +6715,7 @@ export default function App() {
                               if (!currentSlide) return null;
 
                               return (
-                                <div className="mb-6 sm:mb-10 w-full overflow-hidden rounded-2xl border border-purple-500/30 relative group bg-black shadow-[0_0_30px_rgba(168,85,247,0.15)] flex flex-col md:flex-row h-80 md:h-80">
+                                <div className="mb-6 sm:mb-10 w-full overflow-hidden rounded-2xl border border-purple-500/30 relative group bg-[#050505] shadow-[0_0_30px_rgba(168,85,247,0.15)] h-[280px] sm:h-[350px] md:h-[400px]">
                                   <AnimatePresence mode="wait">
                                     <motion.div
                                       key={heroSlideIdx % slides.length}
@@ -6703,102 +6726,11 @@ export default function App() {
                                         duration: 0.5,
                                         ease: "easeInOut",
                                       }}
-                                      className="absolute inset-0 flex flex-col md:flex-row w-full h-full"
+                                      className="absolute inset-0 w-full h-full"
                                     >
-                                      <div className="flex-1 p-6 md:p-12 flex flex-col justify-center relative z-20 w-full md:w-2/3 h-full ltr:bg-gradient-to-r rtl:bg-gradient-to-l from-black via-black/90 to-transparent">
-                                        <span className="text-purple-400 font-black tracking-widest text-xs uppercase mb-3 px-3 py-1 bg-purple-900/30 rounded-full w-fit">
-                                          {currentSlide.label}
-                                        </span>
-                                        <h2
-                                          dir="auto"
-                                          className="text-2xl md:text-5xl font-black text-white leading-tight mb-4 line-clamp-2 md:w-2/3"
-                                        >
-                                          {currentSlide.title}
-                                        </h2>
-                                        <p
-                                          dir="auto"
-                                          className="text-gray-400 text-sm md:text-base max-w-md mb-6 line-clamp-2"
-                                        >
-                                          {currentSlide.desc}
-                                        </p>
-                                        {currentSlide.type === "banner" &&
-                                          currentSlide.link && (
-                                            <button
-                                              onClick={() =>
-                                                setActiveCategory(
-                                                  currentSlide.link,
-                                                )
-                                              }
-                                              className="w-fit bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-[0_0_15px_rgba(147,51,234,0.3)]"
-                                            >
-                                              {language === "ar"
-                                                ? "استكشف الآن"
-                                                : "Explore Now"}
-                                            </button>
-                                          )}
-                                        {currentSlide.type === "game" &&
-                                          currentSlide.targetId && (
-                                            <button
-                                              onClick={() =>
-                                                handleOpenGameDetail(
-                                                  currentSlide.targetId,
-                                                )
-                                              }
-                                              className="w-fit bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-[0_0_15px_rgba(147,51,234,0.3)]"
-                                            >
-                                              {language === "ar"
-                                                ? "عرض الصفقات"
-                                                : "View Deals"}
-                                            </button>
-                                          )}
-
-                                        <div className="mt-8 flex items-center gap-4 z-20">
-                                          <div className="flex gap-2">
-                                            {slides.map((_, idx) => (
-                                              <div
-                                                key={idx}
-                                                onClick={() =>
-                                                  setHeroSlideIdx(idx)
-                                                }
-                                                className={
-                                                  "w-2 h-2 rounded-full cursor-pointer transition-all " +
-                                                  (idx ===
-                                                  heroSlideIdx % slides.length
-                                                    ? "bg-purple-500 w-4"
-                                                    : "bg-white/30 hover:bg-white")
-                                                }
-                                              ></div>
-                                            ))}
-                                          </div>
-                                          <div className="flex items-center gap-2 ms-4">
-                                            <button
-                                              onClick={() =>
-                                                setHeroSlideIdx((prev) =>
-                                                  prev === 0
-                                                    ? slides.length - 1
-                                                    : prev - 1,
-                                                )
-                                              }
-                                              className="w-8 h-8 rounded-full bg-white/10 hover:bg-purple-600 flex items-center justify-center transition-colors backdrop-blur-sm text-white"
-                                            >
-                                              <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
-                                            </button>
-                                            <button
-                                              onClick={() =>
-                                                setHeroSlideIdx(
-                                                  (prev) => prev + 1,
-                                                )
-                                              }
-                                              className="w-8 h-8 rounded-full bg-white/10 hover:bg-purple-600 flex items-center justify-center transition-colors backdrop-blur-sm text-white"
-                                            >
-                                              <ChevronRight className="w-4 h-4 rtl:rotate-180" />
-                                            </button>
-                                          </div>
-                                        </div>
-                                      </div>
-
+                                      {/* Background Image Container */}
                                       <div
-                                        className="w-full md:w-2/3 h-full absolute ltr:right-0 rtl:left-0 top-0 bottom-0 z-0 cursor-pointer"
+                                        className="absolute inset-0 z-0 cursor-pointer"
                                         onClick={() => {
                                           if (
                                             currentSlide.type === "game" &&
@@ -6817,26 +6749,112 @@ export default function App() {
                                           }
                                         }}
                                       >
-                                        <div className="absolute inset-0 ltr:bg-gradient-to-r rtl:bg-gradient-to-l from-black via-black/50 to-transparent z-10 md:hidden"></div>
                                         <img
-                                          key={currentSlide.imageUrl}
                                           src={
                                             currentSlide.imageUrl ||
                                             "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1200"
                                           }
+                                          className="w-full h-full object-cover opacity-70 group-hover:scale-105 transition-transform duration-700"
+                                          alt={currentSlide.title}
                                           onError={(e) => {
                                             (e.target as HTMLImageElement).src =
                                               "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1200";
                                           }}
-                                          alt={currentSlide.title}
-                                          className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
                                         />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10 md:hidden"></div>
-                                        <div className="hidden md:block absolute inset-0 ltr:bg-gradient-to-l rtl:bg-gradient-to-r from-transparent via-black/20 to-black z-10"></div>
+                                        <div className="absolute inset-0 ltr:bg-gradient-to-r rtl:bg-gradient-to-l from-black via-black/80 to-transparent z-10 pointer-events-none"></div>
+                                        <div className="absolute inset-0 items-end bg-gradient-to-t from-black via-transparent to-transparent z-10 pointer-events-none md:hidden"></div>
                                       </div>
+
+                                      {/* Foreground Content Container */}
+                                      <div className="absolute inset-0 z-20 flex flex-col justify-center p-6 sm:p-8 md:p-12 w-full md:w-2/3 pointer-events-none">
+                                        <span className="text-purple-400 font-black tracking-widest text-[10px] sm:text-xs uppercase mb-3 px-3 py-1 bg-purple-900/40 border border-purple-500/30 rounded-full w-fit pointer-events-auto shadow-lg backdrop-blur-sm">
+                                          {currentSlide.label}
+                                        </span>
+                                        <h2
+                                          className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-2 sm:mb-4 pointer-events-auto"
+                                        >
+                                          {currentSlide.title}
+                                        </h2>
+                                        <p
+                                          className="text-gray-300 text-xs sm:text-sm md:text-base max-w-sm md:max-w-lg mb-4 sm:mb-6 pointer-events-auto max-h-[3rem] sm:max-h-none overflow-hidden"
+                                        >
+                                          {currentSlide.desc}
+                                        </p>
+                                        <div className="pointer-events-auto mt-2 sm:mt-0">
+                                          {currentSlide.type === "banner" &&
+                                            currentSlide.link && (
+                                              <button
+                                                onClick={() =>
+                                                  setActiveCategory(
+                                                    currentSlide.link,
+                                                  )
+                                                }
+                                                className="w-fit bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-6 sm:py-3 sm:px-8 rounded-lg transition-colors shadow-[0_0_15px_rgba(147,51,234,0.4)] text-sm md:text-base"
+                                              >
+                                                {language === "ar"
+                                                  ? "استكشف الآن"
+                                                  : "Explore Now"}
+                                              </button>
+                                            )}
+                                          {currentSlide.type === "game" &&
+                                            currentSlide.targetId && (
+                                              <button
+                                                onClick={() =>
+                                                  handleOpenGameDetail(
+                                                    currentSlide.targetId,
+                                                  )
+                                                }
+                                                className="w-fit bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-6 sm:py-3 sm:px-8 rounded-lg transition-colors shadow-[0_0_15px_rgba(147,51,234,0.4)] text-sm md:text-base"
+                                              >
+                                                {language === "ar"
+                                                  ? "عرض الصفقات"
+                                                  : "View Deals"}
+                                              </button>
+                                            )}
+                                        </div>
+                                      </div>
+
                                     </motion.div>
                                   </AnimatePresence>
-                                  <div className="absolute inset-0 border-[3px] border-purple-500/10 rounded-2xl z-30 pointer-events-none"></div>
+
+                                  {/* DOTS & CONTROLS */}
+                                  <div className="absolute bottom-4 left-6 right-6 md:bottom-8 md:px-12 z-30 flex items-center justify-between pointer-events-none">
+                                    <div className="flex gap-2 pointer-events-auto">
+                                      {slides.map((_, idx) => (
+                                        <div
+                                          key={idx}
+                                          onClick={() => setHeroSlideIdx(idx)}
+                                          className={
+                                            "w-2 h-2 sm:w-3 sm:h-3 rounded-full cursor-pointer transition-all shadow-md " +
+                                            (idx === heroSlideIdx % slides.length
+                                              ? "bg-purple-500 w-4 sm:w-8"
+                                              : "bg-white/30 hover:bg-white")
+                                          }
+                                        ></div>
+                                      ))}
+                                    </div>
+                                    <div className="flex items-center gap-2 sm:gap-3 pointer-events-auto ltr:ml-auto rtl:mr-auto">
+                                      <button
+                                        onClick={() =>
+                                          setHeroSlideIdx((prev) =>
+                                            prev === 0 ? slides.length - 1 : prev - 1,
+                                          )
+                                        }
+                                        className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-black/60 hover:bg-purple-600 border border-white/10 flex items-center justify-center transition-colors backdrop-blur-md text-white shadow-lg"
+                                      >
+                                        <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 rtl:rotate-180" />
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          setHeroSlideIdx((prev) => prev + 1)
+                                        }
+                                        className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-black/60 hover:bg-purple-600 border border-white/10 flex items-center justify-center transition-colors backdrop-blur-md text-white shadow-lg"
+                                      >
+                                        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 rtl:rotate-180" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="absolute inset-0 border-[3px] border-purple-500/10 rounded-2xl z-40 pointer-events-none"></div>
                                 </div>
                               );
                             })()}
@@ -7232,9 +7250,8 @@ export default function App() {
                         )}
                       </AnimatePresence>
 
-                      <AnimatePresence mode="wait">
+                      <AnimatePresence>
                         <motion.div
-                          key={`${activeCategory}-${searchQuery}-${sortBy}-${platformFilter}-${priceRange}`}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}
